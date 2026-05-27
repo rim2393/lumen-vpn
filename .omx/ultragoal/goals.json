@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T12:38:51.671Z",
+  "updatedAt": "2026-05-27T13:02:07.271Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -47,10 +47,13 @@
       "id": "G004-public-installer-docs-repo-d-lumen-w",
       "title": "Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...",
       "objective": "Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, install-node.sh, upgrade.sh, rollback, backup/migrations, release manifest, pinned images, GHCR auth, docs, troubleshooting, two-server live smoke path.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T11:02:44.057Z",
-      "updatedAt": "2026-05-27T11:02:44.057Z"
+      "updatedAt": "2026-05-27T13:02:07.271Z",
+      "startedAt": "2026-05-27T12:39:54.424Z",
+      "completedAt": "2026-05-27T13:02:07.271Z",
+      "evidence": "Public installer/docs G004 implemented in D:\\lumen-work\\lumen_vpn commit 10aa926: configure.sh, install validation, ACME path, migrations, encrypted upgrade backup requirement, rollback.sh, backup/restore data coverage, sanitized support bundles, node fallback hardening, manifest template/strict validation, CI/doc updates. Verification: bash -n scripts/*.sh scripts/lib/*.sh; docker compose config for panel/node; install/configure/install-node/backup/rollback dry-runs; validate-manifest --allow-template; strict template rejection; secret-scan ok; git diff --check. shellcheck not installed locally, covered by repo CI workflow."
     },
     {
       "id": "G005-license-server-repo-d-lumen-work-lum",
