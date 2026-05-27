@@ -1,0 +1,13 @@
+{
+  "goal": {
+    "threadId": "019e661a-012e-7d20-8200-4e983dddb1c3",
+    "objective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-self-hosted-panel-control-plane-in-d Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-proj...; G002-node-agent-in-same-repo-command-poll Node agent in same repo: command polling, apply config, protocol runt...; G003-admin-ui-in-same-repo-remna-like-but Admin UI in same repo: Remna-like but Lumen-branded full functional s...; G004-public-installer-docs-repo-d-lumen-w Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...; G005-license-server-repo-d-lumen-work-lum License server repo D:\\lumen-work\\lumen-license-server: commercial li...; G006-client-compatibility-repo-d-lumen-wo Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: accepta...; G007-do-not-leak-secrets-do-not-commit-to Do not leak secrets. Do not commit tokens/passwords/runtime configs.; G008-keep-source-private-where-intended-p Keep source private where intended; public repo must contain only ins...; G009-work-sequentially-by-stories-but-use Work sequentially by stories, but use subagents for independent slice...; G010-do-not-call-the-product-complete-unt Do not call the product complete until final verification, security r...",
+    "status": "active",
+    "tokensUsed": 3737639,
+    "timeUsedSeconds": 10689,
+    "createdAt": 1779879791,
+    "updatedAt": 1779890480
+  },
+  "remainingTokens": null,
+  "completionBudgetReport": null
+}

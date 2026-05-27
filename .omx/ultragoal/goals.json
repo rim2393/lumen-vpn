@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T13:58:03.001Z",
+  "updatedAt": "2026-05-27T14:01:57.171Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -95,10 +95,13 @@
       "id": "G008-keep-source-private-where-intended-p",
       "title": "Keep source private where intended; public repo must contain only ins...",
       "objective": "Keep source private where intended; public repo must contain only installer/docs/manifests, no private source.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T11:02:44.057Z",
-      "updatedAt": "2026-05-27T11:02:44.057Z"
+      "updatedAt": "2026-05-27T14:01:57.171Z",
+      "startedAt": "2026-05-27T13:58:39.174Z",
+      "completedAt": "2026-05-27T14:01:57.171Z",
+      "evidence": "Public/source separation G008 complete. Public repo D:\\lumen-work\\lumen_vpn remote rim2393/lumen_vpn contains installer scripts, deploy templates, docs, release manifest templates only; no apps/packages/src/private app source from git ls-files audit. Added enforced boundary in commit 7badf20: scripts/check-public-boundary.sh, docs/RELEASE_BOUNDARY.md, CI public-boundary job, README reference. Verification: bash -n scripts/*.sh scripts/lib/*.sh; bash scripts/check-public-boundary.sh .; bash scripts/secret-scan.sh .; git diff --check."
     },
     {
       "id": "G009-work-sequentially-by-stories-but-use",
