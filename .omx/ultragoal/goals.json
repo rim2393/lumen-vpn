@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T13:48:44.222Z",
+  "updatedAt": "2026-05-27T13:58:03.001Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -83,10 +83,13 @@
       "id": "G007-do-not-leak-secrets-do-not-commit-to",
       "title": "Do not leak secrets. Do not commit tokens/passwords/runtime configs.",
       "objective": "Do not leak secrets. Do not commit tokens/passwords/runtime configs.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T11:02:44.057Z",
-      "updatedAt": "2026-05-27T11:02:44.057Z"
+      "updatedAt": "2026-05-27T13:58:03.001Z",
+      "startedAt": "2026-05-27T13:49:09.610Z",
+      "completedAt": "2026-05-27T13:58:03.001Z",
+      "evidence": "Secret/runtimes G007 complete across full-revna-like-projekt, lumen_vpn, lumen-license-server, rim2393-lumen-client. Evidence: tracked git grep patterns for GitHub tokens, AWS keys, private keys, Telegram tokens, JWTs, Lumen tokens, known VPS/token strings clean; working-tree rg scan with dependency/build cache excluded clean; sensitive tracked path policy clean except allowed .env.example placeholders; installer secret-scan.sh passed on smaller repos; license/client .gitignore hardened in commits 1dc8f91 and 4d53180."
     },
     {
       "id": "G008-keep-source-private-where-intended-p",
