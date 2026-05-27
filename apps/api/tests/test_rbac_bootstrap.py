@@ -20,12 +20,12 @@ def auth_client() -> Iterator[TestClient]:
 def test_bootstrap_api_key_allows_owner_routes() -> None:
     with auth_client() as client:
         response = client.get(
-            "/api/v1/licenses",
+            "/api/v1/auth/me",
             headers={"X-Lumen-Api-Key": "lumen_sk_test_bootstrap"},
         )
 
-    assert response.status_code == 501
-    assert response.json()["error"]["code"] == "licenses_not_implemented"
+    assert response.status_code == 200
+    assert response.json()["subject"] == "bootstrap-admin"
 
 
 def test_missing_bootstrap_api_key_is_rejected() -> None:
@@ -44,8 +44,8 @@ def test_empty_bootstrap_api_key_keeps_auth_unimplemented() -> None:
     with TestClient(app) as client:
         response = client.get("/api/v1/licenses")
 
-    assert response.status_code == 501
-    assert response.json()["error"]["code"] == "auth_not_implemented"
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "authentication_required"
 
 
 def test_invalid_bootstrap_api_key_is_rejected() -> None:

@@ -77,3 +77,36 @@ class NodeInstallToken(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NodeCommand(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "node_commands"
+
+    node_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    command_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    result_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NodeMetric(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "node_metrics"
+
+    node_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    metric_kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    values_json: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False, default=dict)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

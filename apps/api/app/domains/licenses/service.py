@@ -1,4 +1,6 @@
 from datetime import UTC, datetime
+from hashlib import sha256
+from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import func, select
@@ -7,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import APIError
 from app.domains.licenses.models import License
+from app.domains.licenses.schemas import LicenseCreateRequest
 from app.domains.nodes.models import Node
 
 
@@ -33,6 +36,56 @@ def is_active_license(license_record: License, *, now: datetime | None = None) -
     if starts_at is not None and starts_at > checked_at:
         return False
     return not (expires_at is not None and expires_at <= checked_at)
+
+
+def hash_license_key(license_key: str) -> str:
+    return sha256(license_key.encode("utf-8")).hexdigest()
+
+
+async def list_licenses(session: AsyncSession) -> list[License]:
+    result = await session.execute(select(License).order_by(License.created_at.desc()))
+    return list(result.scalars())
+
+
+async def get_license(session: AsyncSession, *, license_id: UUID) -> License:
+    license_record = await session.get(License, license_id)
+    if license_record is None:
+        raise APIError(
+            code="license_not_found",
+            message="License was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return license_record
+
+
+async def create_license(
+    session: AsyncSession,
+    *,
+    request: LicenseCreateRequest,
+) -> License:
+    license_key_hash = hash_license_key(request.license_key.get_secret_value())
+    existing_license = (
+        await session.execute(select(License).where(License.license_key_hash == license_key_hash))
+    ).scalar_one_or_none()
+    if existing_license is not None:
+        raise APIError(
+            code="license_key_exists",
+            message="A license with this key already exists.",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    license_record = License(
+        license_key_hash=license_key_hash,
+        customer_ref=request.customer_ref,
+        status="active",
+        max_devices=request.max_devices,
+        starts_at=request.starts_at,
+        expires_at=request.expires_at,
+        metadata_json=request.metadata_json,
+    )
+    session.add(license_record)
+    await session.flush()
+    return license_record
 
 
 async def get_effective_node_limit(session: AsyncSession, settings: Settings) -> int:
@@ -71,11 +124,3 @@ async def enforce_free_node_policy(
                 f"effective_limit={effective_limit}",
             ],
         )
-
-
-def not_implemented() -> APIError:
-    return APIError(
-        code="licenses_not_implemented",
-        message="License service is not implemented yet.",
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-    )

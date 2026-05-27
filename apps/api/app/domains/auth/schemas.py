@@ -20,11 +20,40 @@ class TokenPairResponse(BaseModel):
 
 
 class PrincipalResponse(BaseModel):
-    subject: UUID
-    email: EmailStr
+    subject: str
+    email: EmailStr | None
     roles: set[Role]
     permissions: set[Permission]
 
 
 class RefreshRequest(BaseModel):
     refresh_token: SecretStr
+
+
+class TotpSetupRequest(BaseModel):
+    label: str = "Authenticator"
+
+
+class TotpSetupResponse(BaseModel):
+    method_id: UUID
+    secret: str
+    otpauth_url: str
+    status: Literal["pending"]
+
+
+class TotpVerifyRequest(BaseModel):
+    method_id: UUID
+    code: SecretStr
+
+
+class MfaMethodResponse(BaseModel):
+    id: UUID
+    kind: str
+    label: str
+    status: str
+    confirmed_at: datetime | None
+    last_used_at: datetime | None
+
+
+class MfaMethodListResponse(BaseModel):
+    items: list[MfaMethodResponse]

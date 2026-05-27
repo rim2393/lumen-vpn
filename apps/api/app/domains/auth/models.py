@@ -22,3 +22,19 @@ class UserSession(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+class UserMfaMethod(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "user_mfa_methods"
+
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="totp", index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    secret_ciphertext: Mapped[str] = mapped_column(String(2048), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

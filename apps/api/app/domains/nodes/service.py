@@ -16,11 +16,23 @@ from app.core.security import (
     require_secret,
 )
 from app.domains.licenses.service import enforce_free_node_policy
-from app.domains.nodes.models import Node, NodeInstallToken, NodeProvisioningJob
+from app.domains.nodes.models import (
+    Node,
+    NodeCommand,
+    NodeInstallToken,
+    NodeMetric,
+    NodeProvisioningJob,
+)
 from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
+    NodeCommandCreateRequest,
+    NodeCommandResultRequest,
     NodeCreateRequest,
     NodeHeartbeatRequest,
+    NodeMetricCreateRequest,
+    NodePauseRequest,
+    NodeQuarantineRequest,
+    NodeResumeRequest,
     NodeStatus,
     PreflightStatus,
     PreflightUpdateRequest,
@@ -366,12 +378,16 @@ async def record_node_heartbeat(
     node.last_seen_at = now
 
     latest_job = (
-        await session.execute(
-            select(NodeProvisioningJob)
-            .where(NodeProvisioningJob.node_id == node.id)
-            .order_by(NodeProvisioningJob.created_at.desc())
+        (
+            await session.execute(
+                select(NodeProvisioningJob)
+                .where(NodeProvisioningJob.node_id == node.id)
+                .order_by(NodeProvisioningJob.created_at.desc())
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if latest_job is not None and request.status == NodeStatus.ACTIVE:
         latest_job.status = ProvisioningJobStatus.ACTIVE.value
 
@@ -379,9 +395,230 @@ async def record_node_heartbeat(
     return node
 
 
-def not_implemented() -> APIError:
-    return APIError(
-        code="nodes_not_implemented",
-        message="Node service is not implemented yet.",
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+async def authenticate_node_token(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    node_token: SecretStr,
+    settings: Settings,
+) -> Node:
+    node = await session.get(Node, node_id)
+    supplied_hash = hash_node_token(node_token.get_secret_value(), settings)
+    if (
+        node is None
+        or node.agent_token_hash is None
+        or not constant_time_equal(supplied_hash, node.agent_token_hash)
+    ):
+        raise APIError(
+            code="invalid_node_token",
+            message="Node token is invalid.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    return node
+
+
+async def enqueue_node_command(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    request: NodeCommandCreateRequest,
+) -> NodeCommand:
+    await get_node(session, node_id=node_id)
+    ensure_no_inline_secret_keys(request.payload_json, field_name="payload_json")
+    command = NodeCommand(
+        node_id=node_id,
+        command_type=request.command_type,
+        status="queued",
+        payload_json=request.payload_json,
     )
+    session.add(command)
+    await session.flush()
+    return command
+
+
+async def pause_node(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    request: NodePauseRequest,
+) -> Node:
+    node = await get_node(session, node_id=node_id)
+    status_value = (
+        NodeStatus.LICENSE_PAUSED.value if request.license_enforced else NodeStatus.PAUSED.value
+    )
+    node.status = status_value
+    await enqueue_node_command(
+        session,
+        node_id=node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.pause",
+            payload_json={
+                "status": status_value,
+                "reason": request.reason or "",
+                "license_enforced": request.license_enforced,
+            },
+        ),
+    )
+    await session.flush()
+    return node
+
+
+async def resume_node(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    request: NodeResumeRequest,
+) -> Node:
+    node = await get_node(session, node_id=node_id)
+    if request.target_status in {
+        NodeStatus.PAUSED,
+        NodeStatus.LICENSE_PAUSED,
+        NodeStatus.QUARANTINED,
+    }:
+        raise APIError(
+            code="invalid_resume_target_status",
+            message="Resume target status must be an operational node status.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    node.status = request.target_status.value
+    await enqueue_node_command(
+        session,
+        node_id=node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.resume",
+            payload_json={"target_status": request.target_status.value},
+        ),
+    )
+    await session.flush()
+    return node
+
+
+async def quarantine_node(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    request: NodeQuarantineRequest,
+) -> Node:
+    node = await get_node(session, node_id=node_id)
+    node.status = NodeStatus.QUARANTINED.value
+    await enqueue_node_command(
+        session,
+        node_id=node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.quarantine",
+            payload_json={"reason": request.reason},
+        ),
+    )
+    await session.flush()
+    return node
+
+
+async def list_node_commands(session: AsyncSession, *, node_id: UUID) -> list[NodeCommand]:
+    await get_node(session, node_id=node_id)
+    result = await session.execute(
+        select(NodeCommand)
+        .where(NodeCommand.node_id == node_id)
+        .order_by(NodeCommand.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def claim_next_node_command(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    node_token: SecretStr,
+    settings: Settings,
+) -> NodeCommand | None:
+    await authenticate_node_token(
+        session,
+        node_id=node_id,
+        node_token=node_token,
+        settings=settings,
+    )
+    result = await session.execute(
+        select(NodeCommand)
+        .where(NodeCommand.node_id == node_id)
+        .where(NodeCommand.status == "queued")
+        .order_by(NodeCommand.created_at.asc())
+        .limit(1)
+    )
+    command = result.scalar_one_or_none()
+    if command is None:
+        return None
+    command.status = "claimed"
+    command.claimed_at = utc_now()
+    await session.flush()
+    return command
+
+
+async def complete_node_command(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    command_id: UUID,
+    node_token: SecretStr,
+    request: NodeCommandResultRequest,
+    settings: Settings,
+) -> NodeCommand:
+    await authenticate_node_token(
+        session,
+        node_id=node_id,
+        node_token=node_token,
+        settings=settings,
+    )
+    command = await session.get(NodeCommand, command_id)
+    if command is None or command.node_id != node_id:
+        raise APIError(
+            code="node_command_not_found",
+            message="Node command was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    command.status = request.status
+    command.result_json = request.result_json
+    command.error_code = request.error_code
+    command.error_message = request.error_message
+    command.completed_at = utc_now()
+    await session.flush()
+    return command
+
+
+async def record_node_metric(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    node_token: SecretStr,
+    request: NodeMetricCreateRequest,
+    settings: Settings,
+) -> NodeMetric:
+    await authenticate_node_token(
+        session,
+        node_id=node_id,
+        node_token=node_token,
+        settings=settings,
+    )
+    metric = NodeMetric(
+        node_id=node_id,
+        metric_kind=request.metric_kind,
+        values_json=request.values_json,
+        observed_at=request.observed_at or utc_now(),
+    )
+    session.add(metric)
+    await session.flush()
+    return metric
+
+
+async def list_node_metrics(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    limit: int = 100,
+) -> list[NodeMetric]:
+    await get_node(session, node_id=node_id)
+    result = await session.execute(
+        select(NodeMetric)
+        .where(NodeMetric.node_id == node_id)
+        .order_by(NodeMetric.observed_at.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())

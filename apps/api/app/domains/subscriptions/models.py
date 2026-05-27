@@ -34,4 +34,3 @@ class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     config_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-

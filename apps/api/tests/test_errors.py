@@ -17,6 +17,6 @@ def test_unimplemented_domain_uses_standard_envelope(client: TestClient) -> None
         json={"email": "admin@example.com", "password": "not-a-real-secret"},
     )
 
-    assert response.status_code == 501
+    assert response.status_code == 400
     body = response.json()
-    assert body["error"]["code"] == "auth_not_implemented"
+    assert body["error"]["code"] == "missing_secret"

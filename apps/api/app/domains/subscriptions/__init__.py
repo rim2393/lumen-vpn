@@ -1,2 +1,1 @@
 """Subscription delivery domain."""
-

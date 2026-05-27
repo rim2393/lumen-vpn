@@ -1,32 +1,51 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
-from app.domains.nodes.models import Node, NodeProvisioningJob
+from app.domains.nodes.models import Node, NodeCommand, NodeMetric, NodeProvisioningJob
 from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
     InstallTokenExchangeResponse,
     InstallTokenIssueResponse,
+    NodeCommandCreateRequest,
+    NodeCommandListResponse,
+    NodeCommandResponse,
+    NodeCommandResultRequest,
     NodeCreateRequest,
     NodeHeartbeatRequest,
     NodeListResponse,
+    NodeMetricCreateRequest,
+    NodeMetricListResponse,
+    NodeMetricResponse,
+    NodePauseRequest,
+    NodeQuarantineRequest,
     NodeResponse,
+    NodeResumeRequest,
     PreflightUpdateRequest,
     ProvisioningJobCreateRequest,
     ProvisioningJobResponse,
 )
 from app.domains.nodes.service import (
+    claim_next_node_command,
+    complete_node_command,
     create_manual_node,
+    enqueue_node_command,
     exchange_install_token,
     get_provisioning_job,
     issue_install_token,
+    list_node_commands,
+    list_node_metrics,
+    pause_node,
+    quarantine_node,
     record_node_heartbeat,
+    record_node_metric,
+    resume_node,
     update_preflight_state,
 )
 from app.domains.nodes.service import (
@@ -78,6 +97,34 @@ def provisioning_job_response(job: NodeProvisioningJob) -> ProvisioningJobRespon
         token_exchanged_at=job.token_exchanged_at,
         created_at=job.created_at,
         updated_at=job.updated_at,
+    )
+
+
+def node_command_response(command: NodeCommand) -> NodeCommandResponse:
+    return NodeCommandResponse(
+        id=command.id,
+        node_id=command.node_id,
+        command_type=command.command_type,
+        status=command.status,
+        payload_json=command.payload_json,
+        result_json=command.result_json,
+        error_code=command.error_code,
+        error_message=command.error_message,
+        claimed_at=command.claimed_at,
+        completed_at=command.completed_at,
+        created_at=command.created_at,
+        updated_at=command.updated_at,
+    )
+
+
+def node_metric_response(metric: NodeMetric) -> NodeMetricResponse:
+    return NodeMetricResponse(
+        id=metric.id,
+        node_id=metric.node_id,
+        metric_kind=metric.metric_kind,
+        values_json=metric.values_json,
+        observed_at=metric.observed_at,
+        created_at=metric.created_at,
     )
 
 
@@ -172,6 +219,142 @@ async def create_node_heartbeat(
         request=request,
         settings=settings,
     )
+    await session.commit()
+    return node_response(node)
+
+
+@router.get("/{node_id}/commands", response_model=NodeCommandListResponse)
+async def list_commands(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeCommandListResponse:
+    commands = await list_node_commands(session, node_id=node_id)
+    return NodeCommandListResponse(items=[node_command_response(command) for command in commands])
+
+
+@router.post(
+    "/{node_id}/commands",
+    response_model=NodeCommandResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_command(
+    node_id: UUID,
+    request: NodeCommandCreateRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeCommandResponse:
+    command = await enqueue_node_command(session, node_id=node_id, request=request)
+    await session.commit()
+    return node_command_response(command)
+
+
+@router.get("/{node_id}/commands/next", response_model=NodeCommandResponse | None)
+async def claim_next_command(
+    node_id: UUID,
+    node_token: NodeTokenHeader,
+    session: DatabaseSession,
+    settings: AppSettings,
+) -> NodeCommandResponse | Response:
+    command = await claim_next_node_command(
+        session,
+        node_id=node_id,
+        node_token=SecretStr(node_token),
+        settings=settings,
+    )
+    await session.commit()
+    if command is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return node_command_response(command)
+
+
+@router.post("/{node_id}/commands/{command_id}/result", response_model=NodeCommandResponse)
+async def complete_command(
+    node_id: UUID,
+    command_id: UUID,
+    request: NodeCommandResultRequest,
+    node_token: NodeTokenHeader,
+    session: DatabaseSession,
+    settings: AppSettings,
+) -> NodeCommandResponse:
+    command = await complete_node_command(
+        session,
+        node_id=node_id,
+        command_id=command_id,
+        node_token=SecretStr(node_token),
+        request=request,
+        settings=settings,
+    )
+    await session.commit()
+    return node_command_response(command)
+
+
+@router.get("/{node_id}/metrics", response_model=NodeMetricListResponse)
+async def list_metrics(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> NodeMetricListResponse:
+    metrics = await list_node_metrics(session, node_id=node_id, limit=limit)
+    return NodeMetricListResponse(items=[node_metric_response(metric) for metric in metrics])
+
+
+@router.post(
+    "/{node_id}/metrics",
+    response_model=NodeMetricResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_metric(
+    node_id: UUID,
+    request: NodeMetricCreateRequest,
+    node_token: NodeTokenHeader,
+    session: DatabaseSession,
+    settings: AppSettings,
+) -> NodeMetricResponse:
+    metric = await record_node_metric(
+        session,
+        node_id=node_id,
+        node_token=SecretStr(node_token),
+        request=request,
+        settings=settings,
+    )
+    await session.commit()
+    return node_metric_response(metric)
+
+
+@router.post("/{node_id}/pause", response_model=NodeResponse)
+async def pause_existing_node(
+    node_id: UUID,
+    request: NodePauseRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeResponse:
+    node = await pause_node(session, node_id=node_id, request=request)
+    await session.commit()
+    return node_response(node)
+
+
+@router.post("/{node_id}/resume", response_model=NodeResponse)
+async def resume_existing_node(
+    node_id: UUID,
+    request: NodeResumeRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeResponse:
+    node = await resume_node(session, node_id=node_id, request=request)
+    await session.commit()
+    return node_response(node)
+
+
+@router.post("/{node_id}/quarantine", response_model=NodeResponse)
+async def quarantine_existing_node(
+    node_id: UUID,
+    request: NodeQuarantineRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeResponse:
+    node = await quarantine_node(session, node_id=node_id, request=request)
     await session.commit()
     return node_response(node)
 

@@ -8,6 +8,7 @@ class ApiKeyCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     scopes: list[str] = Field(default_factory=list)
     expires_at: datetime | None = None
+    owner_user_id: UUID | None = None
 
 
 class ApiKeyCreateResponse(BaseModel):
@@ -30,4 +31,3 @@ class ApiKeyResponse(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     items: list[ApiKeyResponse]
-

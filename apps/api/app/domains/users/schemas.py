@@ -1,14 +1,16 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 
 from app.core.rbac import Role
 
 
 class UserCreateRequest(BaseModel):
     email: EmailStr
+    password: SecretStr | None = Field(default=None, min_length=8)
     role: Role = Role.USER
+    status: str = Field(default="active", examples=["active"])
 
 
 class UserResponse(BaseModel):
@@ -21,4 +23,3 @@ class UserResponse(BaseModel):
 
 class UserListResponse(BaseModel):
     items: list[UserResponse]
-

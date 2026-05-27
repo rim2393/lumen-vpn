@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.compat_router import compat_router
 from app.api.v1.router import api_v1_router
 from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
@@ -30,9 +31,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = resolved_settings
     register_error_handlers(app)
+    app.include_router(compat_router)
     app.include_router(api_v1_router, prefix=resolved_settings.api_v1_prefix)
     return app
 
 
 app = create_app()
-

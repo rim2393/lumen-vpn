@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "createdAt": "2026-05-27T11:02:44.057Z",
+  "updatedAt": "2026-05-27T11:51:45.281Z",
+  "briefPath": ".omx/ultragoal/brief.md",
+  "goalsPath": ".omx/ultragoal/goals.json",
+  "ledgerPath": ".omx/ultragoal/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-self-hosted-panel-control-plane-in-d",
+      "title": "Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-proj...",
+      "objective": "Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-projekt: real auth, sessions, API keys, MFA/TOTP scaffold, RBAC, audit log, users, licenses, subscriptions, nodes, protocol/profile/host/squad models, settings, API contracts, background jobs, node command queue, metrics, pause/resume semantics, port conflict policy, protocol installation pipeline, subscription renderers, tests.",
+      "status": "complete",
+      "attempt": 1,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:51:45.281Z",
+      "startedAt": "2026-05-27T11:02:53.283Z",
+      "completedAt": "2026-05-27T11:51:45.281Z",
+      "evidence": "API backend G001 implemented: auth/sessions/API keys/users/licenses/subscriptions/nodes/settings/audit/MFA/protocols/profiles/hosts/squads/command queue/metrics/pause-resume; ruff check passed; pytest apps/api 40 passed; Alembic upgrade+downgrade passed; node-agent and protocol/subscription package tests passed; secret pattern scan clean."
+    },
+    {
+      "id": "G002-node-agent-in-same-repo-command-poll",
+      "title": "Node agent in same repo: command polling, apply config, protocol runt...",
+      "objective": "Node agent in same repo: command polling, apply config, protocol runtime scaffolds, safe pause/resume, health/metrics reports, port conflict checks, landing page fallback support, secure token storage, tests.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G003-admin-ui-in-same-repo-remna-like-but",
+      "title": "Admin UI in same repo: Remna-like but Lumen-branded full functional s...",
+      "objective": "Admin UI in same repo: Remna-like but Lumen-branded full functional screens wired to backend: dashboard, users, internal/external squads, profiles, hosts, nodes, Remnawave settings, subscription settings/templates/rules/page, tools, API tokens, auth providers, warnings/errors.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G004-public-installer-docs-repo-d-lumen-w",
+      "title": "Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...",
+      "objective": "Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, install-node.sh, upgrade.sh, rollback, backup/migrations, release manifest, pinned images, GHCR auth, docs, troubleshooting, two-server live smoke path.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G005-license-server-repo-d-lumen-work-lum",
+      "title": "License server repo D:\\lumen-work\\lumen-license-server: commercial li...",
+      "objective": "License server repo D:\\lumen-work\\lumen-license-server: commercial license portal scaffold with auth/MFA, account/license APIs, free <=3 nodes policy, offline grace, sync API, UI, tests. Payment can remain scaffolded until later, but license policy must be real enough for control-plane integration.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G006-client-compatibility-repo-d-lumen-wo",
+      "title": "Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: accepta...",
+      "objective": "Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: acceptance fixtures for generated subscriptions; Android integration is later but fixtures must exist.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G007-do-not-leak-secrets-do-not-commit-to",
+      "title": "Do not leak secrets. Do not commit tokens/passwords/runtime configs.",
+      "objective": "Do not leak secrets. Do not commit tokens/passwords/runtime configs.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G008-keep-source-private-where-intended-p",
+      "title": "Keep source private where intended; public repo must contain only ins...",
+      "objective": "Keep source private where intended; public repo must contain only installer/docs/manifests, no private source.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G009-work-sequentially-by-stories-but-use",
+      "title": "Work sequentially by stories, but use subagents for independent slice...",
+      "objective": "Work sequentially by stories, but use subagents for independent slices. Test after each meaningful step.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    },
+    {
+      "id": "G010-do-not-call-the-product-complete-unt",
+      "title": "Do not call the product complete until final verification, security r...",
+      "objective": "Do not call the product complete until final verification, security review, code review, and live smoke pass.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T11:02:44.057Z",
+      "updatedAt": "2026-05-27T11:02:44.057Z"
+    }
+  ],
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-self-hosted-panel-control-plane-in-d Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-proj...; G002-node-agent-in-same-repo-command-poll Node agent in same repo: command polling, apply config, protocol runt...; G003-admin-ui-in-same-repo-remna-like-but Admin UI in same repo: Remna-like but Lumen-branded full functional s...; G004-public-installer-docs-repo-d-lumen-w Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...; G005-license-server-repo-d-lumen-work-lum License server repo D:\\lumen-work\\lumen-license-server: commercial li...; G006-client-compatibility-repo-d-lumen-wo Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: accepta...; G007-do-not-leak-secrets-do-not-commit-to Do not leak secrets. Do not commit tokens/passwords/runtime configs.; G008-keep-source-private-where-intended-p Keep source private where intended; public repo must contain only ins...; G009-work-sequentially-by-stories-but-use Work sequentially by stories, but use subagents for independent slice...; G010-do-not-call-the-product-complete-unt Do not call the product complete until final verification, security r..."
+}

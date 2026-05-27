@@ -33,6 +33,9 @@ class NodeStatus(StrEnum):
     OFFLINE = "offline"
     FAILED = "failed"
     DELETED = "deleted"
+    PAUSED = "paused"
+    LICENSE_PAUSED = "license_paused"
+    QUARANTINED = "quarantined"
 
 
 class ProvisioningJobKind(StrEnum):
@@ -104,6 +107,81 @@ class NodeHeartbeatRequest(BaseModel):
 
     status: NodeStatus = NodeStatus.ACTIVE
     capabilities: dict[str, str] = Field(default_factory=dict)
+
+
+class NodeCommandCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    command_type: str = Field(min_length=1, max_length=64)
+    payload_json: dict[str, object] = Field(default_factory=dict)
+
+
+class NodePauseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=512)
+    license_enforced: bool = False
+
+
+class NodeResumeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_status: NodeStatus = NodeStatus.OFFLINE
+
+
+class NodeQuarantineRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=512)
+
+
+class NodeCommandResultRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = Field(pattern="^(succeeded|failed|cancelled)$")
+    result_json: dict[str, object] = Field(default_factory=dict)
+    error_code: str | None = Field(default=None, max_length=64)
+    error_message: str | None = Field(default=None, max_length=512)
+
+
+class NodeCommandResponse(BaseModel):
+    id: UUID
+    node_id: UUID
+    command_type: str
+    status: str
+    payload_json: dict[str, object]
+    result_json: dict[str, object] | None
+    error_code: str | None
+    error_message: str | None
+    claimed_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class NodeCommandListResponse(BaseModel):
+    items: list[NodeCommandResponse]
+
+
+class NodeMetricCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    metric_kind: str = Field(min_length=1, max_length=64)
+    values_json: dict[str, float] = Field(default_factory=dict)
+    observed_at: datetime | None = None
+
+
+class NodeMetricResponse(BaseModel):
+    id: UUID
+    node_id: UUID
+    metric_kind: str
+    values_json: dict[str, float]
+    observed_at: datetime
+    created_at: datetime
+
+
+class NodeMetricListResponse(BaseModel):
+    items: list[NodeMetricResponse]
 
 
 class ProvisioningJobResponse(BaseModel):

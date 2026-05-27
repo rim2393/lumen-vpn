@@ -1,0 +1,1 @@
+"""Panel settings domain."""

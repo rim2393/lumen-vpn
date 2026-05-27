@@ -12,7 +12,7 @@ from app.core.errors import APIError
 from app.core.rbac import Permission
 from app.core.security import generate_opaque_token, hmac_sha256, require_secret
 from app.domains.api_keys.models import ApiKey
-from app.domains.api_keys.schemas import ApiKeyCreateRequest
+from app.domains.api_keys.schemas import ApiKeyCreateRequest, ApiKeyResponse
 
 API_KEY_TOKEN_PREFIX = "lumen_sk"  # noqa: S105 - public token prefix, not secret material.
 API_KEY_PUBLIC_PREFIX_LENGTH = 18
@@ -91,6 +91,18 @@ async def create_api_key(
     return api_key, generated.plaintext
 
 
+async def list_api_keys(
+    session: AsyncSession,
+    *,
+    owner_user_id: UUID | None = None,
+) -> list[ApiKey]:
+    statement = select(ApiKey).order_by(ApiKey.created_at.desc())
+    if owner_user_id is not None:
+        statement = statement.where(ApiKey.owner_user_id == owner_user_id)
+    result = await session.execute(statement)
+    return list(result.scalars().all())
+
+
 async def verify_api_key(
     session: AsyncSession,
     *,
@@ -145,9 +157,13 @@ async def revoke_api_key(session: AsyncSession, *, api_key_id: UUID) -> ApiKey:
     return record
 
 
-def not_implemented() -> APIError:
-    return APIError(
-        code="api_keys_not_implemented",
-        message="API key service is not implemented yet.",
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+def api_key_to_response(api_key: ApiKey) -> ApiKeyResponse:
+    return ApiKeyResponse(
+        id=api_key.id,
+        name=api_key.name,
+        key_prefix=api_key.key_prefix,
+        scopes=api_key.scopes,
+        expires_at=api_key.expires_at,
+        revoked_at=api_key.revoked_at,
+        last_used_at=api_key.last_used_at,
     )
