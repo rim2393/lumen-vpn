@@ -17,7 +17,7 @@ export function ApiClientProvider({ children, client }: ApiClientProviderProps) 
       return client
     }
 
-    const configuredBaseUrl = import.meta.env.VITE_LUMEN_API_BASE_URL?.trim()
+    const configuredBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_LUMEN_API_BASE_URL)
     const mode = import.meta.env.VITE_LUMEN_API_MODE?.trim()
 
     if (mode === 'mock') {
@@ -38,4 +38,21 @@ export function ApiClientProvider({ children, client }: ApiClientProviderProps) 
   }, [client, session])
 
   return <ApiClientContext.Provider value={resolvedClient}>{children}</ApiClientContext.Provider>
+}
+
+function normalizeApiBaseUrl(value: string | undefined): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed || trimmed === '__LUMEN_WEB_API_BASE_URL__') {
+    return ''
+  }
+
+  try {
+    const url = new URL(trimmed)
+    if (url.pathname === '/api') {
+      url.pathname = '/'
+    }
+    return url.toString()
+  } catch {
+    return ''
+  }
 }
