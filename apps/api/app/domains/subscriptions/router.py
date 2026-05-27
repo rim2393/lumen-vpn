@@ -13,6 +13,9 @@ from app.domains.subscriptions.schemas import (
     SubscriptionResponse,
 )
 from app.domains.subscriptions.service import (
+    build_subscription_manifest,
+)
+from app.domains.subscriptions.service import (
     create_subscription as create_subscription_record,
 )
 from app.domains.subscriptions.service import (
@@ -79,3 +82,12 @@ async def get_subscription(
 ) -> SubscriptionResponse:
     subscription = await get_subscription_record(session, subscription_id=subscription_id)
     return subscription_response(subscription)
+
+
+@router.get("/{subscription_id}/manifest")
+async def get_subscription_manifest(
+    subscription_id: UUID,
+    _: SubscriptionReader,
+    session: DatabaseSession,
+) -> dict[str, object]:
+    return await build_subscription_manifest(session, subscription_id=subscription_id)

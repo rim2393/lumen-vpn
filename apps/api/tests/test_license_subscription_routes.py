@@ -14,6 +14,7 @@ from app.db.session import create_engine, get_db_session
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
+from app.domains.protocols.models import Host, ProtocolProfile
 from app.domains.users.models import User
 from app.main import create_app
 
@@ -160,6 +161,73 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     get_response = await route_app.client.get(f"/api/v1/subscriptions/{created['id']}")
     assert get_response.status_code == 200
     assert get_response.json()["public_id"] == created["public_id"]
+
+
+async def test_subscription_manifest_route_renders_live_smoke_protocol(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="tcp-smoke-profile",
+            node_id=node.id,
+            adapter="tcp-smoke",
+            status="active",
+            config_json={},
+            port_reservations=[
+                {"address": "0.0.0.0", "port": 18081, "protocol": "tcp"},  # noqa: S104
+            ],
+            credentials_ref="vault://subscriptions/live-smoke/tcp-smoke",
+        )
+        session.add(profile)
+        await session.flush()
+        host = Host(
+            name="tcp-smoke-host",
+            hostname="85.192.60.8",
+            node_id=node.id,
+            protocol_profile_id=profile.id,
+            status="active",
+            tags=["live-smoke"],
+        )
+        session.add(host)
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "tcp-smoke",
+                "adapter": "tcp-smoke-listener",
+                "profile_id": str(profile.id),
+                "host_id": str(host.id),
+                "format": "lumen-json",
+            },
+            "config_hash": "sha256:tcp-smoke",
+        },
+    )
+    assert create_response.status_code == 201
+
+    manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/{create_response.json()['id']}/manifest",
+    )
+
+    assert manifest_response.status_code == 200
+    manifest = manifest_response.json()
+    protocol = manifest["nodes"][0]["protocols"][0]
+    assert manifest["schemaVersion"] == "lumen.subscription-manifest.v1"
+    assert manifest["subscription"]["id"].startswith("lumen_sub_")
+    assert protocol["type"] == "tcp-smoke"
+    assert protocol["adapter"] == "tcp-smoke-listener"
+    assert protocol["endpoint"] == {
+        "host": "85.192.60.8",
+        "port": 18081,
+        "transport": "tcp",
+        "network": "public",
+    }
+    assert protocol["security"]["type"] == "none"
 
 
 async def test_subscription_route_rejects_inline_secret_delivery_field(

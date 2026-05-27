@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,13 +9,43 @@ import {
   NODE_PROVISIONING_MODES,
   applyNodeCommand,
   createProvisioningState,
-  runNodeAgentOnce
+  runNodeAgentOnce,
+  stopLiveListener
 } from "../src/index.js";
 
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { "content-type": "application/json" }
+  });
+}
+
+async function freeTcpPort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  await new Promise((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+  return address.port;
+}
+
+async function readTcpBanner(port) {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    let data = "";
+    socket.setTimeout(1_000);
+    socket.on("data", (chunk) => {
+      data += chunk.toString("utf8");
+    });
+    socket.on("end", () => resolve(data));
+    socket.on("timeout", () => {
+      socket.destroy(new Error("tcp banner timeout"));
+    });
+    socket.on("error", reject);
   });
 }
 
@@ -327,6 +358,82 @@ test("run once polls command, completes it, persists state, and records metric",
     const persisted = JSON.parse(readFileSync(join(stateDir, "provisioning-state.json"), "utf8"));
     assert.equal(persisted.mode, NODE_PROVISIONING_MODES.PAUSED);
   } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("run once can start a gated live tcp smoke listener from outbound apply", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+  const port = await freeTcpPort();
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const calls = [];
+
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "smoke-node-01",
+        LUMEN_STATE_DIR: stateDir,
+        LUMEN_DRY_RUN: "false",
+        LUMEN_ENABLE_LIVE_SMOKE: "true"
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-outbound-live-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: "claimed",
+            payload_json: {
+              outboundId: "live-smoke-1",
+              adapter: "tcp-smoke-listener",
+              bind: { address: "127.0.0.1", port, protocol: "tcp" },
+              liveListener: {
+                id: "live-smoke-1",
+                address: "127.0.0.1",
+                port,
+                banner: "lumen-live-ok\n",
+                ttlMs: 60_000
+              }
+            },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-outbound-live-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: JSON.parse(options.body).status,
+            payload_json: {},
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(result.command.status, "succeeded");
+    assert.equal(JSON.parse(calls[2].options.body).result_json.outputs.implementationStatus, "live-listener-active");
+    assert.equal(await readTcpBanner(port), "lumen-live-ok\n");
+  } finally {
+    await stopLiveListener("live-smoke-1");
     rmSync(stateDir, { recursive: true, force: true });
   }
 });
