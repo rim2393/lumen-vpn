@@ -136,3 +136,46 @@ async def test_node_provisioning_route_flow_uses_one_time_tokens(
         assert persisted_token.token_hash != install_token
         assert persisted_node.agent_token_hash != node_token
         assert persisted_node.last_seen_at is not None
+
+
+async def test_node_routes_list_get_and_manual_create(
+    route_app: RouteTestApp,
+) -> None:
+    create_response = await route_app.client.post(
+        "/api/v1/nodes",
+        json={
+            "name": "manual-edge-1",
+            "region": "eu",
+            "public_address": "203.0.113.21",
+            "capabilities": {"runtime.xray_core": "true"},
+        },
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+    assert created["status"] == "offline"
+
+    list_response = await route_app.client.get("/api/v1/nodes")
+    assert list_response.status_code == 200
+    listed = list_response.json()["items"]
+    assert [item["id"] for item in listed] == [created["id"]]
+
+    get_response = await route_app.client.get(f"/api/v1/nodes/{created['id']}")
+    assert get_response.status_code == 200
+    assert get_response.json()["name"] == "manual-edge-1"
+
+
+async def test_manual_node_rejects_inline_secret_capability(
+    route_app: RouteTestApp,
+) -> None:
+    response = await route_app.client.post(
+        "/api/v1/nodes",
+        json={
+            "name": "bad-node",
+            "region": "eu",
+            "public_address": "203.0.113.22",
+            "capabilities": {"api_token": "do-not-accept"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "inline_secret_rejected"

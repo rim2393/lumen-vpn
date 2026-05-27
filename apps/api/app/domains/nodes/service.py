@@ -19,6 +19,7 @@ from app.domains.licenses.service import enforce_free_node_policy
 from app.domains.nodes.models import Node, NodeInstallToken, NodeProvisioningJob
 from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
+    NodeCreateRequest,
     NodeHeartbeatRequest,
     NodeStatus,
     PreflightStatus,
@@ -166,6 +167,51 @@ async def create_provisioning_job(
     session.add(job)
     await session.flush()
     return job
+
+
+async def list_nodes(session: AsyncSession) -> list[Node]:
+    return list((await session.execute(select(Node).order_by(Node.created_at.desc()))).scalars())
+
+
+async def get_node(session: AsyncSession, *, node_id: UUID) -> Node:
+    node = await session.get(Node, node_id)
+    if node is None:
+        raise APIError(
+            code="node_not_found",
+            message="Node was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return node
+
+
+async def create_manual_node(
+    session: AsyncSession,
+    *,
+    request: NodeCreateRequest,
+    settings: Settings,
+) -> Node:
+    ensure_no_inline_secret_keys(request.capabilities, field_name="capabilities")
+    existing_node = (
+        await session.execute(select(Node).where(Node.name == request.name))
+    ).scalar_one_or_none()
+    if existing_node is not None:
+        raise APIError(
+            code="node_name_exists",
+            message="A node with this name already exists.",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    await enforce_free_node_policy(session, settings)
+    node = Node(
+        name=request.name,
+        region=request.region,
+        public_address=request.public_address,
+        status=NodeStatus.OFFLINE.value,
+        capabilities=request.capabilities,
+    )
+    session.add(node)
+    await session.flush()
+    return node
 
 
 async def update_preflight_state(

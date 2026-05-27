@@ -22,15 +22,21 @@ from app.domains.nodes.schemas import (
     ProvisioningJobResponse,
 )
 from app.domains.nodes.service import (
-    create_provisioning_job as create_provisioning_job_record,
-)
-from app.domains.nodes.service import (
+    create_manual_node,
     exchange_install_token,
     get_provisioning_job,
     issue_install_token,
-    not_implemented,
     record_node_heartbeat,
     update_preflight_state,
+)
+from app.domains.nodes.service import (
+    create_provisioning_job as create_provisioning_job_record,
+)
+from app.domains.nodes.service import (
+    get_node as get_node_record,
+)
+from app.domains.nodes.service import (
+    list_nodes as list_node_records,
 )
 
 router = APIRouter()
@@ -173,22 +179,29 @@ async def create_node_heartbeat(
 @router.get("", response_model=NodeListResponse)
 async def list_nodes(
     _: NodeManager,
+    session: DatabaseSession,
 ) -> NodeListResponse:
-    raise not_implemented()
+    nodes = await list_node_records(session)
+    return NodeListResponse(items=[node_response(node) for node in nodes])
 
 
 @router.post("", response_model=NodeResponse, status_code=status.HTTP_201_CREATED)
 async def create_node(
-    __: NodeCreateRequest,
+    request: NodeCreateRequest,
     _: NodeManager,
+    session: DatabaseSession,
+    settings: AppSettings,
 ) -> NodeResponse:
-    raise not_implemented()
+    node = await create_manual_node(session, request=request, settings=settings)
+    await session.commit()
+    return node_response(node)
 
 
 @router.get("/{node_id}", response_model=NodeResponse)
 async def get_node(
     node_id: UUID,
     _: NodeManager,
+    session: DatabaseSession,
 ) -> NodeResponse:
-    _ = node_id
-    raise not_implemented()
+    node = await get_node_record(session, node_id=node_id)
+    return node_response(node)
