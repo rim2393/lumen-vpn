@@ -12,7 +12,7 @@ _PASSWORD_HASHER = PasswordHasher()
 
 
 def require_secret(value: SecretStr | None, *, name: str) -> str:
-    if value is None:
+    if value is None or value.get_secret_value() == "":
         raise APIError(code="missing_secret", message=f"Required secret is not configured: {name}.")
     return value.get_secret_value()
 
@@ -43,4 +43,3 @@ def hmac_sha256(value: str, secret: SecretStr) -> str:
 
 def constant_time_equal(left: str, right: str) -> bool:
     return hmac.compare_digest(left, right)
-

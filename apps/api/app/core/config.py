@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = 2_592_000
 
     api_key_hash_pepper: SecretStr | None = None
+    bootstrap_admin_api_key: SecretStr | None = None
     session_hash_pepper: SecretStr | None = None
     node_token_hash_pepper: SecretStr | None = None
     node_install_token_ttl_seconds: int = 900

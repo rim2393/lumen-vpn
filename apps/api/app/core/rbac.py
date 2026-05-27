@@ -1,10 +1,12 @@
 from enum import StrEnum
 from typing import Annotated
 
-from fastapi import Depends, status
+from fastapi import Depends, Header, status
 from pydantic import BaseModel, EmailStr
 
+from app.core.config import Settings, get_settings
 from app.core.errors import APIError
+from app.core.security import constant_time_equal
 
 
 class Role(StrEnum):
@@ -54,11 +56,33 @@ class Principal(BaseModel):
     permissions: set[Permission]
 
 
-async def get_current_principal() -> Principal:
+async def get_current_principal(
+    settings: Annotated[Settings, Depends(get_settings)],
+    api_key: Annotated[str | None, Header(alias="X-Lumen-Api-Key")] = None,
+) -> Principal:
+    if (
+        settings.bootstrap_admin_api_key is None
+        or settings.bootstrap_admin_api_key.get_secret_value() == ""
+    ):
+        raise APIError(
+            code="auth_not_implemented",
+            message="Authentication dependency is not wired yet.",
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        )
+
+    if api_key is not None:
+        expected_api_key = settings.bootstrap_admin_api_key.get_secret_value()
+        if constant_time_equal(api_key, expected_api_key):
+            return Principal(
+                subject="bootstrap-admin",
+                roles={Role.OWNER},
+                permissions=set(Permission),
+            )
+
     raise APIError(
-        code="auth_not_implemented",
-        message="Authentication dependency is not wired yet.",
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        code="authentication_required",
+        message="A valid API key is required.",
+        status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
 
