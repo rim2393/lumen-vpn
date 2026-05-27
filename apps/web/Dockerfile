@@ -28,7 +28,8 @@ COPY --from=build --chown=101:101 /srv/lumen-web/dist /usr/share/nginx/html
 
 USER root
 
-RUN printf '%s\n' \
+RUN mkdir -p /etc/nginx/templates \
+ && printf '%s\n' \
     'server {' \
     '  listen ${PORT};' \
     '  server_name _;' \
