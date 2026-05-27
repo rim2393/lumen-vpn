@@ -225,6 +225,22 @@ async def test_protocol_profile_port_conflict_and_host_flow(
     assert host_response.status_code == 201
     assert host_response.json()["hostname"] == "auto.example.test"
 
+    smoke_profile_response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "TCP Smoke",
+            "node_id": node_id,
+            "squad_id": squad_id,
+            "adapter": "tcp-smoke",
+            "credentials_ref": "vault://protocols/tcp-smoke",
+            "port_reservations": [
+                {"address": WILDCARD_BIND_ADDRESS, "port": 18081, "protocol": "tcp"}
+            ],
+        },
+    )
+    assert smoke_profile_response.status_code == 201
+    assert smoke_profile_response.json()["adapter"] == "tcp-smoke"
+
 
 async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp) -> None:
     node_id = await seeded_node_id(foundation_app)

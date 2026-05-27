@@ -65,6 +65,13 @@ PROTOCOL_ADAPTERS = (
         capabilities=["subscription"],
         required_credential_refs=["password"],
     ),
+    ProtocolAdapterResponse(
+        protocol="tcp-smoke",
+        display_name="TCP Smoke Listener",
+        status="internal",
+        capabilities=["tcp", "live-smoke", "subscription"],
+        required_credential_refs=[],
+    ),
 )
 
 
