@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T14:01:57.171Z",
+  "updatedAt": "2026-05-27T14:03:22.756Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -107,10 +107,13 @@
       "id": "G009-work-sequentially-by-stories-but-use",
       "title": "Work sequentially by stories, but use subagents for independent slice...",
       "objective": "Work sequentially by stories, but use subagents for independent slices. Test after each meaningful step.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T11:02:44.057Z",
-      "updatedAt": "2026-05-27T11:02:44.057Z"
+      "updatedAt": "2026-05-27T14:03:22.756Z",
+      "startedAt": "2026-05-27T14:02:21.096Z",
+      "completedAt": "2026-05-27T14:03:22.756Z",
+      "evidence": "Multi-agent/sequential story G009 complete. Added .omx/ultragoal/multi-agent-audit.md documenting sequential G001-G009 execution, delegated agents Mill/Pascal/Ptolemy, closure after result capture, main-thread ownership, and verification cadence. Evidence includes committed story checkpoints and per-story test evidence; git diff --check clean."
     },
     {
       "id": "G010-do-not-call-the-product-complete-unt",
