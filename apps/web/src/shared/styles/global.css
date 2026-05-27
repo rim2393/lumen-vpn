@@ -642,7 +642,7 @@ h2 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-5);
 }
@@ -651,6 +651,8 @@ h2 {
   display: grid;
   gap: var(--space-1);
   min-height: 84px;
+  min-width: 0;
+  align-content: start;
   padding: var(--space-4);
   background: rgb(255 255 255 / 4%);
   border: 1px solid var(--color-line);
@@ -663,7 +665,12 @@ h2 {
 }
 
 .summary-grid strong {
+  display: block;
+  min-width: 0;
   color: var(--color-ink-strong);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .auth-shell {
