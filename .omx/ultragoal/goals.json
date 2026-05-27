@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T17:37:53.366Z",
+  "updatedAt": "2026-05-27T18:22:59.262Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -143,10 +143,13 @@
       "id": "G014-deploy-panel-and-node-live-smoke",
       "title": "Deploy panel and node live smoke",
       "objective": "Deploy the v0.1.1 pinned self-hosted panel stack to the management VPS and the node agent stack to the node VPS using the public installer/upgrade path, without leaking secrets. Verify HTTPS, certificate automation, panel health, node enrollment/trust handshake, node command polling, port-conflict safeguards, and visible operator warnings.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T17:12:23.874Z",
-      "updatedAt": "2026-05-27T17:12:23.874Z"
+      "updatedAt": "2026-05-27T18:22:59.262Z",
+      "startedAt": "2026-05-27T17:38:20.589Z",
+      "completedAt": "2026-05-27T18:22:59.262Z",
+      "evidence": "Live G014 complete after v0.1.2 patch release. Panel VPS 89.185.85.184 upgraded via signed manifest /secure/lumen-release-v0.1.2.json using public installer commit 2fffcb5; encrypted backup /opt/lumen/backups/lumen-backup-20260527T181558Z.tar.gz.enc created; compose ps shows api/web/subscription v0.1.2 digest-pinned and healthy; external HTTPS health for panel/sub domains returned 200 and API live ok; doctor checks docker/curl/openssl/nginx/config/loopback-ports/certs/compose/free-node-limit/panel-health ok. Node VPS 85.192.60.8 upgraded through install-node.sh to ghcr.io/rim2393/lumen-node-agent:v0.1.2@sha256:6b3bf008b01294ab629f9689eb368744463d904ca607209453dd411b07bf0f74 with NODE_TLS_REJECT_UNAUTHORIZED=1; node state now persists node-id/heartbeat-path/node-token. Panel API shows smoke-node-01 active with fresh last_seen_at 2026-05-27T18:21:01Z. Safe capabilities.report command abe0de77-7b43-49ad-889e-2b36bf151bb5 completed succeeded with claimed/completed timestamps and runtime metric command_polled=1 command_completed=1. Live failure found and fixed before completion: v0.1.1 node-agent used node name for command/metric UUID paths; main commit 0b55fca persists enrolled node id and public commits 0edda16/2fffcb5 enforce TLS default and pin v0.1.2 images. Local node-agent npm test passed 37 tests; public installer validation run 26529872921 passed."
     },
     {
       "id": "G015-first-protocol-live-connection-path",
