@@ -61,6 +61,23 @@ async def get_subscription(
     return subscription
 
 
+async def get_subscription_by_public_id(
+    session: AsyncSession,
+    *,
+    public_id: str,
+) -> Subscription:
+    subscription = (
+        await session.execute(select(Subscription).where(Subscription.public_id == public_id))
+    ).scalar_one_or_none()
+    if subscription is None:
+        raise APIError(
+            code="subscription_not_found",
+            message="Subscription was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return subscription
+
+
 async def build_subscription_manifest(
     session: AsyncSession,
     *,
@@ -150,6 +167,16 @@ async def build_subscription_manifest(
             "subscriptionId": str(subscription.id),
         },
     }
+
+
+async def build_public_subscription_manifest(
+    session: AsyncSession,
+    *,
+    public_id: str,
+) -> dict[str, object]:
+    subscription = await get_subscription_by_public_id(session, public_id=public_id)
+    _ensure_subscription_can_be_served(subscription)
+    return await build_subscription_manifest(session, subscription_id=subscription.id)
 
 
 async def create_subscription(
@@ -280,6 +307,31 @@ def _manifest_capabilities(protocol_type: str) -> list[str]:
     if protocol_type == "tcp-smoke":
         return ["tcp", "live-smoke"]
     return ["subscription"]
+
+
+def _ensure_subscription_can_be_served(subscription: Subscription) -> None:
+    if (
+        subscription.revoked_at is not None
+        or subscription.status not in {"active", "paid", "trial"}
+    ):
+        raise APIError(
+            code="subscription_not_active",
+            message="Subscription is not active.",
+            status_code=status.HTTP_410_GONE,
+        )
+    if (
+        subscription.expires_at is not None
+        and _ensure_aware(subscription.expires_at) <= datetime.now(UTC)
+    ):
+        raise APIError(
+            code="subscription_expired",
+            message="Subscription has expired.",
+            status_code=status.HTTP_410_GONE,
+        )
+
+
+def _ensure_aware(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 def _isoformat(value) -> str | None:

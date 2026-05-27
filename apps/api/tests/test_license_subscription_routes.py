@@ -229,6 +229,15 @@ async def test_subscription_manifest_route_renders_live_smoke_protocol(
     }
     assert protocol["security"]["type"] == "none"
 
+    public_manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/manifest",
+    )
+
+    assert public_manifest_response.status_code == 200
+    public_manifest = public_manifest_response.json()
+    assert public_manifest["subscription"]["id"] == create_response.json()["public_id"]
+    assert public_manifest["nodes"][0]["protocols"][0]["type"] == "tcp-smoke"
+
 
 async def test_subscription_route_rejects_inline_secret_delivery_field(
     route_app: RouteTestApp,

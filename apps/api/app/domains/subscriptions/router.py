@@ -13,6 +13,7 @@ from app.domains.subscriptions.schemas import (
     SubscriptionResponse,
 )
 from app.domains.subscriptions.service import (
+    build_public_subscription_manifest,
     build_subscription_manifest,
 )
 from app.domains.subscriptions.service import (
@@ -72,6 +73,14 @@ async def create_subscription(
     subscription = await create_subscription_record(session, request=request)
     await session.commit()
     return subscription_response(subscription)
+
+
+@router.get("/public/{public_id}/manifest")
+async def get_public_subscription_manifest(
+    public_id: str,
+    session: DatabaseSession,
+) -> dict[str, object]:
+    return await build_public_subscription_manifest(session, public_id=public_id)
 
 
 @router.get("/{subscription_id}", response_model=SubscriptionResponse)
