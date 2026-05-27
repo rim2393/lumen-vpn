@@ -1,4 +1,5 @@
 import { createProtocolRegistry, defineProtocolAdapter } from "./adapter-interface.js";
+import { vlessProtocolAdapters } from "./vless.js";
 
 function createPlaceholderPlan(protocol, request = {}) {
   return Object.freeze({
@@ -65,4 +66,7 @@ export const protocolPlaceholderAdapters = Object.freeze(
   firstProtocolPlaceholders.map((config) => placeholderAdapter(config))
 );
 
-export const defaultProtocolRegistry = createProtocolRegistry(protocolPlaceholderAdapters);
+export const defaultProtocolRegistry = createProtocolRegistry([
+  ...vlessProtocolAdapters,
+  ...protocolPlaceholderAdapters
+]);

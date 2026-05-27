@@ -31,6 +31,10 @@ export function defineProtocolAdapter(adapter) {
     errors.push("planOutbound must be a function when provided");
   }
 
+  if (adapter.validateConfig !== undefined && typeof adapter.validateConfig !== "function") {
+    errors.push("validateConfig must be a function when provided");
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid protocol adapter: ${errors.join("; ")}`);
   }
@@ -43,6 +47,7 @@ export function defineProtocolAdapter(adapter) {
     capabilities: freezeArray(adapter.capabilities),
     requiredCredentialRefs: freezeArray(adapter.requiredCredentialRefs),
     rendererHints: Object.freeze({ ...(adapter.rendererHints ?? {}) }),
+    validateConfig: adapter.validateConfig ?? (() => ({ ok: true, errors: Object.freeze([]) })),
     planOutbound: adapter.planOutbound ?? (() => {
       throw new Error(`Protocol adapter ${adapter.protocol} does not implement planOutbound`);
     })
