@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T15:04:11.338Z",
+  "updatedAt": "2026-05-27T17:13:05.536Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -126,7 +126,52 @@
       "startedAt": "2026-05-27T14:03:45.201Z",
       "evidence": "Final gate passed: post-cleaner verification green across API/web/node-agent/packages/public installer/license server/client fixtures; final code review APPROVE and architecture CLEAR after signed entitlement trust-boundary fix.",
       "completedAt": "2026-05-27T15:04:11.338Z"
+    },
+    {
+      "id": "G011-release-v0-1-1-images-from-current-h",
+      "title": "Release v0.1.1 images from current HEAD",
+      "objective": "Build and publish v0.1.1 Docker images from current full-revna-like-projekt HEAD, update public installer release manifest with pinned digests, verify GHCR/GitHub Actions status, and keep source/private boundary clean.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T17:10:10.516Z",
+      "updatedAt": "2026-05-27T17:10:10.516Z"
+    },
+    {
+      "id": "G014-deploy-panel-and-node-live-smoke",
+      "title": "Deploy panel and node live smoke",
+      "objective": "Deploy the v0.1.1 pinned self-hosted panel stack to the management VPS and the node agent stack to the node VPS using the public installer/upgrade path, without leaking secrets. Verify HTTPS, certificate automation, panel health, node enrollment/trust handshake, node command polling, port-conflict safeguards, and visible operator warnings.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T17:12:23.874Z",
+      "updatedAt": "2026-05-27T17:12:23.874Z"
+    },
+    {
+      "id": "G015-first-protocol-live-connection-path",
+      "title": "First protocol live connection path",
+      "objective": "Implement and verify the first real protocol path end to end after the v0.1.1 deploy: create a profile/host/user in the panel, push runtime config to the node agent, ensure the protocol listener is actually reachable, generate a subscription link, import/validate it through the client compatibility fixture, and document evidence before moving to the next protocol-by-protocol stage.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T17:12:31.544Z",
+      "updatedAt": "2026-05-27T17:12:31.544Z"
+    },
+    {
+      "id": "G012-client-subscription-live-fixture",
+      "title": "Client subscription live fixture",
+      "objective": "Generate or fetch a live subscription manifest from deployed panel/subscription service, validate it with rim2393-lumen-client fixture validator, and document the panel-node-client acceptance evidence.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T17:10:10.544Z",
+      "updatedAt": "2026-05-27T17:10:10.544Z"
+    },
+    {
+      "id": "G013-final-live-stage-quality-gate",
+      "title": "Final live-stage quality gate",
+      "objective": "Run final verification, secret scans, ai-slop-cleaner on changed files, code-review APPROVE plus architecture CLEAR, update durable ultragoal artifacts, and push all repos after v0.1.1 live-stage completion.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-27T17:10:10.590Z",
+      "updatedAt": "2026-05-27T17:10:10.590Z"
     }
   ],
-  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-self-hosted-panel-control-plane-in-d Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-proj...; G002-node-agent-in-same-repo-command-poll Node agent in same repo: command polling, apply config, protocol runt...; G003-admin-ui-in-same-repo-remna-like-but Admin UI in same repo: Remna-like but Lumen-branded full functional s...; G004-public-installer-docs-repo-d-lumen-w Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...; G005-license-server-repo-d-lumen-work-lum License server repo D:\\lumen-work\\lumen-license-server: commercial li...; G006-client-compatibility-repo-d-lumen-wo Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: accepta...; G007-do-not-leak-secrets-do-not-commit-to Do not leak secrets. Do not commit tokens/passwords/runtime configs.; G008-keep-source-private-where-intended-p Keep source private where intended; public repo must contain only ins...; G009-work-sequentially-by-stories-but-use Work sequentially by stories, but use subagents for independent slice...; G010-do-not-call-the-product-complete-unt Do not call the product complete until final verification, security r..."
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-self-hosted-panel-control-plane-in-d Self-hosted panel/control plane in D:\\lumen-work\\full-revna-like-proj...; G002-node-agent-in-same-repo-command-poll Node agent in same repo: command polling, apply config, protocol runt...; G003-admin-ui-in-same-repo-remna-like-but Admin UI in same repo: Remna-like but Lumen-branded full functional s...; G004-public-installer-docs-repo-d-lumen-w Public installer/docs repo D:\\lumen-work\\lumen_vpn: install.sh, insta...; G005-license-server-repo-d-lumen-work-lum License server repo D:\\lumen-work\\lumen-license-server: commercial li...; G006-client-compatibility-repo-d-lumen-wo Client compatibility repo D:\\lumen-work\\rim2393-lumen-client: accepta...; G007-do-not-leak-secrets-do-not-commit-to Do not leak secrets. Do not commit tokens/passwords/runtime configs.; G008-keep-source-private-where-intended-p Keep source private where intended; public repo must contain only ins...; G009-work-sequentially-by-stories-but-use Work sequentially by stories, but use subagents for independent slice...; G010-do-not-call-the-product-complete-unt Do not call the product complete until final verification, security r...; G011-release-v0-1-1-images-from-current-h Release v0.1.1 images from current HEAD; G014-deploy-panel-and-node-live-smoke Deploy panel and node live smoke; G015-first-protocol-live-connection-path First protocol live connection path; G012-client-subscription-live-fixture Client subscription live fixture; G013-final-live-stage-quality-gate Final live-stage quality gate"
 }
