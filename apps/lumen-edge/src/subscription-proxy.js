@@ -4,7 +4,14 @@ const PUBLIC_ID_PATTERN = /^lumen_sub_[A-Za-z0-9_-]{16,}$/;
 
 export function matchSubscriptionManifestPath(pathname) {
   const match = pathname.match(/^\/(?:sub|api\/sub)\/([^/]+)(?:\/manifest)?$/);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
 }
 
 export function validateSubscriptionPublicId(publicId) {
@@ -21,4 +28,3 @@ export function normalizeApiInternalUrl(value) {
     return null;
   }
 }
-

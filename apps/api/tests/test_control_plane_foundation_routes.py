@@ -242,6 +242,27 @@ async def test_protocol_profile_port_conflict_and_host_flow(
     assert smoke_profile_response.json()["adapter"] == "tcp-smoke"
 
 
+async def test_protocol_profile_rejects_plaintext_credentials_ref(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    node_id = await seeded_node_id(foundation_app)
+
+    response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "Plain credentials",
+            "node_id": node_id,
+            "adapter": "tcp-smoke",
+            "credentials_ref": "plain-password-token",
+        },
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "validation_error"
+    assert "credentials_ref" in body["error"]["details"][0]
+
+
 async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp) -> None:
     node_id = await seeded_node_id(foundation_app)
 

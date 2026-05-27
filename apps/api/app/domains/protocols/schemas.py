@@ -1,9 +1,18 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 WILDCARD_BIND_ADDRESS = "0.0.0.0"  # noqa: S104 - data value, not a socket bind.
+VAULT_REF_PREFIX = "vault://"
+
+
+def validate_vault_ref(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not value.startswith(VAULT_REF_PREFIX):
+        raise ValueError("credentials_ref must be a vault:// reference")
+    return value
 
 
 class ProtocolAdapterResponse(BaseModel):
@@ -62,6 +71,11 @@ class ProtocolProfileCreateRequest(BaseModel):
     port_reservations: list[PortReservation] = Field(default_factory=list)
     credentials_ref: str | None = Field(default=None, max_length=512)
     allow_port_conflicts: bool = False
+
+    @field_validator("credentials_ref")
+    @classmethod
+    def validate_credentials_ref(cls, value: str | None) -> str | None:
+        return validate_vault_ref(value)
 
 
 class ProtocolProfileResponse(BaseModel):

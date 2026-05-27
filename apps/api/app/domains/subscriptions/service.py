@@ -10,12 +10,14 @@ from app.core.security import generate_opaque_token
 from app.domains.licenses.models import License
 from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile
+from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.schemas import SubscriptionCreateRequest
 from app.domains.users.models import User
 
 SUBSCRIPTION_PUBLIC_ID_PREFIX = "lumen_sub"
 PUBLIC_ID_COLLISION_ATTEMPTS = 3
+SERVABLE_STATUSES = frozenset({"active", "paid", "trial"})
 SECRET_FIELD_FRAGMENTS = frozenset(
     {
         "password",
@@ -112,10 +114,10 @@ async def build_subscription_manifest(
     )
     endpoint_host = host.hostname if host is not None else node.public_address
     endpoint_port = _manifest_port(delivery=delivery, profile=profile)
-    credentials_ref = (
-        profile.credentials_ref
-        if profile is not None and profile.credentials_ref is not None
-        else f"vault://subscriptions/{subscription.public_id}/{protocol_type}"
+    credentials_ref = _manifest_credentials_ref(
+        profile=profile,
+        subscription=subscription,
+        protocol_type=protocol_type,
     )
 
     return {
@@ -138,7 +140,7 @@ async def build_subscription_manifest(
                 "id": str(node.id),
                 "displayName": node.name,
                 "region": node.region,
-                "priority": int(delivery.get("priority", "100")),
+                "priority": _manifest_priority(delivery),
                 "tags": host.tags if host is not None else [],
                 "protocols": [
                     {
@@ -176,6 +178,8 @@ async def build_public_subscription_manifest(
 ) -> dict[str, object]:
     subscription = await get_subscription_by_public_id(session, public_id=public_id)
     _ensure_subscription_can_be_served(subscription)
+    license_record = await session.get(License, subscription.license_id)
+    _ensure_license_can_be_served(license_record)
     return await build_subscription_manifest(session, subscription_id=subscription.id)
 
 
@@ -277,10 +281,76 @@ def _manifest_port(
     profile: ProtocolProfile | None,
 ) -> int:
     if "port" in delivery:
-        return int(delivery["port"])
+        return _manifest_int(
+            delivery["port"],
+            field_name="delivery_profile.port",
+            min_value=1,
+            max_value=65535,
+        )
     if profile is not None and profile.port_reservations:
-        return int(profile.port_reservations[0]["port"])
+        return _manifest_int(
+            profile.port_reservations[0].get("port"),
+            field_name="profile.port_reservations[0].port",
+            min_value=1,
+            max_value=65535,
+        )
     return 443
+
+
+def _manifest_priority(delivery: dict[str, str]) -> int:
+    return _manifest_int(
+        delivery.get("priority", "100"),
+        field_name="delivery_profile.priority",
+        min_value=0,
+        max_value=100000,
+    )
+
+
+def _manifest_int(
+    value: object,
+    *,
+    field_name: str,
+    min_value: int,
+    max_value: int,
+) -> int:
+    try:
+        parsed = int(str(value))
+    except (TypeError, ValueError) as exc:
+        raise APIError(
+            code="subscription_manifest_invalid_value",
+            message="Subscription manifest contains an invalid numeric value.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[field_name],
+        ) from exc
+    if parsed < min_value or parsed > max_value:
+        raise APIError(
+            code="subscription_manifest_invalid_value",
+            message="Subscription manifest contains an out-of-range numeric value.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[field_name],
+        )
+    return parsed
+
+
+def _manifest_credentials_ref(
+    *,
+    profile: ProtocolProfile | None,
+    subscription: Subscription,
+    protocol_type: str,
+) -> str:
+    credentials_ref = (
+        profile.credentials_ref
+        if profile is not None and profile.credentials_ref is not None
+        else f"{VAULT_REF_PREFIX}subscriptions/{subscription.public_id}/{protocol_type}"
+    )
+    if not credentials_ref.startswith(VAULT_REF_PREFIX):
+        raise APIError(
+            code="subscription_manifest_credentials_ref_invalid",
+            message="Subscription manifest credentials must reference vault storage.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=["profile.credentials_ref"],
+        )
+    return credentials_ref
 
 
 def _manifest_security(
@@ -310,10 +380,7 @@ def _manifest_capabilities(protocol_type: str) -> list[str]:
 
 
 def _ensure_subscription_can_be_served(subscription: Subscription) -> None:
-    if (
-        subscription.revoked_at is not None
-        or subscription.status not in {"active", "paid", "trial"}
-    ):
+    if subscription.revoked_at is not None or subscription.status not in SERVABLE_STATUSES:
         raise APIError(
             code="subscription_not_active",
             message="Subscription is not active.",
@@ -326,6 +393,34 @@ def _ensure_subscription_can_be_served(subscription: Subscription) -> None:
         raise APIError(
             code="subscription_expired",
             message="Subscription has expired.",
+            status_code=status.HTTP_410_GONE,
+        )
+
+
+def _ensure_license_can_be_served(license_record: License | None) -> None:
+    if license_record is None:
+        raise APIError(
+            code="subscription_license_not_found",
+            message="Subscription license was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    if license_record.status not in SERVABLE_STATUSES:
+        raise APIError(
+            code="subscription_license_not_active",
+            message="Subscription license is not active.",
+            status_code=status.HTTP_410_GONE,
+        )
+    now = datetime.now(UTC)
+    if license_record.starts_at is not None and _ensure_aware(license_record.starts_at) > now:
+        raise APIError(
+            code="subscription_license_not_active",
+            message="Subscription license is not active yet.",
+            status_code=status.HTTP_410_GONE,
+        )
+    if license_record.expires_at is not None and _ensure_aware(license_record.expires_at) <= now:
+        raise APIError(
+            code="subscription_license_expired",
+            message="Subscription license has expired.",
             status_code=status.HTTP_410_GONE,
         )
 

@@ -51,6 +51,7 @@ test("renders escaped fallback html", () => {
 test("matches public subscription manifest routes", () => {
   assert.equal(matchSubscriptionManifestPath("/sub/lumen_sub_abc1234567890xyz/manifest"), "lumen_sub_abc1234567890xyz");
   assert.equal(matchSubscriptionManifestPath("/api/sub/lumen_sub_abc1234567890xyz"), "lumen_sub_abc1234567890xyz");
+  assert.equal(matchSubscriptionManifestPath("/sub/%E0%A4%A/manifest"), "%E0%A4%A");
   assert.equal(matchSubscriptionManifestPath("/unknown/lumen_sub_abc1234567890xyz"), null);
   assert.equal(validateSubscriptionPublicId("lumen_sub_abc1234567890xyz"), true);
   assert.equal(validateSubscriptionPublicId("../secret"), false);
@@ -83,6 +84,26 @@ test("proxies public subscription manifest without exposing API credentials", as
     assert.equal(upstreamCalls[0].url, "http://api.internal:8000/api/v1/subscriptions/public/lumen_sub_abc1234567890xyz/manifest");
     assert.equal(upstreamCalls[0].options.headers.accept, "application/json");
     assert.equal(upstreamCalls[0].options.headers.authorization, undefined);
+  } finally {
+    await close(server);
+  }
+});
+
+test("malformed public subscription id returns 404 instead of upstream error", async () => {
+  const server = createLumenEdgeServer({
+    env: { API_INTERNAL_URL: "http://api.internal:8000" },
+    fetchImpl: async () => {
+      throw new Error("fetch must not be called for invalid ids");
+    },
+    randomUUID: () => "req_test"
+  });
+  const port = await listen(server);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/sub/%E0%A4%A/manifest`);
+    const body = await response.json();
+
+    assert.equal(response.status, 404);
+    assert.equal(body.error.code, "subscription_not_found");
   } finally {
     await close(server);
   }

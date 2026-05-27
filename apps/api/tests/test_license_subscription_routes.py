@@ -239,6 +239,125 @@ async def test_subscription_manifest_route_renders_live_smoke_protocol(
     assert public_manifest["nodes"][0]["protocols"][0]["type"] == "tcp-smoke"
 
 
+async def test_public_subscription_manifest_rejects_plaintext_profile_credential(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="legacy-plaintext-profile",
+            node_id=node.id,
+            adapter="tcp-smoke",
+            status="active",
+            config_json={},
+            port_reservations=[
+                {"address": "0.0.0.0", "port": 18081, "protocol": "tcp"},  # noqa: S104
+            ],
+            credentials_ref="plain-password-token",
+        )
+        session.add(profile)
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "tcp-smoke",
+                "profile_id": str(profile.id),
+            },
+            "config_hash": "sha256:tcp-smoke",
+        },
+    )
+    assert create_response.status_code == 201
+
+    public_manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/manifest",
+    )
+
+    assert public_manifest_response.status_code == 422
+    assert (
+        public_manifest_response.json()["error"]["code"]
+        == "subscription_manifest_credentials_ref_invalid"
+    )
+
+
+async def test_public_subscription_manifest_rejects_invalid_profile_port(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="legacy-invalid-port-profile",
+            node_id=node.id,
+            adapter="tcp-smoke",
+            status="active",
+            config_json={},
+            port_reservations=[
+                {"address": "0.0.0.0", "port": "not-a-port", "protocol": "tcp"},  # noqa: S104
+            ],
+            credentials_ref="vault://subscriptions/legacy/tcp-smoke",
+        )
+        session.add(profile)
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "tcp-smoke",
+                "profile_id": str(profile.id),
+            },
+            "config_hash": "sha256:tcp-smoke",
+        },
+    )
+    assert create_response.status_code == 201
+
+    public_manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/manifest",
+    )
+
+    assert public_manifest_response.status_code == 422
+    assert public_manifest_response.json()["error"]["code"] == "subscription_manifest_invalid_value"
+    assert public_manifest_response.json()["error"]["details"] == [
+        "profile.port_reservations[0].port"
+    ]
+
+
+async def test_public_subscription_manifest_rejects_expired_license(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    license_record.expires_at = datetime.now(UTC) - timedelta(days=1)
+    async with route_app.sessionmaker() as session:
+        await session.merge(license_record)
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {"protocol": "tcp-smoke"},
+            "config_hash": "sha256:tcp-smoke",
+        },
+    )
+    assert create_response.status_code == 201
+
+    public_manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/manifest",
+    )
+
+    assert public_manifest_response.status_code == 410
+    assert public_manifest_response.json()["error"]["code"] == "subscription_license_expired"
+
+
 async def test_subscription_route_rejects_inline_secret_delivery_field(
     route_app: RouteTestApp,
 ) -> None:
