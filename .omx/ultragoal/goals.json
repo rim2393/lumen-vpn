@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T17:13:05.536Z",
+  "updatedAt": "2026-05-27T17:37:53.366Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -131,10 +131,13 @@
       "id": "G011-release-v0-1-1-images-from-current-h",
       "title": "Release v0.1.1 images from current HEAD",
       "objective": "Build and publish v0.1.1 Docker images from current full-revna-like-projekt HEAD, update public installer release manifest with pinned digests, verify GHCR/GitHub Actions status, and keep source/private boundary clean.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T17:10:10.516Z",
-      "updatedAt": "2026-05-27T17:10:10.516Z"
+      "updatedAt": "2026-05-27T17:37:53.366Z",
+      "startedAt": "2026-05-27T17:14:00.757Z",
+      "completedAt": "2026-05-27T17:37:53.366Z",
+      "evidence": "v0.1.1 release images built from main HEAD 9c78bc1/tag v0.1.1 by GitHub Actions run 26526871735; GHCR digests pinned in public installer commit e52e423: api sha256:d00e6d0c1e03f08f9146d16c091100495ed636d10c6aa22776ffea5af4a76a84, web sha256:968602c46efeaeffa83423f86b4689b807c97452cfeb257a5215ce274d78457c, node-agent sha256:2021b49827be40b04f97cc031ffec39d7f2f8176f07ccf672c5208d5b9a6fc16, subscription sha256:59424adb13fe0f6e57ee7c197d071dabe60606f3021efc50fbe90ac757539060. Public installer validation workflow_dispatch run 26527935417 passed shellcheck, compose, release-manifest, secret-scan, and public-boundary. Added signed manifest helper, installer_min_version guard, and registry_login in upgrade.sh."
     },
     {
       "id": "G014-deploy-panel-and-node-live-smoke",
