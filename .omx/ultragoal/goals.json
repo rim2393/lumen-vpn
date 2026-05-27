@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T18:22:59.262Z",
+  "updatedAt": "2026-05-27T19:11:42.185Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -155,10 +155,13 @@
       "id": "G015-first-protocol-live-connection-path",
       "title": "First protocol live connection path",
       "objective": "Implement and verify the first real protocol path end to end after the v0.1.1 deploy: create a profile/host/user in the panel, push runtime config to the node agent, ensure the protocol listener is actually reachable, generate a subscription link, import/validate it through the client compatibility fixture, and document evidence before moving to the next protocol-by-protocol stage.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T17:12:31.544Z",
-      "updatedAt": "2026-05-27T17:12:31.544Z"
+      "updatedAt": "2026-05-27T19:11:42.185Z",
+      "startedAt": "2026-05-27T18:23:27.789Z",
+      "completedAt": "2026-05-27T19:11:42.185Z",
+      "evidence": "G015 live protocol path complete on v0.1.4. Main repo commits d29cfe9 and 3298dd9 added tcp-smoke manifest/API/node-agent live listener and registered backend adapter; public installer commits afb799f/fcbb7da pinned v0.1.4/v0.1.3 and node host networking/live flags; client commit 09f47a4 accepts tcp-smoke manifests. GitHub Actions release-images run 26532245170 built and verified v0.1.4 GHCR images; public installer validation run 26532407309 passed. Panel VPS 89.185.85.184 upgraded via signed manifest /secure/lumen-release-v0.1.4.json with backup /opt/lumen/backups/lumen-backup-20260527T190307Z.tar.gz.enc; doctor and API health passed, running api/web/subscription v0.1.4 digest-pinned. Node VPS 85.192.60.8 upgraded to ghcr.io/rim2393/lumen-node-agent:v0.1.4@sha256:2cda1a1873fc92374247f0a2fac3d4ec78746ac0c040aee8574cd75fe2c27537 with LUMEN_DRY_RUN=false, LUMEN_ENABLE_LIVE_SMOKE=true, NODE_TLS_REJECT_UNAUTHORIZED=1, network_mode=host. Live API created user/license/squad/profile/host/subscription; command 3b186adb-063f-40f7-b569-77088a200917 completed succeeded with implementationStatus=live-listener-active on port 28771; external TCP read returned banner lumen-g015-ok; manifest saved to D:\\lumen-work\\.deploy-secrets\\g015-live-manifest.json and python tools/validate_subscription_fixture.py --require-nodes returned ok; cleanup outbound.remove a0592963-61bb-4169-98dc-44b0d7da8a23 completed live-listener-stopped and external port check returned refused."
     },
     {
       "id": "G012-client-subscription-live-fixture",
