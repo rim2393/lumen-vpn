@@ -17,17 +17,24 @@ export function ApiClientProvider({ children, client }: ApiClientProviderProps) 
       return client
     }
 
-    const baseUrl = import.meta.env.VITE_LUMEN_API_BASE_URL?.trim()
+    const configuredBaseUrl = import.meta.env.VITE_LUMEN_API_BASE_URL?.trim()
     const mode = import.meta.env.VITE_LUMEN_API_MODE?.trim()
 
-    if (baseUrl && mode !== 'mock') {
-      return createHttpLumenApiClient({
-        baseUrl,
-        getSession: () => session,
-      })
+    if (mode === 'mock') {
+      return createMockLumenApiClient()
     }
 
-    return createMockLumenApiClient()
+    const baseUrl =
+      configuredBaseUrl || (typeof window === 'undefined' ? '' : window.location.origin)
+
+    if (!baseUrl) {
+      throw new Error('Lumen API base URL is not configured.')
+    }
+
+    return createHttpLumenApiClient({
+      baseUrl,
+      getSession: () => session,
+    })
   }, [client, session])
 
   return <ApiClientContext.Provider value={resolvedClient}>{children}</ApiClientContext.Provider>

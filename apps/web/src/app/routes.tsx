@@ -3,6 +3,7 @@ import { AuthLayout } from '../features/auth/AuthLayout'
 import { GuardPortalPage } from '../features/auth/GuardPortalPage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { MfaPage } from '../features/auth/MfaPage'
+import { RequireAuth } from '../features/auth/RequireAuth'
 import { ApiKeysPage } from '../pages/ApiKeysPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { HostsPage } from '../pages/HostsPage'
@@ -28,12 +29,23 @@ export const appRoutes: RouteObject[] = [
       { index: true, element: <Navigate to="/guard/login" replace /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'mfa', element: <MfaPage /> },
-      { path: 'portal', element: <GuardPortalPage /> },
+      {
+        path: 'portal',
+        element: (
+          <RequireAuth>
+            <GuardPortalPage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },

@@ -3,48 +3,51 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createMockLumenApiClient } from '../shared/api/mockClient'
 import type { LumenApiClient, SettingUpdateRequest, SquadCreateRequest } from '../shared/api/types'
+import { mockSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
 describe('Control plane resource screens', () => {
   it('renders API-backed hosts, profiles, squads, subscriptions, and settings screens', async () => {
-    const hosts = renderWithRouter('/hosts')
+    const apiClient = createMockLumenApiClient()
+
+    const hosts = renderWithRouter('/hosts', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /host inventory/i })).toBeInTheDocument()
     expect(screen.getByText('auto.lumen.local')).toBeInTheDocument()
     hosts.unmount()
 
-    const profiles = renderWithRouter('/profiles')
+    const profiles = renderWithRouter('/profiles', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /protocol profile inventory/i })).toBeInTheDocument()
     expect(screen.getAllByText('StealConfig').length).toBeGreaterThan(0)
     profiles.unmount()
 
-    const squads = renderWithRouter('/squads')
+    const squads = renderWithRouter('/squads', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /squad inventory/i })).toBeInTheDocument()
     expect(screen.getByText('Default-Squad')).toBeInTheDocument()
     squads.unmount()
 
-    const subscription = renderWithRouter('/subscription')
+    const subscription = renderWithRouter('/subscription', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /subscription inventory/i })).toBeInTheDocument()
     expect(screen.getByText('sub_pub_default')).toBeInTheDocument()
     subscription.unmount()
 
-    renderWithRouter('/settings')
+    renderWithRouter('/settings', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /panel setting inventory/i })).toBeInTheDocument()
     expect(screen.getByText('subscription.info')).toBeInTheDocument()
     cleanup()
 
-    const templates = renderWithRouter('/templates')
+    const templates = renderWithRouter('/templates', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('heading', { name: /templates/i })).toBeInTheDocument()
     templates.unmount()
 
-    const rules = renderWithRouter('/response-rules')
+    const rules = renderWithRouter('/response-rules', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('heading', { name: /response rules/i })).toBeInTheDocument()
     rules.unmount()
 
-    const page = renderWithRouter('/subscription-page')
+    const page = renderWithRouter('/subscription-page', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('heading', { name: /subscription page/i })).toBeInTheDocument()
     page.unmount()
 
-    renderWithRouter('/tools')
+    renderWithRouter('/tools', { apiClient, initialSession: mockSession })
     expect(await screen.findByRole('table', { name: /operational tools/i })).toBeInTheDocument()
     cleanup()
   })
@@ -64,7 +67,7 @@ describe('Control plane resource screens', () => {
       listSquads: async () => ({ items: [] }),
     }
 
-    renderWithRouter('/squads', { apiClient })
+    renderWithRouter('/squads', { apiClient, initialSession: mockSession })
 
     expect(await screen.findByRole('heading', { name: /no squads created/i })).toBeInTheDocument()
     await user.type(screen.getByLabelText(/^name$/i), 'Canary')
@@ -94,7 +97,7 @@ describe('Control plane resource screens', () => {
       updateSetting,
     }
 
-    renderWithRouter('/settings', { apiClient })
+    renderWithRouter('/settings', { apiClient, initialSession: mockSession })
 
     expect(await screen.findByRole('table', { name: /panel setting inventory/i })).toBeInTheDocument()
     await user.clear(screen.getByLabelText(/^key$/i))

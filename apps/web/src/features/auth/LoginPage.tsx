@@ -1,16 +1,24 @@
 import { ArrowRight, LockKeyhole } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useApiClient } from '../../shared/api/apiClientContext'
 import { useAuthSession } from './authSession'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const apiClient = useApiClient()
   const { setMfaChallenge, setSession } = useAuthSession()
   const [status, setStatus] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const redirectTo =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'from' in location.state &&
+    typeof location.state.from === 'string'
+      ? location.state.from
+      : '/dashboard'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,7 +40,7 @@ export function LoginPage() {
       setSession(authResult)
       setMfaChallenge(null)
       setStatus('Credentials accepted. Portal session can begin.')
-      navigate('/guard/portal')
+      navigate(redirectTo)
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Sign in failed.')
     } finally {
@@ -65,9 +73,6 @@ export function LoginPage() {
       <p className="auth-card__note" aria-live="polite">
         {status || 'Submit to continue to MFA.'}
       </p>
-      <Link to="/guard/portal" className="text-link">
-        View guarded portal preview
-      </Link>
     </form>
   )
 }

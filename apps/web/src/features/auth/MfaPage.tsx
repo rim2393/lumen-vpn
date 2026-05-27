@@ -1,7 +1,7 @@
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useApiClient } from '../../shared/api/apiClientContext'
 import { useAuthSession } from './authSession'
 
@@ -29,7 +29,7 @@ export function MfaPage() {
       setSession(session)
       setMfaChallenge(null)
       setStatus('Challenge accepted. Portal session can begin.')
-      navigate('/guard/portal')
+      navigate('/dashboard')
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'MFA verification failed.')
     } finally {
@@ -65,9 +65,6 @@ export function MfaPage() {
       <p className="auth-card__note" aria-live="polite">
         {status || 'MFA is mandatory for privileged Lumen admin routes.'}
       </p>
-      <Link to="/guard/login" className="text-link">
-        Back to sign in
-      </Link>
     </form>
   )
 }

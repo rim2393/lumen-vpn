@@ -8,6 +8,7 @@ import type {
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
 } from '../shared/api/types'
+import { mockSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
 function createTestClient(overrides: Partial<LumenApiClient> = {}): LumenApiClient {
@@ -100,7 +101,7 @@ describe('NodesPage backend wiring', () => {
       }),
     })
 
-    renderWithRouter('/nodes', { apiClient })
+    renderWithRouter('/nodes', { apiClient, initialSession: mockSession })
 
     expect(
       await screen.findByRole('table', { name: /node provisioning and heartbeat inventory/i }),
@@ -122,7 +123,7 @@ describe('NodesPage backend wiring', () => {
     const apiClient = createTestClient({ createProvisioningJob })
     const user = userEvent.setup()
 
-    renderWithRouter('/nodes', { apiClient })
+    renderWithRouter('/nodes', { apiClient, initialSession: mockSession })
 
     await user.type(screen.getByLabelText(/node name/i), 'edge-new')
     await user.type(screen.getByLabelText(/region/i), 'eu')

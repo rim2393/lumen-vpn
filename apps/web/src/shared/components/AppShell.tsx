@@ -1,12 +1,34 @@
-import { Bell, CircleHelp, LogOut, Menu, Search, Settings, X } from 'lucide-react'
-import { useState } from 'react'
+import { Bell, CircleHelp, Languages, LogOut, Menu, Search, Settings, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { navigationGroups } from '../data/navigation'
 import { BrandMark } from './BrandMark'
 
+type AppLanguage = 'en' | 'ru'
+
+const languageOptions: Array<{ label: string; value: AppLanguage }> = [
+  { label: 'EN', value: 'en' },
+  { label: 'RU', value: 'ru' },
+]
+
+const readInitialLanguage = (): AppLanguage => {
+  if (typeof window === 'undefined') {
+    return 'en'
+  }
+
+  const storedLanguage = window.localStorage.getItem('lumen-ui-language')
+  return storedLanguage === 'ru' ? 'ru' : 'en'
+}
+
 export function AppShell() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [language, setLanguage] = useState<AppLanguage>(readInitialLanguage)
   const closeSidebar = () => setIsSidebarOpen(false)
+
+  useEffect(() => {
+    document.documentElement.lang = language
+    window.localStorage.setItem('lumen-ui-language', language)
+  }, [language])
 
   return (
     <div className="app-shell" data-density="compact">
@@ -75,6 +97,21 @@ export function AppShell() {
             <input type="search" placeholder="Search users, nodes, hosts" />
           </label>
           <nav className="topbar__actions" aria-label="Admin actions">
+            <label className="language-switcher">
+              <Languages size={18} aria-hidden="true" />
+              <span className="sr-only">Interface language</span>
+              <select
+                aria-label="Interface language"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value as AppLanguage)}
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button type="button" className="icon-button" aria-label="Notifications">
               <Bell size={18} />
             </button>

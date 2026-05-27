@@ -1,16 +1,11 @@
 import {
-  Activity,
   BadgeCheck,
   Cable,
   Fingerprint,
-  Gauge,
   KeyRound,
-  Network,
   RadioTower,
   Rss,
   ServerCog,
-  ShieldCheck,
-  TriangleAlert,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,12 +33,6 @@ export type DashboardMetric = {
   icon: LucideIcon
 }
 
-export type ActivityEvent = {
-  label: string
-  meta: string
-  tone: MetricTone
-}
-
 export type PlaceholderSpec = {
   title: string
   eyebrow: string
@@ -53,44 +42,6 @@ export type PlaceholderSpec = {
   icon: LucideIcon
   items: string[]
 }
-
-export const dashboardMetrics: DashboardMetric[] = [
-  {
-    label: 'Active users',
-    value: '18,420',
-    detail: '+8.1% this week',
-    tone: 'good',
-    icon: UsersRound,
-  },
-  {
-    label: 'Healthy nodes',
-    value: '42 / 45',
-    detail: '3 nodes need attention',
-    tone: 'watch',
-    icon: Network,
-  },
-  {
-    label: 'Ingress traffic',
-    value: '9.8 Tb',
-    detail: 'rolling 24h',
-    tone: 'neutral',
-    icon: Activity,
-  },
-  {
-    label: 'Guard posture',
-    value: 'MFA 96%',
-    detail: '4 privileged accounts pending',
-    tone: 'watch',
-    icon: ShieldCheck,
-  },
-]
-
-export const activityFeed: ActivityEvent[] = [
-  { label: 'Moscow edge-02 rotated inbound certificate', meta: '8 min ago', tone: 'good' },
-  { label: 'Two users exceeded profile burst limit', meta: '17 min ago', tone: 'watch' },
-  { label: 'API key audit export finished', meta: '31 min ago', tone: 'neutral' },
-  { label: 'Subscription ruleset staged for beta squad', meta: '44 min ago', tone: 'good' },
-]
 
 export const placeholderSpecs: Record<string, PlaceholderSpec> = {
   users: {
@@ -421,14 +372,3 @@ export const settingRecords: SettingRecord[] = [
     },
   },
 ]
-
-export async function getDashboardOverview() {
-  return {
-    activityFeed,
-    metrics: dashboardMetrics,
-    riskItems: [
-      { label: 'Node pool drift', value: '3 outdated', icon: TriangleAlert },
-      { label: 'Capacity headroom', value: '72%', icon: Gauge },
-    ],
-  }
-}
