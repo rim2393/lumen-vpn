@@ -30,7 +30,7 @@ test("run once exchanges install token, persists node token, and sends heartbeat
       env: {
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
         LUMEN_INSTALL_TOKEN_FILE: installTokenFile,
-        LUMEN_NODE_NAME: "node-1",
+        LUMEN_NODE_NAME: "smoke-node-01",
         LUMEN_STATE_DIR: stateDir
       },
       fetchImpl: async (url, options) => {
@@ -70,6 +70,7 @@ test("run once exchanges install token, persists node token, and sends heartbeat
     assert.equal(calls[1].options.headers["x-lumen-node-token"], "node-secret");
     assert.equal(calls[2].url, "https://panel.example/api/v1/nodes/node-1/commands/next");
     assert.equal(calls[3].url, "https://panel.example/api/v1/nodes/node-1/metrics");
+    assert.equal(readFileSync(join(stateDir, "node-id"), "utf8").trim(), "node-1");
     assert.equal(result.exchange.nodeTokenPrefix, "lumen_node_abc");
     assert.equal(result.command, null);
     assert.equal(result.metric.metricKind, "runtime");
@@ -90,7 +91,7 @@ test("run once reuses persisted node token without exchanging install token agai
     const result = await runNodeAgentOnce({
       env: {
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
-        LUMEN_NODE_NAME: "node-2",
+        LUMEN_NODE_NAME: "smoke-node-01",
         LUMEN_STATE_DIR: stateDir
       },
       fetchImpl: async (url, options) => {
@@ -118,7 +119,10 @@ test("run once reuses persisted node token without exchanging install token agai
 
     assert.equal(calls.length, 3);
     assert.equal(calls[0].url, "https://panel.example/api/v1/nodes/node-2/heartbeat");
+    assert.equal(calls[1].url, "https://panel.example/api/v1/nodes/node-2/commands/next");
+    assert.equal(calls[2].url, "https://panel.example/api/v1/nodes/node-2/metrics");
     assert.equal(calls[0].options.headers["x-lumen-node-token"], "persisted-node-token");
+    assert.equal(readFileSync(join(stateDir, "node-id"), "utf8").trim(), "node-2");
     assert.equal(result.reusedExistingToken, true);
   } finally {
     rmSync(stateDir, { recursive: true, force: true });

@@ -22,11 +22,12 @@ import {
   createProvisioningState,
   transitionProvisioningState
 } from "./provisioning-state.js";
-import { loadNodeAgentConfigFromEnv } from "./runtime-loop.js";
+import { createNodeAgentRuntimeConfig, loadNodeAgentConfigFromEnv } from "./runtime-loop.js";
 import { readSecretFromEnv } from "./secret-input.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
+const NODE_ID_FILE = "node-id";
 const HEARTBEAT_PATH_FILE = "heartbeat-path";
 const PROVISIONING_STATE_FILE = "provisioning-state.json";
 
@@ -63,9 +64,28 @@ function statePaths(env = {}) {
   return Object.freeze({
     stateDir,
     nodeTokenFile: env.LUMEN_NODE_TOKEN_FILE ?? join(stateDir, NODE_TOKEN_FILE),
+    nodeIdFile: env.LUMEN_NODE_ID_FILE ?? join(stateDir, NODE_ID_FILE),
     heartbeatPathFile: env.LUMEN_HEARTBEAT_PATH_FILE ?? join(stateDir, HEARTBEAT_PATH_FILE),
     provisioningStateFile: env.LUMEN_PROVISIONING_STATE_FILE ??
       join(stateDir, PROVISIONING_STATE_FILE)
+  });
+}
+
+function nodeIdFromHeartbeatPath(path) {
+  if (!path) {
+    return null;
+  }
+  const match = path.match(/^\/api\/v1\/nodes\/([^/]+)\/heartbeat$/);
+  return match?.[1] ?? null;
+}
+
+function runtimeConfigWithNodeId(config, nodeId) {
+  if (!nodeId || nodeId === config.nodeId) {
+    return config;
+  }
+  return createNodeAgentRuntimeConfig({
+    ...config,
+    nodeId
   });
 }
 
@@ -316,9 +336,14 @@ export async function enrollNodeAgent(input = {}) {
 
   const existingNodeToken = readOptionalTrimmed(paths.nodeTokenFile);
   const existingHeartbeatPath = readOptionalTrimmed(paths.heartbeatPathFile);
+  const existingNodeId = readOptionalTrimmed(paths.nodeIdFile) ??
+    nodeIdFromHeartbeatPath(existingHeartbeatPath);
   if (existingNodeToken) {
+    if (existingNodeId) {
+      writeSecret(paths.nodeIdFile, existingNodeId);
+    }
     return Object.freeze({
-      config,
+      config: runtimeConfigWithNodeId(config, existingNodeId),
       heartbeatPath: existingHeartbeatPath,
       nodeToken: existingNodeToken,
       redactedExchange: null,
@@ -333,10 +358,11 @@ export async function enrollNodeAgent(input = {}) {
   });
 
   writeSecret(paths.nodeTokenFile, response.node_token);
+  writeSecret(paths.nodeIdFile, response.node_id);
   writeFileSync(paths.heartbeatPathFile, `${response.heartbeat_path}\n`, { mode: 0o600 });
 
   return Object.freeze({
-    config,
+    config: runtimeConfigWithNodeId(config, response.node_id),
     heartbeatPath: response.heartbeat_path,
     nodeToken: response.node_token,
     redactedExchange: redactInstallTokenExchangeResponse(response),
