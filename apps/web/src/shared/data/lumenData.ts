@@ -14,8 +14,15 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
+import type {
+  AdminUserRecord,
+  ApiKeyRecord,
+  AuthSession,
+  LicenseSummary,
+  NodeRecord,
+} from '../api/types'
 
-export type MetricTone = 'good' | 'watch' | 'neutral'
+export type MetricTone = 'danger' | 'good' | 'info' | 'neutral' | 'watch'
 
 export type DashboardMetric = {
   label: string
@@ -153,6 +160,126 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     items: ['Scoped permissions matrix', 'Last-used metadata', 'One-time reveal flow placeholder'],
   },
 }
+
+export const mockSession: AuthSession = {
+  email: 'operator@lumen.local',
+  expiresAt: '2026-05-27T23:59:59Z',
+  name: 'Control Plane Operator',
+  role: 'admin',
+  scopes: ['users:read', 'nodes:read', 'license:read', 'api-keys:read'],
+  userId: 'usr_mock_operator',
+}
+
+export const apiKeyRecords: ApiKeyRecord[] = [
+  {
+    createdAt: '2026-05-13',
+    expiresAt: '2026-08-13',
+    fingerprint: 'fp_6C91_AUDIT',
+    id: 'key_audit_export',
+    lastUsedAt: '2026-05-27T00:12:00Z',
+    name: 'Audit export worker',
+    owner: 'Control Plane Operator',
+    scopes: ['audit:read', 'api-keys:read'],
+    status: 'active',
+  },
+  {
+    createdAt: '2026-04-22',
+    expiresAt: '2026-06-01',
+    fingerprint: 'fp_2F44_ROTATE',
+    id: 'key_rotation_probe',
+    lastUsedAt: '2026-05-26T22:36:00Z',
+    name: 'Rotation probe',
+    owner: 'SRE automation',
+    scopes: ['nodes:read'],
+    status: 'expiring',
+  },
+]
+
+export const licenseSummary: LicenseSummary = {
+  auditEvents: [
+    { at: '2026-05-27T00:04:00Z', label: 'Entitlement check succeeded' },
+    { at: '2026-05-26T18:45:00Z', label: 'Seat pressure recalculated' },
+  ],
+  expiresAt: '2026-09-30',
+  features: ['Guard admin shell', 'Node health telemetry', 'Scoped automation keys'],
+  issuedTo: 'Lumen production instance',
+  plan: 'Business mesh',
+  seatsLimit: 25000,
+  seatsUsed: 18420,
+  status: 'valid',
+}
+
+export const userRecords: AdminUserRecord[] = [
+  {
+    displayName: 'Mira Volkova',
+    email: 'mira@lumen.local',
+    expiresAt: '2026-08-31',
+    id: 'usr_mira',
+    mfaEnabled: true,
+    role: 'owner',
+    status: 'active',
+    subscription: 'paid',
+    trafficUsedGb: 184,
+  },
+  {
+    displayName: 'Nikolai Orlov',
+    email: 'nikolai@lumen.local',
+    expiresAt: '2026-06-15',
+    id: 'usr_nikolai',
+    mfaEnabled: true,
+    role: 'admin',
+    status: 'limited',
+    subscription: 'grace',
+    trafficUsedGb: 512,
+  },
+  {
+    displayName: 'Beta Squad Relay',
+    email: 'beta-relay@lumen.local',
+    expiresAt: '2026-07-01',
+    id: 'usr_beta_relay',
+    mfaEnabled: false,
+    role: 'user',
+    status: 'active',
+    subscription: 'trial',
+    trafficUsedGb: 48,
+  },
+]
+
+export const nodeRecords: NodeRecord[] = [
+  {
+    activeUsers: 912,
+    id: 'node_mow_02',
+    lastSeenAt: '2026-05-27T00:28:00Z',
+    loadPercent: 63,
+    name: 'moscow-edge-02',
+    region: 'MOW',
+    status: 'healthy',
+    transports: ['xhttp', 'grpc'],
+    version: '2026.05.2',
+  },
+  {
+    activeUsers: 641,
+    id: 'node_fra_01',
+    lastSeenAt: '2026-05-27T00:25:00Z',
+    loadPercent: 78,
+    name: 'frankfurt-relay-01',
+    region: 'FRA',
+    status: 'degraded',
+    transports: ['ws', 'grpc'],
+    version: '2026.04.8',
+  },
+  {
+    activeUsers: 0,
+    id: 'node_ams_03',
+    lastSeenAt: '2026-05-26T22:02:00Z',
+    loadPercent: 0,
+    name: 'amsterdam-drain-03',
+    region: 'AMS',
+    status: 'offline',
+    transports: ['xhttp'],
+    version: '2026.04.8',
+  },
+]
 
 export async function getDashboardOverview() {
   return {
