@@ -574,6 +574,12 @@ async def complete_node_command(
             message="Node command was not found.",
             status_code=status.HTTP_404_NOT_FOUND,
         )
+    if command.status != "claimed":
+        raise APIError(
+            code="node_command_not_claimed",
+            message="Node command must be claimed before it can be completed.",
+            status_code=status.HTTP_409_CONFLICT,
+        )
     command.status = request.status
     command.result_json = request.result_json
     command.error_code = request.error_code

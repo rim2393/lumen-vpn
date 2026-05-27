@@ -3,7 +3,10 @@ export const NODE_API_STATUS = Object.freeze({
   ACTIVE: "active",
   INSTALLING: "installing",
   OFFLINE: "offline",
-  FAILED: "failed"
+  FAILED: "failed",
+  PAUSED: "paused",
+  LICENSE_PAUSED: "license_paused",
+  QUARANTINED: "quarantined"
 });
 
 function requireString(value, path) {
@@ -103,6 +106,34 @@ export function createHeartbeatRequestBody(input = {}) {
   });
 }
 
+export function createCommandResultRequestBody(input = {}) {
+  requireString(input.status, "status");
+  return Object.freeze({
+    status: input.status,
+    result_json: Object.freeze({ ...(input.resultJson ?? {}) }),
+    error_code: input.errorCode ?? null,
+    error_message: input.errorMessage ?? null
+  });
+}
+
+export function createNodeMetricRequestBody(input = {}) {
+  requireString(input.metricKind, "metricKind");
+  const valuesJson = {};
+  for (const [key, value] of Object.entries(input.valuesJson ?? {})) {
+    requireString(key, "metric key");
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`metric value ${key} must be a finite number`);
+    }
+    valuesJson[key] = value;
+  }
+
+  return Object.freeze({
+    metric_kind: input.metricKind,
+    values_json: Object.freeze(valuesJson),
+    observed_at: input.observedAt ?? null
+  });
+}
+
 export function redactNodeResponse(response = {}) {
   return Object.freeze({
     clientVersion: CONTROL_PLANE_CLIENT_VERSION,
@@ -134,4 +165,66 @@ export async function sendHeartbeat(input = {}) {
     }))
   });
   return readJsonResponse(response, "node heartbeat");
+}
+
+export async function fetchNextNodeCommand(input = {}) {
+  requireString(input.nodeToken, "nodeToken");
+  const nodeId = input.nodeId ?? input.config?.nodeId;
+  requireString(nodeId, "nodeId");
+  const fetchImpl = ensureFetch(input.fetchImpl ?? globalThis.fetch);
+  const url = buildUrl(
+    input.controlPlaneBaseUrl ?? input.config?.controlPlaneBaseUrl,
+    `/api/v1/nodes/${nodeId}/commands/next`
+  );
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: {
+      "x-lumen-node-token": input.nodeToken
+    }
+  });
+  if (response.status === 204) {
+    return null;
+  }
+  return readJsonResponse(response, "node command poll");
+}
+
+export async function completeNodeCommand(input = {}) {
+  requireString(input.nodeToken, "nodeToken");
+  requireString(input.commandId, "commandId");
+  const nodeId = input.nodeId ?? input.config?.nodeId;
+  requireString(nodeId, "nodeId");
+  const fetchImpl = ensureFetch(input.fetchImpl ?? globalThis.fetch);
+  const url = buildUrl(
+    input.controlPlaneBaseUrl ?? input.config?.controlPlaneBaseUrl,
+    `/api/v1/nodes/${nodeId}/commands/${input.commandId}/result`
+  );
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-lumen-node-token": input.nodeToken
+    },
+    body: JSON.stringify(createCommandResultRequestBody(input))
+  });
+  return readJsonResponse(response, "node command result");
+}
+
+export async function recordNodeMetric(input = {}) {
+  requireString(input.nodeToken, "nodeToken");
+  const nodeId = input.nodeId ?? input.config?.nodeId;
+  requireString(nodeId, "nodeId");
+  const fetchImpl = ensureFetch(input.fetchImpl ?? globalThis.fetch);
+  const url = buildUrl(
+    input.controlPlaneBaseUrl ?? input.config?.controlPlaneBaseUrl,
+    `/api/v1/nodes/${nodeId}/metrics`
+  );
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-lumen-node-token": input.nodeToken
+    },
+    body: JSON.stringify(createNodeMetricRequestBody(input))
+  });
+  return readJsonResponse(response, "node metric record");
 }

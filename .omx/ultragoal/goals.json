@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-27T11:02:44.057Z",
-  "updatedAt": "2026-05-27T11:51:45.281Z",
+  "updatedAt": "2026-05-27T12:05:59.887Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -23,10 +23,13 @@
       "id": "G002-node-agent-in-same-repo-command-poll",
       "title": "Node agent in same repo: command polling, apply config, protocol runt...",
       "objective": "Node agent in same repo: command polling, apply config, protocol runtime scaffolds, safe pause/resume, health/metrics reports, port conflict checks, landing page fallback support, secure token storage, tests.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-05-27T11:02:44.057Z",
-      "updatedAt": "2026-05-27T11:02:44.057Z"
+      "updatedAt": "2026-05-27T12:05:59.887Z",
+      "startedAt": "2026-05-27T11:52:23.724Z",
+      "completedAt": "2026-05-27T12:05:59.887Z",
+      "evidence": "G002 node-agent implemented: command poll/result/metrics client, run-once command application with persisted provisioning state, pause/resume/quarantine and desired-state/runtime scaffolds, skipped command handling, backend claimed-command guard, landing fallback plan module; npm test apps/node-agent 36 passed; pytest apps/api 41 passed; ruff check apps/api passed; secret scan clean."
     },
     {
       "id": "G003-admin-ui-in-same-repo-remna-like-but",

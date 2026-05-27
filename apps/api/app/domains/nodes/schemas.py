@@ -138,7 +138,7 @@ class NodeQuarantineRequest(BaseModel):
 class NodeCommandResultRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: str = Field(pattern="^(succeeded|failed|cancelled)$")
+    status: str = Field(pattern="^(succeeded|failed|cancelled|skipped)$")
     result_json: dict[str, object] = Field(default_factory=dict)
     error_code: str | None = Field(default=None, max_length=64)
     error_message: str | None = Field(default=None, max_length=512)

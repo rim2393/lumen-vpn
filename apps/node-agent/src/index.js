@@ -61,13 +61,25 @@ export {
 export {
   CONTROL_PLANE_CLIENT_VERSION,
   NODE_API_STATUS,
+  completeNodeCommand,
+  createCommandResultRequestBody,
   createHeartbeatRequestBody,
   createInstallTokenExchangeRequest,
+  createNodeMetricRequestBody,
   exchangeInstallToken,
+  fetchNextNodeCommand,
+  recordNodeMetric,
   redactInstallTokenExchangeResponse,
   redactNodeResponse,
   sendHeartbeat
 } from "./control-plane-client.js";
+export {
+  DEFAULT_FALLBACK_LANDING_TEMPLATE_REF,
+  FALLBACK_LANDING_PLAN_VERSION,
+  FALLBACK_LANDING_STATUSES,
+  createFallbackLandingPlan,
+  validateFallbackLandingPlan
+} from "./fallback-landing-plan.js";
 export {
   HEARTBEAT_PAYLOAD_VERSION,
   NODE_AGENT_DRY_RUN_REPORT_VERSION,
@@ -77,5 +89,5 @@ export {
   createNodeAgentRuntimeConfig,
   loadNodeAgentConfigFromEnv
 } from "./runtime-loop.js";
-export { enrollNodeAgent, runNodeAgentLoop, runNodeAgentOnce } from "./runtime-runner.js";
+export { applyNodeCommand, enrollNodeAgent, runNodeAgentLoop, runNodeAgentOnce } from "./runtime-runner.js";
 export { readSecretFromEnv } from "./secret-input.js";

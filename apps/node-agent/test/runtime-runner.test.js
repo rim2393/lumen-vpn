@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runNodeAgentOnce } from "../src/index.js";
+import {
+  COMMAND_TYPES,
+  NODE_PROVISIONING_MODES,
+  applyNodeCommand,
+  createProvisioningState,
+  runNodeAgentOnce
+} from "../src/index.js";
 
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
@@ -38,20 +44,35 @@ test("run once exchanges install token, persists node token, and sends heartbeat
             heartbeat_path: "/api/v1/nodes/node-1/heartbeat"
           });
         }
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return new Response(null, { status: 204 });
+        }
         return jsonResponse({
-          id: "node-1",
-          name: "node-1",
-          status: "active",
-          last_seen_at: "2026-05-27T00:00:00Z",
-          capabilities: {}
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: { command_polled: 0 }
         });
       }
     });
 
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 4);
     assert.equal(JSON.parse(calls[0].options.body).install_token, "install-secret");
     assert.equal(calls[1].options.headers["x-lumen-node-token"], "node-secret");
+    assert.equal(calls[2].url, "https://panel.example/api/v1/nodes/node-1/commands/next");
+    assert.equal(calls[3].url, "https://panel.example/api/v1/nodes/node-1/metrics");
     assert.equal(result.exchange.nodeTokenPrefix, "lumen_node_abc");
+    assert.equal(result.command, null);
+    assert.equal(result.metric.metricKind, "runtime");
     assert.equal(JSON.stringify(result).includes("node-secret"), false);
   } finally {
     rmSync(stateDir, { recursive: true, force: true });
@@ -74,20 +95,142 @@ test("run once reuses persisted node token without exchanging install token agai
       },
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-2",
+            name: "node-2",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return new Response(null, { status: 204 });
+        }
         return jsonResponse({
-          id: "node-2",
-          name: "node-2",
-          status: "active",
-          last_seen_at: "2026-05-27T00:00:00Z",
-          capabilities: {}
+          id: "metric-1",
+          node_id: "node-2",
+          metric_kind: "runtime",
+          values_json: { command_polled: 0 }
         });
       }
     });
 
-    assert.equal(calls.length, 1);
+    assert.equal(calls.length, 3);
     assert.equal(calls[0].url, "https://panel.example/api/v1/nodes/node-2/heartbeat");
     assert.equal(calls[0].options.headers["x-lumen-node-token"], "persisted-node-token");
     assert.equal(result.reusedExistingToken, true);
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("apply command pauses node and skips mutating command while paused", () => {
+  const active = createProvisioningState({
+    nodeId: "node-1",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  });
+  const pausedResult = applyNodeCommand(
+    {
+      id: "cmd-pause-1",
+      node_id: "node-1",
+      command_type: COMMAND_TYPES.NODE_PAUSE,
+      created_at: "2026-05-27T00:01:00.000Z",
+      payload_json: { reason: "license expired" }
+    },
+    active,
+    {
+      startedAt: "2026-05-27T00:01:01.000Z",
+      finishedAt: "2026-05-27T00:01:02.000Z"
+    }
+  );
+
+  assert.equal(pausedResult.status, "succeeded");
+  assert.equal(pausedResult.state.mode, NODE_PROVISIONING_MODES.PAUSED);
+  assert.equal(pausedResult.resultJson.outputs.reason, "license expired");
+
+  const skippedResult = applyNodeCommand(
+    {
+      id: "cmd-outbound-1",
+      node_id: "node-1",
+      command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+      created_at: "2026-05-27T00:02:00.000Z",
+      payload_json: { outboundId: "outbound-1", credentialsRef: "vault://nodes/node-1/outbound-1" }
+    },
+    pausedResult.state,
+    {
+      startedAt: "2026-05-27T00:02:01.000Z",
+      finishedAt: "2026-05-27T00:02:02.000Z"
+    }
+  );
+
+  assert.equal(skippedResult.status, "skipped");
+  assert.equal(skippedResult.state.mode, NODE_PROVISIONING_MODES.PAUSED);
+  assert.match(skippedResult.errorMessage, /paused/);
+});
+
+test("run once polls command, completes it, persists state, and records metric", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const calls = [];
+
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "node-1",
+        LUMEN_STATE_DIR: stateDir
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-pause-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_PAUSE,
+            status: "claimed",
+            payload_json: { reason: "license expired" },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-pause-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_PAUSE,
+            status: JSON.parse(options.body).status,
+            payload_json: { reason: "license expired" },
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(calls.length, 4);
+    assert.equal(calls[1].url, "https://panel.example/api/v1/nodes/node-1/commands/next");
+    assert.equal(calls[2].url, "https://panel.example/api/v1/nodes/node-1/commands/cmd-pause-1/result");
+    assert.equal(JSON.parse(calls[2].options.body).status, "succeeded");
+    assert.equal(JSON.parse(calls[3].options.body).values_json.command_completed, 1);
+    assert.equal(result.command.status, "succeeded");
+
+    const persisted = JSON.parse(readFileSync(join(stateDir, "provisioning-state.json"), "utf8"));
+    assert.equal(persisted.mode, NODE_PROVISIONING_MODES.PAUSED);
   } finally {
     rmSync(stateDir, { recursive: true, force: true });
   }
