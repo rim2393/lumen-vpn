@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+tests/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr

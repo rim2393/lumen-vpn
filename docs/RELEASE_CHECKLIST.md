@@ -4,6 +4,25 @@
 
 - [ ] Public installer repo contains no private source code.
 - [ ] Private Docker images build and are version-pinned.
+- [ ] GHCR images are published without a floating `latest` tag:
+      `ghcr.io/rim2393/lumen-api:${LUMEN_VERSION}`,
+      `ghcr.io/rim2393/lumen-web:${LUMEN_VERSION}`,
+      `ghcr.io/rim2393/lumen-node-agent:${LUMEN_VERSION}`, and
+      `ghcr.io/rim2393/lumen-subscription-page:${LUMEN_VERSION}`.
+- [ ] Release manifest pins each GHCR image by digest after publish.
+- [ ] API container listens on `${PORT:-8080}` and exposes
+      `/api/v1/health/live`.
+- [ ] Web container listens on `${PORT:-3000}`, serves the Vite build, and
+      proxies `/api/` to `${LUMEN_API_UPSTREAM}`. Default upstream is
+      `http://api:${LUMEN_API_INTERNAL_PORT:-8080}`.
+- [ ] Web API runtime base URL is set with `LUMEN_WEB_API_BASE_URL` or legacy
+      `API_BASE_URL`; if neither is set the bundle uses `window.location.origin`
+      so same-origin `/api/` proxying works.
+- [ ] Node-agent image runs as a non-root user, uses the
+      `lumen-node-agent` CLI entrypoint, and receives tokens through env or
+      `_FILE` secret mounts.
+- [ ] Subscription image is built from `apps/lumen-edge`, listens on
+      `${PORT:-8080}`, and serves only the non-secret fallback landing surface.
 - [ ] Clean VPS panel install completes.
 - [ ] Nginx and acme.sh TLS works.
 - [ ] First admin login works.
