@@ -229,6 +229,7 @@ const ru: Record<string, string> = {
   Action: 'Действие',
   Actor: 'Оператор',
   'Accessible nodes': 'Доступные ноды',
+  'Clear all devices': 'Очистить все устройства',
   'configured limit': 'заданный лимит',
   'Backend-derived devices': 'Устройства из backend-метаданных',
   'Backend does not expose device registry for this user.': 'Backend не отдает реестр устройств для этого пользователя.',
@@ -238,6 +239,7 @@ const ru: Record<string, string> = {
   'Backend unavailable': 'Backend недоступен',
   'Created at': 'Создано',
   'Device registry': 'Реестр устройств',
+  'Delete device {id}': 'Удалить устройство {id}',
   'Device rows are derived from backend metadata, not a full device-management feature.':
     'Строки устройств выведены из backend-метаданных, это не полноценное управление устройствами.',
   Disable: 'Отключить',
@@ -250,6 +252,7 @@ const ru: Record<string, string> = {
   Manage: 'Управлять',
   Metadata: 'Метаданные',
   'No devices are registered for this user yet.': 'У этого пользователя пока нет зарегистрированных устройств.',
+  'Not recorded': 'Не записано',
   'No request history is recorded for this user yet.': 'История запросов по этому пользователю пока не записана.',
   'No subscriptions are issued for this user yet.': 'Для этого пользователя пока нет выданных подписок.',
   'Real API user record with subscriptions, devices, access and history.':

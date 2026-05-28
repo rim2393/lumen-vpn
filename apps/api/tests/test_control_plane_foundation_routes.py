@@ -842,7 +842,13 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
                         "hwid": "AABBCC",
                         "platform": "android",
                         "status": "active",
-                    }
+                    },
+                    {
+                        "id": "hwid-2",
+                        "hwid": "DDEEFF",
+                        "platform": "ios",
+                        "status": "active",
+                    },
                 ]
             },
         },
@@ -886,6 +892,16 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
     assert detail["devices"][0]["hwid"] == "AABBCC"
     assert detail["accessible_nodes"][0]["id"] == node_id
     assert [event["action"] for event in detail["request_history"]] == ["user.created"]
+
+    delete_device_response = await foundation_app.client.delete(
+        f"/api/v1/users/{user_id}/devices/hwid-1",
+    )
+    assert delete_device_response.status_code == 200
+    assert [device["id"] for device in delete_device_response.json()["devices"]] == ["hwid-2"]
+
+    clear_devices_response = await foundation_app.client.delete(f"/api/v1/users/{user_id}/devices")
+    assert clear_devices_response.status_code == 200
+    assert clear_devices_response.json()["devices"] == []
 
 
 async def test_tools_reports_are_real_database_views(foundation_app: FoundationRouteApp) -> None:

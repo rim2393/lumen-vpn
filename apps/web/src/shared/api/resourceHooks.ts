@@ -750,6 +750,35 @@ export function useDeleteUser() {
   })
 }
 
+export function useDeleteUserDevice() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ deviceId, userId }: { deviceId: string; userId: string }) =>
+      apiClient.deleteUserDevice(userId, deviceId),
+    onSuccess: (_detail, variables) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(variables.userId) })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolHwid })
+    },
+  })
+}
+
+export function useClearUserDevices() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (userId: string) => apiClient.clearUserDevices(userId),
+    onSuccess: (_detail, userId) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(userId) })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolHwid })
+    },
+  })
+}
+
 export function useBulkUsers() {
   const apiClient = useApiClient()
   const queryClient = useQueryClient()

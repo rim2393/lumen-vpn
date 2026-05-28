@@ -1,7 +1,13 @@
 import { Link, useParams } from 'react-router-dom'
 import type React from 'react'
-import { Ban, CheckCircle2, ExternalLink, RotateCcw, ShieldX } from 'lucide-react'
-import { useBulkUsers, useUpdateUser, useUserDetailData } from '../shared/api/resourceHooks'
+import { Ban, CheckCircle2, ExternalLink, RotateCcw, ShieldX, Trash2 } from 'lucide-react'
+import {
+  useBulkUsers,
+  useClearUserDevices,
+  useDeleteUserDevice,
+  useUpdateUser,
+  useUserDetailData,
+} from '../shared/api/resourceHooks'
 import type { SubscriptionRecord, UserRecord } from '../shared/api/types'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
@@ -25,6 +31,8 @@ export function UserDetailPage() {
   const query = useUserDetailData(userId)
   const updateUser = useUpdateUser()
   const bulkUsers = useBulkUsers()
+  const deleteDevice = useDeleteUserDevice()
+  const clearDevices = useClearUserDevices()
   const detail = query.data
   const user = detail?.user
 
@@ -44,6 +52,22 @@ export function UserDetailPage() {
       action: 'reset-traffic',
       request: { user_ids: [user.id] },
     })
+    await query.refetch()
+  }
+
+  async function deleteUserDevice(deviceId: string) {
+    if (!user) {
+      return
+    }
+    await deleteDevice.mutateAsync({ deviceId, userId: user.id })
+    await query.refetch()
+  }
+
+  async function clearUserDevices() {
+    if (!user) {
+      return
+    }
+    await clearDevices.mutateAsync(user.id)
     await query.refetch()
   }
 
@@ -154,29 +178,51 @@ export function UserDetailPage() {
           <div className="panel__header">
             <div>
               <p className="eyebrow">{t('HWID')}</p>
-              <h2>{detail.devices.length > 0 ? t('Backend-derived devices') : t('Device registry')}</h2>
+              <h2>{detail.devices.length > 0 ? t('Registered devices') : t('Device registry')}</h2>
             </div>
-            <StatusBadge tone={detail.devices.length > 0 ? 'info' : 'watch'}>
-              {detail.devices.length > 0 ? String(detail.devices.length) : t('Backend unavailable')}
-            </StatusBadge>
+            <div className="inline-actions">
+              <StatusBadge tone={detail.devices.length > 0 ? 'info' : 'neutral'}>
+                {String(detail.devices.length)}
+              </StatusBadge>
+              {detail.devices.length > 0 ? (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t('Clear all devices')}
+                  disabled={clearDevices.isPending}
+                  onClick={() => void clearUserDevices()}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
           </div>
           {detail.devices.length === 0 ? (
-            <p className="empty-inline">{t('Backend does not expose device registry for this user.')}</p>
+            <p className="empty-inline">{t('No devices are registered for this user yet.')}</p>
           ) : (
-            <>
-              <p className="empty-inline">{t('Device rows are derived from backend metadata, not a full device-management feature.')}</p>
-              <ul className="feature-list">
-                {detail.devices.map((device) => (
-                  <li key={device.id}>
-                    <span aria-hidden="true">-</span>
-                    <div>
-                      <strong>{device.label ?? device.hwid ?? device.id}</strong>
-                      <small>{device.platform ?? t('unknown platform')} / {device.status}</small>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <DataTable
+              caption={t('Registered devices')}
+              columns={['Device', 'HWID', 'Platform', 'Status', 'Last seen', 'Actions']}
+              rows={detail.devices.map((device) => ({
+                id: device.id,
+                cells: [
+                  device.label ?? device.id,
+                  device.hwid ?? '-',
+                  device.platform ?? t('unknown platform'),
+                  <StatusBadge tone={toneForStatus(device.status)}>{device.status}</StatusBadge>,
+                  device.last_seen_at ? formatDateTime(device.last_seen_at) : t('Not recorded'),
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t('Delete device {id}', { id: device.id })}
+                    disabled={deleteDevice.isPending}
+                    onClick={() => void deleteUserDevice(device.id)}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>,
+                ],
+              }))}
+            />
           )}
         </article>
 

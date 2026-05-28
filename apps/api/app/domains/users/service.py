@@ -230,6 +230,49 @@ async def delete_user(session: AsyncSession, *, user_id: UUID) -> None:
     await session.flush()
 
 
+async def delete_user_device(session: AsyncSession, *, user_id: UUID, device_id: str) -> User:
+    user = await get_user(session, user_id)
+    metadata = dict(user.metadata_json)
+    devices = metadata.get("devices")
+    if not isinstance(devices, list):
+        raise APIError(
+            code="user_device_not_found",
+            message="Device was not found for this user.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=[device_id],
+        )
+
+    remaining: list[object] = []
+    removed = False
+    for device in devices:
+        if isinstance(device, dict) and _device_matches(device, device_id):
+            removed = True
+            continue
+        remaining.append(device)
+
+    if not removed:
+        raise APIError(
+            code="user_device_not_found",
+            message="Device was not found for this user.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=[device_id],
+        )
+
+    metadata["devices"] = remaining
+    user.metadata_json = metadata
+    await session.flush()
+    return user
+
+
+async def clear_user_devices(session: AsyncSession, *, user_id: UUID) -> User:
+    user = await get_user(session, user_id)
+    metadata = dict(user.metadata_json)
+    metadata["devices"] = []
+    user.metadata_json = metadata
+    await session.flush()
+    return user
+
+
 async def apply_bulk_user_action(
     session: AsyncSession,
     *,
@@ -409,3 +452,8 @@ def _optional_str(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _device_matches(device: dict[object, object], device_id: str) -> bool:
+    candidates = [device.get("id"), device.get("hwid")]
+    return any(str(candidate) == device_id for candidate in candidates if candidate is not None)

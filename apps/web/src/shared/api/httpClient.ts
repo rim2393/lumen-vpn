@@ -141,6 +141,12 @@ export function createHttpLumenApiClient({
     deleteResponseRule: (ruleId: string) =>
       request(`/api/v1/response-rules/${ruleId}`, { method: 'DELETE' }),
     deleteUser: (userId: string) => request(`/api/v1/users/${userId}`, { method: 'DELETE' }),
+    clearUserDevices: (userId: string) =>
+      request(`/api/v1/users/${userId}/devices`, { method: 'DELETE' }),
+    deleteUserDevice: (userId: string, deviceId: string) =>
+      request(`/api/v1/users/${userId}/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'DELETE',
+      }),
     getUser: (userId: string) => request(`/api/v1/users/${userId}`),
     getUserDetail: (userId: string) => request(`/api/v1/users/${userId}/detail`),
     getSquadDetail: (squadId: string) => request(`/api/v1/squads/${squadId}/detail`),

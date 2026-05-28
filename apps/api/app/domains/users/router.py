@@ -19,7 +19,9 @@ from app.domains.users.schemas import (
 )
 from app.domains.users.service import apply_bulk_user_action, user_to_response
 from app.domains.users.service import create_user as create_user_record
+from app.domains.users.service import clear_user_devices as clear_user_device_records
 from app.domains.users.service import delete_user as delete_user_record
+from app.domains.users.service import delete_user_device as delete_user_device_record
 from app.domains.users.service import get_user as get_user_record
 from app.domains.users.service import get_user_by_email as get_user_by_email_record
 from app.domains.users.service import get_user_by_numeric_id as get_user_by_numeric_id_record
@@ -160,6 +162,44 @@ async def get_user_detail(
     session: DbSession,
 ) -> UserDetailResponse:
     return await get_user_detail_record(session, user_id)
+
+
+@router.delete("/{user_id}/devices", response_model=UserDetailResponse)
+async def clear_user_devices(
+    user_id: UUID,
+    principal: UserManager,
+    session: DbSession,
+) -> UserDetailResponse:
+    user = await clear_user_device_records(session, user_id=user_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.devices.cleared",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+    await session.commit()
+    return await get_user_detail_record(session, user.id)
+
+
+@router.delete("/{user_id}/devices/{device_id}", response_model=UserDetailResponse)
+async def delete_user_device(
+    user_id: UUID,
+    device_id: str,
+    principal: UserManager,
+    session: DbSession,
+) -> UserDetailResponse:
+    user = await delete_user_device_record(session, user_id=user_id, device_id=device_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.device.deleted",
+        resource_type="user",
+        resource_id=str(user.id),
+        metadata_json={"device_id": device_id},
+    )
+    await session.commit()
+    return await get_user_detail_record(session, user.id)
 
 
 @router.patch("/{user_id}", response_model=UserResponse)

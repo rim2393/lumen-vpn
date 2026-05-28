@@ -62,6 +62,7 @@ import type {
   TorrentReportResponse,
   UserBulkActionRequest,
   UserCreateRequest,
+  UserDetailResponse,
   UserListResponse,
   UserRecord,
   UserUpdateRequest,
@@ -214,6 +215,24 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     }
     settings.push(next)
     return next
+  }
+
+  function buildUserDetail(user: UserRecord): UserDetailResponse {
+    return {
+      accessible_nodes: asNodeListResponse().items.map((node) => ({
+        id: node.id,
+        name: node.name,
+        public_address: node.public_address,
+        region: node.region,
+        status: node.status,
+      })),
+      devices: Array.isArray(user.metadata_json.devices)
+        ? (user.metadata_json.devices as never[])
+        : [],
+      request_history: [],
+      subscriptions: subscriptions.filter((subscription) => subscription.user_id === user.id),
+      user,
+    }
   }
 
   return {
@@ -471,21 +490,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       if (!user) {
         throw new Error('User not found')
       }
-      return {
-        accessible_nodes: asNodeListResponse().items.map((node) => ({
-          id: node.id,
-          name: node.name,
-          public_address: node.public_address,
-          region: node.region,
-          status: node.status,
-        })),
-        devices: Array.isArray(user.metadata_json.devices)
-          ? (user.metadata_json.devices as never[])
-          : [],
-        request_history: [],
-        subscriptions: subscriptions.filter((subscription) => subscription.user_id === user.id),
-        user,
-      }
+      return buildUserDetail(user)
     },
     getSquadDetail: async (squadId: string): Promise<SquadDetailResponse> => {
       const squad = squads.find((item) => item.id === squadId)
@@ -889,6 +894,30 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       }
       Object.assign(user, request, { updated_at: new Date().toISOString() })
       return user
+    },
+    clearUserDevices: async (userId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      user.metadata_json = { ...user.metadata_json, devices: [] }
+      return buildUserDetail(user)
+    },
+    deleteUserDevice: async (userId: string, deviceId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      const devices = Array.isArray(user.metadata_json.devices)
+        ? (user.metadata_json.devices as Record<string, unknown>[])
+        : []
+      user.metadata_json = {
+        ...user.metadata_json,
+        devices: devices.filter(
+          (device) => String(device.id ?? '') !== deviceId && String(device.hwid ?? '') !== deviceId,
+        ),
+      }
+      return buildUserDetail(user)
     },
     verifyMfaChallenge: async () => ({
       ...developmentSession,

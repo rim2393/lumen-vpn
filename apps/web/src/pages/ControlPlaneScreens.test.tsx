@@ -43,7 +43,7 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByRole('heading', { name: /mira volkova/i })).toBeInTheDocument()
     expect(screen.getByRole('table', { name: /issued subscriptions/i })).toBeInTheDocument()
     expect(screen.getAllByText('sub_pub_default').length).toBeGreaterThan(0)
-    expect(screen.getByText(/backend does not expose device registry/i)).toBeInTheDocument()
+    expect(screen.getByText(/no devices are registered/i)).toBeInTheDocument()
     expect(screen.getByText(/backend does not expose subscription request history/i)).toBeInTheDocument()
     userDetail.unmount()
 
@@ -144,6 +144,75 @@ describe('Control plane resource screens', () => {
     expect(updateUser.mock.calls[0]).toEqual(['usr_lifecycle', { status: 'disabled' }])
     expect(updateUser.mock.calls[1]).toEqual(['usr_lifecycle', { traffic_used_gb: 0 }])
     expect(updateUser.mock.calls[2]).toEqual(['usr_lifecycle', { status: 'revoked' }])
+  })
+
+  it('wires user detail HWID device deletion controls to backend requests', async () => {
+    const user = userEvent.setup()
+    const owner: UserRecord = {
+      created_at: '2026-05-27T00:00:00Z',
+      device_limit: 2,
+      display_name: 'Device Owner',
+      email: 'devices@lumen.local',
+      expires_at: null,
+      id: 'usr_devices',
+      metadata_json: {},
+      role: 'user',
+      status: 'active',
+      tags: [],
+      telegram_id: null,
+      traffic_limit_gb: 100,
+      traffic_used_gb: 1,
+      updated_at: '2026-05-27T00:00:00Z',
+      username: 'devices',
+    }
+    const detail = {
+      accessible_nodes: [],
+      devices: [
+        {
+          hwid: 'HWID-1',
+          id: 'phone',
+          label: 'Phone',
+          last_seen_at: null,
+          metadata_json: {},
+          platform: 'android',
+          status: 'active',
+        },
+        {
+          hwid: 'HWID-2',
+          id: 'tablet',
+          label: 'Tablet',
+          last_seen_at: null,
+          metadata_json: {},
+          platform: 'ios',
+          status: 'active',
+        },
+      ],
+      request_history: [],
+      subscriptions: [],
+      user: owner,
+    }
+    const deleteUserDevice = vi.fn(async (_userId: string, deviceId: string) => {
+      detail.devices = detail.devices.filter((device) => device.id !== deviceId)
+      return detail
+    })
+    const clearUserDevices = vi.fn(async () => {
+      detail.devices = []
+      return detail
+    })
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      clearUserDevices,
+      deleteUserDevice,
+      getUserDetail: async () => detail,
+    }
+
+    renderWithRouter('/users/usr_devices', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('table', { name: /registered devices/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /delete device phone/i }))
+    await waitFor(() => expect(deleteUserDevice).toHaveBeenCalledWith('usr_devices', 'phone'))
+    await user.click(screen.getByRole('button', { name: /clear all devices/i }))
+    await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_devices'))
   })
 
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {
