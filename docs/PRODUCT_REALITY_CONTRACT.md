@@ -10,6 +10,10 @@ test-only implementations from reaching the shipped product.
   subscription link, node action, API response, installer step, and update path
   must reflect real panel, node, database, filesystem, network, or external
   service state.
+- The live product must show the current factual project state only. If the
+  installation currently has one panel, one node, one user, and zero traffic,
+  the admin UI and API must report exactly that state; never inflate, seed, or
+  replace it with presentational numbers.
 - No fake replacements are allowed in production. Do not ship mocked counters,
   demo users, demo nodes, synthetic traffic, placeholder protocol results,
   fake success messages, fake client compatibility, or hardcoded production
@@ -24,6 +28,11 @@ test-only implementations from reaching the shipped product.
 - Public subscriptions must always be backed by a real user, license,
   subscription, node, host/profile where required, and renderable protocol. The
   backend must reject positive subscription flows that omit real required state.
+- Positive tests must follow the same rule: they may create fixtures, but a
+  successful subscription/client/protocol path must include the real required
+  domain graph. Tests that prove rejection of missing nodes/protocols are
+  allowed; tests that treat missing nodes/protocols as a valid success path are
+  not allowed.
 - Protocol support is complete only after adapter validation, node-agent apply
   behavior, subscription rendering, client import compatibility, and live VPS
   verification all pass.

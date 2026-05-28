@@ -13,6 +13,8 @@ in `rim2393/lumen_vpn`.
   real API, database, node, filesystem, network, or external-service state. No
   fake counters, placeholders, demo entities, mock-only behavior, or fake
   success paths may ship.
+- The deployed admin console must reflect the factual live installation state,
+  not seeded showcase numbers or mock availability.
 - Do not commit secrets, generated runtime configs, private keys, registry
   tokens, subscription URLs, or server credentials.
 - Do not copy Remnawave or Amnezia source code or branded assets.
