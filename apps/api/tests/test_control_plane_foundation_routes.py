@@ -894,12 +894,63 @@ async def test_protocol_profile_rejects_plaintext_credentials_ref(
     assert "credentials_ref" in body["error"]["details"][0]
 
 
+async def test_active_profile_rejects_catalog_only_adapter(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    node_id = await seeded_node_id(foundation_app)
+
+    active_response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "WireGuard catalog only",
+            "node_id": node_id,
+            "adapter": "wireguard-native",
+            "credentials_ref": "vault://protocols/wireguard/catalog-only",
+            "port_reservations": [
+                {"address": WILDCARD_BIND_ADDRESS, "port": 51820, "protocol": "udp"}
+            ],
+        },
+    )
+    assert active_response.status_code == 422
+    assert active_response.json()["error"]["code"] == "protocol_adapter_not_live"
+
+    disabled_response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "WireGuard catalog draft",
+            "node_id": node_id,
+            "adapter": "wireguard-native",
+            "status": "disabled",
+            "credentials_ref": "vault://protocols/wireguard/catalog-draft",
+            "port_reservations": [
+                {"address": WILDCARD_BIND_ADDRESS, "port": 51821, "protocol": "udp"}
+            ],
+        },
+    )
+    assert disabled_response.status_code == 201
+    assert disabled_response.json()["status"] == "disabled"
+
+
 async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp) -> None:
     node_id = await seeded_node_id(foundation_app)
+    profile_response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "Command Queue Reality",
+            "node_id": node_id,
+            "adapter": "vless-reality",
+            "credentials_ref": "vault://protocols/command-queue-reality",
+            "port_reservations": [
+                {"address": WILDCARD_BIND_ADDRESS, "port": 41443, "protocol": "tcp"}
+            ],
+        },
+    )
+    assert profile_response.status_code == 201
+    profile_id = profile_response.json()["id"]
 
     command_response = await foundation_app.client.post(
         f"/api/v1/nodes/{node_id}/commands",
-        json={"command_type": "protocol.apply", "payload_json": {"profile_id": "demo"}},
+        json={"command_type": "protocol.apply", "payload_json": {"profile_id": profile_id}},
     )
     assert command_response.status_code == 201
     command_id = command_response.json()["id"]
@@ -921,7 +972,10 @@ async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp
 
     skipped_command_response = await foundation_app.client.post(
         f"/api/v1/nodes/{node_id}/commands",
-        json={"command_type": "outbound.apply", "payload_json": {"outbound_id": "demo"}},
+        json={
+            "command_type": "outbound.apply",
+            "payload_json": {"profile_id": profile_id, "node_id": node_id},
+        },
     )
     assert skipped_command_response.status_code == 201
     skipped_command_id = skipped_command_response.json()["id"]

@@ -41,7 +41,7 @@ async def get_user(session: AsyncSession, user_id: UUID) -> User:
 async def get_user_detail(session: AsyncSession, user_id: UUID) -> UserDetailResponse:
     user = await get_user(session, user_id)
     subscriptions = await list_subscriptions_for_user(session, user_id=user.id)
-    nodes = await _list_accessible_nodes(session)
+    nodes = await _list_accessible_nodes(session, subscriptions=subscriptions)
     request_history = await _list_user_audit_events(session, user_id=user.id)
     return UserDetailResponse(
         user=user_to_response(user),
@@ -233,8 +233,19 @@ def user_to_response(user: User) -> UserResponse:
     )
 
 
-async def _list_accessible_nodes(session: AsyncSession) -> list[Node]:
-    result = await session.execute(select(Node).where(Node.status != "deleted").order_by(Node.name))
+async def _list_accessible_nodes(
+    session: AsyncSession,
+    *,
+    subscriptions,
+) -> list[Node]:
+    node_ids = {subscription.node_id for subscription in subscriptions if subscription.node_id is not None}
+    if not node_ids:
+        return []
+    result = await session.execute(
+        select(Node)
+        .where(Node.id.in_(node_ids), Node.status != "deleted")
+        .order_by(Node.name),
+    )
     return list(result.scalars().all())
 
 

@@ -104,3 +104,35 @@ test("renders VLESS TCP TLS fields with real derived credentials", () => {
   assert.doesNotMatch(JSON.stringify(singBox), /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
   assert.doesNotMatch(mihomo, /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
 });
+
+test("rejects catalog-only protocols from client renderers", () => {
+  const manifest = createSubscriptionManifest({
+    generatedAt: "2026-05-26T00:00:00.000Z",
+    provider: { id: "lumen", name: "Lumen VPN" },
+    subscription: { id: "sub_123", audience: "android" },
+    nodes: [
+      {
+        id: "ams-1",
+        displayName: "Amsterdam 1",
+        region: "nl-ams",
+        protocols: [
+          {
+            type: "trojan",
+            endpoint: { host: "ams-1.example.net", port: 443 },
+            security: { serverName: "ams-1.example.net" },
+            credentialsRef: "vault://subscriptions/sub_123/trojan"
+          }
+        ]
+      }
+    ]
+  });
+
+  assert.throws(
+    () => renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED }),
+    /not enabled for client rendering/
+  );
+  assert.throws(
+    () => renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED }),
+    /not enabled for client rendering/
+  );
+});

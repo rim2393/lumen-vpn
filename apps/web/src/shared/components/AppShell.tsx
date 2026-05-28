@@ -1,4 +1,4 @@
-import { Bell, CircleHelp, Languages, LogOut, Menu, Search, Settings, X } from 'lucide-react'
+import { CircleHelp, Languages, LogOut, Menu, Search, Settings, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../../features/auth/authSession'
@@ -39,10 +39,9 @@ export function AppShell() {
 function AppShellLayout() {
   const apiClient = useApiClient()
   const navigate = useNavigate()
-  const { clearSession } = useAuthSession()
+  const { clearSession, session } = useAuthSession()
   const { language, setLanguage, t } = useI18n()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchStatus, setSearchStatus] = useState('')
   const closeSidebar = () => setIsSidebarOpen(false)
@@ -125,8 +124,8 @@ function AppShellLayout() {
           ))}
         </nav>
         <div className="sidebar__footer">
-          <span>{t('Instance')}</span>
-          <strong>lumen-prod-01</strong>
+          <span>{t('Operator')}</span>
+          <strong>{session?.email ?? t('Not signed in')}</strong>
         </div>
       </aside>
 
@@ -203,21 +202,6 @@ function AppShellLayout() {
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              className="icon-button"
-              aria-expanded={isNotificationsOpen}
-              aria-label={t('Notifications')}
-              onClick={() => setIsNotificationsOpen((current) => !current)}
-            >
-              <Bell size={18} />
-            </button>
-            {isNotificationsOpen ? (
-              <div className="notification-popover" role="status">
-                <strong>{t('No active notifications')}</strong>
-                <span>{t('Node heartbeat, license, and API health alerts are clear.')}</span>
-              </div>
-            ) : null}
             <Link to="/settings" className="icon-button" aria-label={t('Settings')}>
               <Settings size={18} />
             </Link>

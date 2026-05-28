@@ -7,6 +7,7 @@ This backlog is the working contract for closing Lumen admin parity. Each item m
 - Every deployed page, button, metric, subscription link, node action and API response must reflect real panel/node/database/external-service state.
 - Test fixtures and development API clients are allowed only inside automated tests or explicitly local development paths; they must never be reachable from production install scripts, deployed images, live admin UI or public subscription URLs.
 - A public subscription must always be attached to a real node and a renderable protocol/profile. The backend must reject subscriptions without a node or without a renderable protocol.
+- Automated tests must seed real users, licenses, nodes and renderable protocols for positive flows. Missing-node or missing-protocol subscriptions are allowed only in negative validation tests that assert rejection.
 - If a feature is not production-ready, the UI must hide it or mark it unavailable with a real backend status. It must not show fake success, fake counts, fake nodes, fake users or fake client compatibility.
 - Any future parity item can be closed only after live VPS/API verification proves the state is real.
 

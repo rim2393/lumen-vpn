@@ -29,7 +29,7 @@ The current web app lives in `apps/web` and covers the Lumen Guard admin entry p
 
 The Lumen look uses graphite surfaces, green safety accents, amber warning states, compact 4/8 spacing, and card radii at 8px or below. Density is encoded with `data-density="compact"` selectors so the core UI does not depend on container style queries. Dashboard containment uses `content-visibility: auto` with a `contain` fallback.
 
-## Integration TODO
+## Planned Integration Work
 
 - Set `VITE_LUMEN_API_BASE_URL` to enable the HTTP client. Deployed images must not set `VITE_LUMEN_API_MODE=development`; the production bundle now throws if development API mode is configured.
 - Current HTTP paths include `GET/PATCH/DELETE /api/v1/users/{id}`, `POST /api/v1/users/bulk/{action}`, `GET/POST/PATCH/DELETE /api/v1/hosts`, `GET/POST/PATCH/DELETE /api/v1/profiles`, `GET/POST/PATCH/DELETE /api/v1/squads`, `GET /api/admin/license`, `GET /api/admin/api-keys`, `GET /api/v1/nodes`, `POST /api/v1/nodes/provisioning-jobs`, and Remna-compatible aliases under `/api/users`, `/api/hosts`, `/api/config-profiles`, `/api/internal-squads`, `/api/external-squads`, and `/api/tokens`.

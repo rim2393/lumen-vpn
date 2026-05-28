@@ -1,7 +1,7 @@
 [project]
 name = "lumen-api"
 version = "0.1.0"
-description = "Lumen VPN backend API scaffold"
+description = "Lumen VPN backend API"
 requires-python = ">=3.12"
 dependencies = [
     "aiosqlite>=0.20.0",

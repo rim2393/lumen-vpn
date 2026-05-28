@@ -59,8 +59,7 @@ describe('Lumen admin routing', () => {
 
     renderWithRouter('/dashboard', { apiClient: createDevelopmentLumenApiClient(), initialSession: developmentSession })
 
-    await user.click(await screen.findByRole('button', { name: /notifications/i }))
-    expect(screen.getByText(/no active notifications/i)).toBeInTheDocument()
+    expect(await screen.findByText(developmentSession.email)).toBeInTheDocument()
 
     await user.selectOptions(screen.getByRole('combobox', { name: /interface language/i }), 'ru')
     expect(document.documentElement.lang).toBe('ru')
@@ -85,7 +84,7 @@ describe('Lumen admin routing', () => {
     expect(screen.getByLabelText(/one-time code/i)).toBeInTheDocument()
   })
 
-  it('renders API-backed resource screens with mock data', async () => {
+  it('renders API-backed resource screens with the isolated development client', async () => {
     renderWithRouter('/api-keys', {
       apiClient: createDevelopmentLumenApiClient(),
       initialSession: developmentSession,

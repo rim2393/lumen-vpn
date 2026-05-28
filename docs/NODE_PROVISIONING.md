@@ -95,7 +95,7 @@ The agent detects:
 - overlapping exclusive address/port/protocol reservations
 - privileged port usage without `bind.privileged_ports`
 
-## TODO
+## Planned Runtime Work
 
 - Wire capability reports to real OS probes per platform.
 - Add durable provisioning queue storage and retry policy.

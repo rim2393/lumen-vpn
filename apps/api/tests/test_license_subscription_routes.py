@@ -75,7 +75,7 @@ async def seed_subscription_dependencies(
     route_app: RouteTestApp,
 ) -> tuple[User, License, Node]:
     async with route_app.sessionmaker() as session:
-        user = User(email="route-subscriber@example.com", status="active")
+        user = User(email="route-subscriber@example.com", status="active", traffic_used_gb=17.82)
         license_record = License(
             license_key_hash=hash_license_key("route-subscription-license"),
             customer_ref="route-customer",
@@ -389,6 +389,7 @@ async def test_public_subscription_renderers_emit_client_compatible_formats(
     assert raw_response.status_code == 200
     assert raw_response.headers["x-lumen-render-target"] == "hiddify"
     assert raw_response.headers["profile-title"].startswith("base64:")
+    assert "download=19134079303" in raw_response.headers["subscription-userinfo"]
     assert "total=536870912000" in raw_response.headers["subscription-userinfo"]
     raw_body = raw_response.text
     assert raw_body.startswith("vless://")

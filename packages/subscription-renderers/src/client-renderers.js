@@ -8,6 +8,7 @@ export const SUPPORTED_RENDER_FORMATS = Object.freeze([
   "clash-meta",
   "mihomo"
 ]);
+const LIVE_CLIENT_PROTOCOLS = new Set(["vless-reality", "vless-tcp-tls"]);
 
 function flattenProtocolEntries(manifest) {
   return manifest.nodes.flatMap((node) =>
@@ -31,6 +32,13 @@ function mapClientType(type) {
     return "ss";
   }
   return type;
+}
+
+function assertLiveClientProtocol(protocol) {
+  if (LIVE_CLIENT_PROTOCOLS.has(protocol.type)) {
+    return;
+  }
+  throw new Error(`Protocol ${protocol.type} is not enabled for client rendering`);
 }
 
 function compactObject(input) {
@@ -125,6 +133,7 @@ function renderSingBoxTls(protocol) {
 
 function renderSingBoxOutbound(entry, options) {
   const protocol = entry.protocol;
+  assertLiveClientProtocol(protocol);
   const type = mapClientType(protocol.type);
   const credentials = credentialsFor(entry, options);
   const base = {
@@ -235,6 +244,7 @@ function addMihomoSecurity(output, protocol) {
 
 function renderMihomoProxy(entry, options) {
   const protocol = entry.protocol;
+  assertLiveClientProtocol(protocol);
   const type = mapClientType(protocol.type);
   const credentials = credentialsFor(entry, options);
   const base = {

@@ -32,8 +32,7 @@ export function createFallbackLandingModel(input = {}) {
       liveTrafficEnabled: false
     }),
     actions: normalizeActions(input.actions ?? [
-      { kind: "retry", label: "Retry", href: input.retryHref ?? "/" },
-      { kind: "docs", label: "Client compatibility", href: input.clientCompatHref ?? "/CLIENT_COMPAT.md" }
+      { kind: "retry", label: "Retry", href: input.retryHref ?? "/" }
     ])
   });
 }

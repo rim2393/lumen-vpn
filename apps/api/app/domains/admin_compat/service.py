@@ -18,7 +18,7 @@ from app.domains.admin_compat.schemas import (
     LicenseSummaryResponse,
 )
 from app.domains.api_keys.models import ApiKey
-from app.domains.auth.models import UserSession
+from app.domains.auth.models import UserMfaMethod, UserSession
 from app.domains.licenses.models import License
 from app.domains.subscriptions.models import Subscription
 from app.domains.users.models import User
@@ -34,7 +34,6 @@ ADMIN_COMPAT_PERMISSIONS = frozenset(
     }
 )
 API_KEY_EXPIRING_WINDOW = timedelta(days=30)
-USER_TRIAL_WINDOW = timedelta(days=14)
 NO_EXPIRY_SENTINEL = datetime(9999, 12, 31, tzinfo=UTC)
 
 
@@ -96,10 +95,15 @@ async def list_admin_users(
         session,
         user_ids=[user.id for user in users],
     )
+    mfa_enabled_by_user = await _confirmed_mfa_by_user(
+        session,
+        user_ids=[user.id for user in users],
+    )
     items = [
         _user_record(
             user,
             subscription=subscriptions_by_user.get(user.id),
+            mfa_enabled=mfa_enabled_by_user.get(user.id, False),
             generated_at=generated_at,
         )
         for user in users
@@ -231,6 +235,25 @@ async def _latest_subscriptions_by_user(
     return subscriptions_by_user
 
 
+async def _confirmed_mfa_by_user(
+    session: AsyncSession,
+    *,
+    user_ids: list[UUID],
+) -> dict[UUID, bool]:
+    if not user_ids:
+        return {}
+    result = await session.execute(
+        select(UserMfaMethod.user_id)
+        .where(
+            UserMfaMethod.user_id.in_(user_ids),
+            UserMfaMethod.status == "confirmed",
+            UserMfaMethod.confirmed_at.is_not(None),
+        )
+        .distinct(),
+    )
+    return {user_id: True for user_id in result.scalars().all()}
+
+
 async def _users_by_id(
     session: AsyncSession,
     *,
@@ -247,6 +270,7 @@ def _user_record(
     user: User,
     *,
     subscription: Subscription | None,
+    mfa_enabled: bool,
     generated_at: datetime,
 ) -> AdminUserRecord:
     return AdminUserRecord(
@@ -254,18 +278,20 @@ def _user_record(
         email=user.email,
         expires_at=_user_expires_at(user, subscription=subscription),
         id=str(user.id),
-        mfa_enabled=False,
+        mfa_enabled=mfa_enabled,
         role=_admin_user_role(user.role),
         status=_admin_user_status(user, subscription=subscription, generated_at=generated_at),
         subscription=_subscription_status(subscription, generated_at=generated_at),
-        traffic_used_gb=_traffic_used_gb(subscription),
+        traffic_used_gb=float(user.traffic_used_gb),
     )
 
 
 def _user_expires_at(user: User, *, subscription: Subscription | None) -> datetime:
     if subscription is not None and subscription.expires_at is not None:
         return ensure_aware(subscription.expires_at)
-    return ensure_aware(user.created_at) + USER_TRIAL_WINDOW
+    if user.expires_at is not None:
+        return ensure_aware(user.expires_at)
+    return NO_EXPIRY_SENTINEL
 
 
 def _admin_user_role(role: str) -> str:
@@ -284,6 +310,8 @@ def _admin_user_status(
         return "disabled"
     if user.status != "active":
         return "limited"
+    if user.expires_at is not None and ensure_aware(user.expires_at) <= generated_at:
+        return "limited"
     if subscription is None or subscription.expires_at is None:
         return "active"
     if ensure_aware(subscription.expires_at) <= generated_at:
@@ -297,7 +325,7 @@ def _subscription_status(
     generated_at: datetime,
 ) -> str:
     if subscription is None:
-        return "trial"
+        return "expired"
     if subscription.revoked_at is not None:
         return "expired"
     if (
@@ -309,19 +337,7 @@ def _subscription_status(
         return subscription.status
     if subscription.status in {"active", "paid"}:
         return "paid"
-    return "trial"
-
-
-def _traffic_used_gb(subscription: Subscription | None) -> float:
-    if subscription is None:
-        return 0.0
-    raw_value = subscription.delivery_profile.get("traffic_used_gb")
-    if raw_value is None:
-        raw_value = subscription.delivery_profile.get("trafficUsedGb")
-    try:
-        return float(raw_value) if raw_value is not None else 0.0
-    except ValueError:
-        return 0.0
+    return "expired"
 
 
 def _api_key_record(

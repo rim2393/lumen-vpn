@@ -73,7 +73,7 @@ renderers require a secure credential seed and emit runnable VLESS Reality/TLS
 configs without exposing vault references, private keys, access tokens, or
 subscription URLs.
 
-## TODO
+## Planned Manifest Work
 
 - Add JSON Schema export once the final manifest version is stable.
 - Add manifest signing and freshness fields.

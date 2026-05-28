@@ -35,7 +35,7 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "runtime_config",
     }
 )
-RENDERABLE_PROTOCOL_PREFIXES = ("vless", "trojan", "shadowsocks", "hysteria2")
+RENDERABLE_PROTOCOL_PREFIXES = ("vless",)
 
 
 def utc_now() -> datetime:
@@ -110,6 +110,13 @@ async def build_subscription_manifest(
     subscription_id: UUID,
 ) -> dict[str, object]:
     subscription = await get_subscription(session, subscription_id=subscription_id)
+    user = await session.get(User, subscription.user_id)
+    if user is None:
+        raise APIError(
+            code="subscription_user_not_found",
+            message="Subscription user was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
     if subscription.node_id is None:
         raise APIError(
             code="subscription_manifest_node_missing",
@@ -221,6 +228,8 @@ async def build_subscription_manifest(
             "supportUrl": support_url,
             "profilePageUrl": profile_page_url,
             "trafficLimitGb": delivery.get("traffic_limit_gb"),
+            "trafficUsedGb": user.traffic_used_gb,
+            "trafficUploadGb": delivery.get("traffic_upload_gb"),
             "updateIntervalHours": update_interval_hours,
         },
     }

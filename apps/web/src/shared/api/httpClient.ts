@@ -188,17 +188,7 @@ export function createHttpLumenApiClient({
           methods: loginResponse.methods,
         }
       }
-      const tokenPair = loginResponse
-      return {
-        accessToken: tokenPair.access_token,
-        email: payload.email,
-        expiresAt: tokenPair.expires_at,
-        name: payload.email,
-        refreshToken: tokenPair.refresh_token,
-        role: 'admin',
-        scopes: [],
-        userId: payload.email,
-      }
+      return readSessionAfterTokenIssue(loginResponse)
     },
     readProvisioningJob: (jobId: string) => request(`/api/v1/nodes/provisioning-jobs/${jobId}`),
     pauseNode: (nodeId: string, payload: NodePauseRequest) =>
@@ -247,16 +237,7 @@ export function createHttpLumenApiClient({
         },
         method: 'POST',
       })
-      return {
-        accessToken: tokenPair.access_token,
-        email: 'verified-operator@lumen.local',
-        expiresAt: tokenPair.expires_at,
-        name: 'Verified operator',
-        refreshToken: tokenPair.refresh_token,
-        role: 'admin',
-        scopes: [],
-        userId: 'verified-operator',
-      }
+      return readSessionAfterTokenIssue(tokenPair)
     },
     logout: () => request('/api/v1/auth/logout', { method: 'POST' }),
     updateAuthProvider: (provider: string, payload: AuthProviderUpdateRequest) =>
@@ -270,5 +251,14 @@ export function createHttpLumenApiClient({
       request(`/api/v1/squads/${squadId}`, { body: payload, method: 'PATCH' }),
     updateUser: (userId: string, payload: UserUpdateRequest) =>
       request(`/api/v1/users/${userId}`, { body: payload, method: 'PATCH' }),
+  }
+
+  async function readSessionAfterTokenIssue(tokenPair: TokenPairResponse): Promise<AuthSession> {
+    const session = await request<AuthSession>('/api/auth/session')
+    return {
+      ...session,
+      accessToken: tokenPair.access_token,
+      refreshToken: tokenPair.refresh_token,
+    }
   }
 }

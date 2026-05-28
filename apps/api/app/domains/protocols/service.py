@@ -275,6 +275,7 @@ PROTOCOL_ADAPTERS = (
         required_credential_refs=["private_key"],
     ),
 )
+LIVE_PROFILE_ADAPTERS = frozenset({"vless-reality", "vless-tcp-tls"})
 
 
 def list_protocol_adapters() -> list[ProtocolAdapterResponse]:
@@ -345,13 +346,7 @@ async def create_profile(
     await _ensure_node_exists(session, request.node_id)
     if request.squad_id is not None:
         await get_squad(session, squad_id=request.squad_id)
-    if request.adapter not in {adapter.protocol for adapter in PROTOCOL_ADAPTERS}:
-        raise APIError(
-            code="protocol_adapter_unknown",
-            message="Protocol adapter is not registered.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            details=[request.adapter],
-        )
+    _ensure_adapter_live_for_active_profile(request.adapter, request.status)
     existing = (
         await session.execute(select(ProtocolProfile).where(ProtocolProfile.name == request.name))
     ).scalar_one_or_none()
@@ -404,7 +399,11 @@ async def update_profile(
     if "squad_id" in data and data["squad_id"] is not None:
         await get_squad(session, squad_id=data["squad_id"])
     if "adapter" in data and data["adapter"] is not None:
-        _ensure_adapter_known(data["adapter"])
+        next_status = data.get("status") or profile.status
+        _ensure_adapter_live_for_active_profile(data["adapter"], next_status)
+    if "status" in data and data["status"] is not None:
+        next_adapter = data.get("adapter") or profile.adapter
+        _ensure_adapter_live_for_active_profile(next_adapter, data["status"])
     if "name" in data and data["name"] != profile.name:
         await _ensure_unique_name(
             session,
@@ -789,6 +788,23 @@ def _ensure_adapter_known(adapter: str) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             details=[adapter],
         )
+
+
+def _ensure_adapter_live_for_active_profile(adapter: str, profile_status: str) -> None:
+    _ensure_adapter_known(adapter)
+    if profile_status != "active":
+        return
+    if adapter in LIVE_PROFILE_ADAPTERS:
+        return
+    raise APIError(
+        code="protocol_adapter_not_live",
+        message=(
+            "This protocol adapter is catalog-only until its node-agent runtime, "
+            "renderer, and client compatibility checks are complete."
+        ),
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        details=[adapter],
+    )
 
 
 async def _ensure_unique_name(

@@ -91,6 +91,7 @@ async def seed_compat_data(compat_app: CompatRouteApp) -> SeededCompatData:
             email="owner.admin@example.com",
             role=Role.OWNER.value,
             status="active",
+            traffic_used_gb=42.5,
             created_at=now - timedelta(days=20),
             updated_at=now - timedelta(days=1),
         )
@@ -98,6 +99,7 @@ async def seed_compat_data(compat_app: CompatRouteApp) -> SeededCompatData:
             email="expired.user@example.com",
             role=Role.USER.value,
             status="active",
+            traffic_used_gb=11.0,
             created_at=now - timedelta(days=40),
             updated_at=now - timedelta(days=2),
         )

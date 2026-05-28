@@ -38,7 +38,7 @@ private keys, access tokens, or generated subscription URLs.
 
 `apps/lumen-edge/src/fallback-landing.js` defines `lumen.edge.fallback-landing.v1` for edge fallback responses. The model reports fallback status, reason, host, request ID, safe diagnostics, and non-secret action links.
 
-## TODO
+## Planned Compatibility Work
 
 - Define minimum supported versions for each target client.
 - Add renderer fixture tests from real client parsers for every newly enabled target.

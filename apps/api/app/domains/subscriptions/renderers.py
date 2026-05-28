@@ -169,7 +169,9 @@ def build_subscription_headers(manifest: dict[str, Any]) -> dict[str, str]:
     metadata = manifest.get("metadata", {})
     expire = _unix_timestamp(subscription.get("expiresAt"))
     total = _bytes_from_gb(metadata.get("trafficLimitGb"))
-    userinfo = f"upload=0; download=0; total={total}; expire={expire}"
+    upload = _bytes_from_gb(metadata.get("trafficUploadGb"))
+    download = _bytes_from_gb(metadata.get("trafficUsedGb"))
+    userinfo = f"upload={upload}; download={download}; total={total}; expire={expire}"
     title = str(metadata.get("profileTitle") or manifest.get("provider", {}).get("name") or "Lumen")
     update_interval = str(metadata.get("updateIntervalHours") or 24)
     return {

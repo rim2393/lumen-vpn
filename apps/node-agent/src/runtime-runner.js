@@ -347,6 +347,9 @@ export function applyNodeCommand(command, currentState, input = {}) {
             });
           }
         }
+        if (!runtimeAction) {
+          throw new Error(`${envelope.command} has no live runtime backend on this node-agent build`);
+        }
         nextState = transitionApplyState(state, envelope, { startedAt, finishedAt });
         outputs = {
           appliedRevision: nextState.appliedRevision,

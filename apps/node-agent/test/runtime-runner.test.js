@@ -437,3 +437,29 @@ test("run once can start a gated live tcp diagnostic listener from outbound appl
     rmSync(stateDir, { recursive: true, force: true });
   }
 });
+
+test("outbound apply fails when no live runtime backend exists", () => {
+  const active = createProvisioningState({
+    nodeId: "node-1",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  });
+
+  const result = applyNodeCommand(
+    {
+      id: "cmd-outbound-non-live-1",
+      node_id: "node-1",
+      command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+      created_at: "2026-05-27T00:02:00.000Z",
+      payload_json: { outboundId: "outbound-1", adapter: "vless-reality" }
+    },
+    active,
+    {
+      startedAt: "2026-05-27T00:02:01.000Z",
+      finishedAt: "2026-05-27T00:02:02.000Z"
+    }
+  );
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorCode, "command_apply_failed");
+  assert.match(result.errorMessage, /no live runtime backend/);
+});

@@ -59,7 +59,7 @@ Real protocol plans include `portReservations` entries using `lumen.protocol-reg
 
 Renderer hints provide stable protocol naming for client formats such as sing-box and Clash Meta. They are not executable configs.
 
-## TODO
+## Planned Runtime Work
 
 - Define runtime credential resolver interface.
 - Keep live protocol binaries and generated configs outside this registry package.

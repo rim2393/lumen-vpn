@@ -203,9 +203,14 @@ export function SubscriptionPublicPage() {
               Refresh
             </button>
           </div>
-          <pre className="code-block">
-            {JSON.stringify(subscriptionInfo ?? defaultPayload(form), null, 2)}
-          </pre>
+          {subscriptionInfo ? (
+            <pre className="code-block">{JSON.stringify(subscriptionInfo, null, 2)}</pre>
+          ) : (
+            <p className="auth-card__note">
+              No saved subscription.info setting exists yet. Save the form to apply these
+              values to public manifests and subscription render headers.
+            </p>
+          )}
         </article>
       </div>
       {subscriptionsQuery.isLoading ? <LoadingState label="Loading subscription page..." /> : null}
@@ -252,13 +257,4 @@ function stringValue(value: unknown, fallback: string) {
     return fallback
   }
   return String(value)
-}
-
-function defaultPayload(form: SubscriptionInfoForm) {
-  return {
-    auto_update_hours: form.autoUpdateHours,
-    profile_page_url: form.profilePageUrl,
-    support_url: form.supportUrl,
-    title: form.title,
-  }
 }
