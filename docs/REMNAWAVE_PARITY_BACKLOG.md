@@ -2,6 +2,10 @@
 
 This backlog is the working contract for closing Lumen admin parity. Each item must be backed by real API, database state or external service state before it can be marked done. Production UI must not use fake counters or mock-only data.
 
+The mandatory cross-project rule is `docs/PRODUCT_REALITY_CONTRACT.md`. This
+backlog adds Remnawave parity scope on top of that contract; it does not weaken
+or replace it.
+
 ## Production Reality Contract
 
 - Every deployed page, button, metric, subscription link, node action and API response must reflect real panel/node/database/external-service state.

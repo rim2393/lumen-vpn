@@ -36,7 +36,8 @@ panel and one live node, replacing non-live code paths with real contracts.
 - Production Reality Contract is active: runtime web builds have no development API mode,
   public subscriptions require a real node and renderable protocol, catalog-only
   protocol adapters cannot provision live plans, and client renderers no longer
-  emit incomplete client configs.
+  emit incomplete client configs. The canonical rule is
+  `docs/PRODUCT_REALITY_CONTRACT.md`.
 - Subscription Page settings now feed the real public manifest/render path:
   `subscription.info` drives profile title, support link, profile page URL and
   update interval unless a specific subscription delivery profile overrides it.

@@ -9,6 +9,10 @@ in `rim2393/lumen_vpn`.
 
 ## Repository Rules
 
+- `docs/PRODUCT_REALITY_CONTRACT.md` is mandatory: production must use only
+  real API, database, node, filesystem, network, or external-service state. No
+  fake counters, placeholders, demo entities, mock-only behavior, or fake
+  success paths may ship.
 - Do not commit secrets, generated runtime configs, private keys, registry
   tokens, subscription URLs, or server credentials.
 - Do not copy Remnawave or Amnezia source code or branded assets.
