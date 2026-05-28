@@ -14,14 +14,23 @@ from app.domains.users.schemas import (
     UserDetailResponse,
     UserListResponse,
     UserResponse,
+    UserTagListResponse,
     UserUpdateRequest,
 )
 from app.domains.users.service import apply_bulk_user_action, user_to_response
 from app.domains.users.service import create_user as create_user_record
 from app.domains.users.service import delete_user as delete_user_record
 from app.domains.users.service import get_user as get_user_record
+from app.domains.users.service import get_user_by_email as get_user_by_email_record
+from app.domains.users.service import get_user_by_numeric_id as get_user_by_numeric_id_record
+from app.domains.users.service import get_user_by_short_uuid as get_user_by_short_uuid_record
+from app.domains.users.service import get_user_by_telegram_id as get_user_by_telegram_id_record
+from app.domains.users.service import get_user_by_username as get_user_by_username_record
 from app.domains.users.service import get_user_detail as get_user_detail_record
+from app.domains.users.service import list_user_tags as list_user_tag_records
 from app.domains.users.service import list_users as list_user_records
+from app.domains.users.service import list_users_by_tag as list_users_by_tag_records
+from app.domains.users.service import resolve_user as resolve_user_record
 from app.domains.users.service import update_user as update_user_record
 
 router = APIRouter()
@@ -53,6 +62,84 @@ async def create_user(
         resource_id=str(user.id),
     )
     await session.commit()
+    return user_to_response(user)
+
+
+@router.get("/tags", response_model=UserTagListResponse)
+async def list_tags(
+    _: UserManager,
+    session: DbSession,
+) -> UserTagListResponse:
+    return await list_user_tag_records(session)
+
+
+@router.get("/by-username/{username}", response_model=UserResponse)
+async def get_user_by_username(
+    username: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await get_user_by_username_record(session, username)
+    return user_to_response(user)
+
+
+@router.get("/by-email/{email}", response_model=UserResponse)
+async def get_user_by_email(
+    email: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await get_user_by_email_record(session, email)
+    return user_to_response(user)
+
+
+@router.get("/by-telegram/{telegram_id}", response_model=UserResponse)
+async def get_user_by_telegram_id(
+    telegram_id: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await get_user_by_telegram_id_record(session, telegram_id)
+    return user_to_response(user)
+
+
+@router.get("/by-short-uuid/{short_uuid}", response_model=UserResponse)
+async def get_user_by_short_uuid(
+    short_uuid: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await get_user_by_short_uuid_record(session, short_uuid)
+    return user_to_response(user)
+
+
+@router.get("/by-id/{numeric_id}", response_model=UserResponse)
+async def get_user_by_numeric_id(
+    numeric_id: int,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await get_user_by_numeric_id_record(session, numeric_id)
+    return user_to_response(user)
+
+
+@router.get("/by-tag/{tag}", response_model=UserListResponse)
+async def get_users_by_tag(
+    tag: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserListResponse:
+    users = await list_users_by_tag_records(session, tag)
+    return UserListResponse(items=[user_to_response(user) for user in users])
+
+
+@router.get("/resolve/{query}", response_model=UserResponse)
+async def resolve_user(
+    query: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await resolve_user_record(session, query)
     return user_to_response(user)
 
 

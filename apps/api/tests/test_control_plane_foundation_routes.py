@@ -470,6 +470,7 @@ async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRout
             "traffic_used_gb": 12.5,
             "device_limit": 5,
             "tags": ["default"],
+            "metadata_json": {"numeric_id": 42},
         },
     )
     assert user_response.status_code == 201
@@ -482,6 +483,28 @@ async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRout
     assert update_user_response.status_code == 200
     assert update_user_response.json()["status"] == "limited"
     assert update_user_response.json()["telegram_id"] == "100500"
+
+    short_uuid = user_id.replace("-", "")[:8]
+    lookup_paths = [
+        f"/api/v1/users/by-username/vpn-user",
+        f"/api/v1/users/by-email/vpn-user@example.com",
+        f"/api/v1/users/by-telegram/100500",
+        f"/api/v1/users/by-short-uuid/{short_uuid}",
+        "/api/v1/users/by-id/42",
+        "/api/v1/users/resolve/vpn-user",
+    ]
+    for path in lookup_paths:
+        lookup_response = await foundation_app.client.get(path)
+        assert lookup_response.status_code == 200
+        assert lookup_response.json()["id"] == user_id
+
+    tags_response = await foundation_app.client.get("/api/v1/users/tags")
+    assert tags_response.status_code == 200
+    assert tags_response.json()["items"] == ["default"]
+
+    tag_users_response = await foundation_app.client.get("/api/v1/users/by-tag/default")
+    assert tag_users_response.status_code == 200
+    assert [item["id"] for item in tag_users_response.json()["items"]] == [user_id]
 
     bulk_user_response = await foundation_app.client.post(
         "/api/v1/users/bulk/reset-traffic",

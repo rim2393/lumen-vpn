@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import status
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,7 @@ from app.domains.users.schemas import (
     UserDetailResponse,
     UserDeviceRecord,
     UserResponse,
+    UserTagListResponse,
     UserUpdateRequest,
 )
 
@@ -36,6 +38,109 @@ async def get_user(session: AsyncSession, user_id: UUID) -> User:
             status_code=status.HTTP_404_NOT_FOUND,
         )
     return user
+
+
+async def get_user_by_username(session: AsyncSession, username: str) -> User:
+    return await _get_single_user(
+        session,
+        select(User).where(User.username == username),
+        detail=username,
+    )
+
+
+async def get_user_by_email(session: AsyncSession, email: str) -> User:
+    return await _get_single_user(
+        session,
+        select(User).where(User.email == email.lower()),
+        detail=email,
+    )
+
+
+async def get_user_by_telegram_id(session: AsyncSession, telegram_id: str) -> User:
+    return await _get_single_user(
+        session,
+        select(User).where(User.telegram_id == telegram_id),
+        detail=telegram_id,
+    )
+
+
+async def get_user_by_short_uuid(session: AsyncSession, short_uuid: str) -> User:
+    normalized = short_uuid.strip().lower()
+    if len(normalized) < 4:
+        raise APIError(
+            code="user_lookup_too_short",
+            message="Short UUID lookup requires at least four characters.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    users = await list_users(session)
+    matches = [user for user in users if str(user.id).replace("-", "").startswith(normalized)]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise _user_not_found(normalized)
+    raise APIError(
+        code="user_lookup_ambiguous",
+        message="Short UUID lookup matched more than one user.",
+        status_code=status.HTTP_409_CONFLICT,
+        details=[str(user.id) for user in matches],
+    )
+
+
+async def get_user_by_numeric_id(session: AsyncSession, numeric_id: int) -> User:
+    users = await list_users(session)
+    for user in users:
+        metadata = user.metadata_json
+        if metadata.get("numeric_id") == numeric_id or metadata.get("id") == numeric_id:
+            return user
+    raise _user_not_found(str(numeric_id))
+
+
+async def resolve_user(session: AsyncSession, query: str) -> User:
+    normalized = query.strip()
+    if not normalized:
+        raise APIError(
+            code="user_lookup_empty",
+            message="User lookup query cannot be empty.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    try:
+        return await get_user(session, UUID(normalized))
+    except ValueError:
+        pass
+    except APIError as exc:
+        if exc.code != "user_not_found":
+            raise
+    if "@" in normalized:
+        return await get_user_by_email(session, normalized)
+    if normalized.isdigit():
+        try:
+            return await get_user_by_numeric_id(session, int(normalized))
+        except APIError as exc:
+            if exc.code != "user_not_found":
+                raise
+    result = await session.execute(
+        select(User).where(
+            or_(
+                User.username == normalized,
+                User.telegram_id == normalized,
+            )
+        )
+    )
+    user = result.scalars().first()
+    if user is not None:
+        return user
+    return await get_user_by_short_uuid(session, normalized)
+
+
+async def list_user_tags(session: AsyncSession) -> UserTagListResponse:
+    users = await list_users(session)
+    tags = sorted({tag for user in users for tag in user.tags})
+    return UserTagListResponse(items=tags)
+
+
+async def list_users_by_tag(session: AsyncSession, tag: str) -> list[User]:
+    users = await list_users(session)
+    return [user for user in users if tag in user.tags]
 
 
 async def get_user_detail(session: AsyncSession, user_id: UUID) -> UserDetailResponse:
@@ -211,6 +316,23 @@ async def _get_users_by_ids(session: AsyncSession, user_ids: list[UUID]) -> list
             details=missing,
         )
     return users
+
+
+async def _get_single_user(session: AsyncSession, statement, *, detail: str) -> User:
+    result = await session.execute(statement)
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise _user_not_found(detail)
+    return user
+
+
+def _user_not_found(detail: str) -> APIError:
+    return APIError(
+        code="user_not_found",
+        message="User was not found.",
+        status_code=status.HTTP_404_NOT_FOUND,
+        details=[detail],
+    )
 
 
 def user_to_response(user: User) -> UserResponse:

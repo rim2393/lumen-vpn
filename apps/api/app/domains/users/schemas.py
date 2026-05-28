@@ -76,6 +76,10 @@ class UserListResponse(BaseModel):
     items: list[UserResponse]
 
 
+class UserTagListResponse(BaseModel):
+    items: list[str]
+
+
 class UserBulkActionResponse(BaseModel):
     updated: int
     items: list[UserResponse]
