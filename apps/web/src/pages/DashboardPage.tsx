@@ -85,7 +85,7 @@ export function DashboardPage() {
   const metrics = buildDashboardMetrics({ license, nodes, subscriptions, t, users })
   const activityRows = buildActivityRows({ apiKeys, language, license, nodes, subscriptions, t, users })
   const riskRows = buildRiskRows({ apiKeys, license, nodes, subscriptions, t, users })
-  const sourceLabel = usersQuery.data?.source === 'mock' ? 'Test data' : 'Live API'
+  const sourceKey = usersQuery.data?.source === 'mock' ? 'Test data' : 'Live API'
 
   return (
     <section className="page">
@@ -95,7 +95,7 @@ export function DashboardPage() {
         description="Live state from the panel API. Empty values mean the backend has no recorded data yet."
         actions={
           <Link to="/nodes" className="button button--secondary">
-            Open nodes
+            {t('Open nodes')}
             <RadioTower size={18} aria-hidden="true" />
           </Link>
         }
@@ -119,7 +119,7 @@ export function DashboardPage() {
                   <p className="eyebrow">{t('Recent operations')}</p>
                   <h2>{t('Live activity')}</h2>
                 </div>
-                <StatusBadge tone={sourceLabel === 'Live API' ? 'good' : 'watch'}>{sourceLabel}</StatusBadge>
+                <StatusBadge tone={sourceKey === 'Live API' ? 'good' : 'watch'}>{t(sourceKey)}</StatusBadge>
               </div>
               {activityRows.length > 0 ? (
                 <ul className="activity-list">
@@ -132,7 +132,7 @@ export function DashboardPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="empty-inline">No live activity is recorded yet.</p>
+                <p className="empty-inline">{t('No live activity is recorded yet.')}</p>
               )}
             </article>
 
@@ -155,7 +155,7 @@ export function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <p className="empty-inline">No live risks are recorded yet.</p>
+                <p className="empty-inline">{t('No live risks are recorded yet.')}</p>
               )}
             </article>
           </section>
