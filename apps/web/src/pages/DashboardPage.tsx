@@ -116,8 +116,8 @@ export function DashboardPage() {
             <article className="panel">
               <div className="panel__header">
                 <div>
-                  <p className="eyebrow">Recent operations</p>
-                  <h2>Live activity</h2>
+                  <p className="eyebrow">{t('Recent operations')}</p>
+                  <h2>{t('Live activity')}</h2>
                 </div>
                 <StatusBadge tone={sourceLabel === 'Live API' ? 'good' : 'watch'}>{sourceLabel}</StatusBadge>
               </div>
@@ -139,8 +139,8 @@ export function DashboardPage() {
             <article className="panel">
               <div className="panel__header">
                 <div>
-                  <p className="eyebrow">Attention</p>
-                  <h2>Risk watch</h2>
+                  <p className="eyebrow">{t('Attention')}</p>
+                  <h2>{t('Risk watch')}</h2>
                 </div>
                 <AlertTriangle size={20} aria-hidden="true" />
               </div>

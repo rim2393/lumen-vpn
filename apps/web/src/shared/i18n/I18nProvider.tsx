@@ -100,7 +100,10 @@ const ru: Record<string, string> = {
   'Control subscription endpoint behavior, cache windows, and client metadata.':
     'Управление поведением эндпоинта подписки, окнами кеша и метаданными клиентов.',
   'API keys expiring': 'API-ключи истекают',
+  'Active users': 'Активные пользователи',
+  expiring: 'истекает',
   'free mode or not synced': 'свободный режим или не синхронизировано',
+  'Healthy nodes': 'Здоровые ноды',
   invalid: 'недействительна',
   'License attention': 'Внимание к лицензии',
   'Live activity': 'Живая активность',
