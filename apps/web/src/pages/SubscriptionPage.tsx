@@ -34,7 +34,7 @@ export function SubscriptionPage() {
           users.find((user) => user.id === subscription.user_id)?.displayName ?? subscription.user_id,
           nodes.find((node) => node.id === subscription.node_id)?.name ?? subscription.node_id ?? t('All nodes'),
           formatRecord(subscription.delivery_profile),
-          formatDateTime(subscription.expires_at),
+          subscription.expires_at ? formatDateTime(subscription.expires_at) : t('Not set'),
           subscription.config_hash ?? t('Not generated'),
           <StatusBadge tone={toneForStatus(subscription.status)}>{subscription.status}</StatusBadge>,
         ],

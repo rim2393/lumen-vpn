@@ -50,8 +50,10 @@ const ru: Record<string, string> = {
   'No live activity is recorded yet.': 'Живых событий пока нет.',
   'No matches': 'Совпадений нет',
   'No matching section found.': 'Раздел не найден.',
+  None: 'Нет',
   'No subscriptions': 'Подписок нет',
   'Not generated': 'Не сгенерирован',
+  'Not set': 'Не задано',
   'Node heartbeat, license, and API health alerts are clear.':
     'Heartbeat нод, лицензия и состояние API без активных предупреждений.',
   Nodes: 'Ноды',
