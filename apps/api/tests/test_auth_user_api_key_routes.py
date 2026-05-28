@@ -84,15 +84,23 @@ def test_user_login_refresh_me_logout_flow(tmp_path) -> None:
         assert refreshed.status_code == 200
         assert refreshed.json()["access_token"] != token_pair["access_token"]
 
+        cookie_refreshed = client.post(
+            "/api/v1/auth/refresh",
+            cookies={"lumen_refresh_token": refreshed.json()["refresh_token"]},
+        )
+        assert cookie_refreshed.status_code == 200
+        assert cookie_refreshed.json()["access_token"].startswith("lumen_at_")
+        assert cookie_refreshed.json()["access_token"] != refreshed.json()["access_token"]
+
         logout = client.post(
             "/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {refreshed.json()['access_token']}"},
+            headers={"Authorization": f"Bearer {cookie_refreshed.json()['access_token']}"},
         )
         assert logout.status_code == 204
 
         after_logout = client.get(
             "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {refreshed.json()['access_token']}"},
+            headers={"Authorization": f"Bearer {cookie_refreshed.json()['access_token']}"},
         )
         assert after_logout.status_code == 401
         assert after_logout.json()["error"]["code"] == "invalid_session"

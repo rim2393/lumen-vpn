@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Response, status
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -72,14 +73,27 @@ async def verify_mfa_login_challenge(
 
 @router.post("/refresh", response_model=TokenPairResponse)
 async def refresh(
-    request: RefreshRequest,
     response: Response,
     session: DbSession,
     settings: AppSettings,
+    request: RefreshRequest | None = None,
+    refresh_cookie: Annotated[str | None, Cookie(alias=REFRESH_COOKIE_NAME)] = None,
 ) -> TokenPairResponse:
+    refresh_token = request.refresh_token if request is not None else None
+    if refresh_token is None and refresh_cookie is not None:
+        refresh_token = SecretStr(refresh_cookie)
+    if refresh_token is None:
+        from app.core.errors import APIError
+
+        raise APIError(
+            code="refresh_token_required",
+            message="Refresh token is required.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
     token_pair = await refresh_session(
         session,
-        refresh_token=request.refresh_token,
+        refresh_token=refresh_token,
         settings=settings,
     )
     await session.commit()

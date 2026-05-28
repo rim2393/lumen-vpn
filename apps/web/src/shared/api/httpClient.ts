@@ -93,7 +93,6 @@ export function createHttpLumenApiClient({
       request('/api/v1/nodes/provisioning-jobs', { body: payload, method: 'POST' }),
     createSquad: (payload: SquadCreateRequest) =>
       request('/api/v1/squads', { body: payload, method: 'POST' }),
-    getSession: () => request('/api/auth/session'),
     listApiKeys: () => request('/api/admin/api-keys'),
     listHosts: () => request('/api/v1/hosts'),
     listNodes: () => request('/api/v1/nodes'),
@@ -103,6 +102,18 @@ export function createHttpLumenApiClient({
     listSquads: () => request('/api/v1/squads'),
     listSubscriptions: () => request('/api/v1/subscriptions'),
     listUsers: () => request('/api/admin/users'),
+    getSession: async () => {
+      try {
+        return await request('/api/auth/session')
+      } catch (error) {
+        if (!(error instanceof LumenApiError) || error.status !== 401) {
+          throw error
+        }
+      }
+
+      await request<TokenPairResponse>('/api/v1/auth/refresh', { method: 'POST' })
+      return request('/api/auth/session')
+    },
     login: async (payload: LoginRequest) => {
       const loginResponse = await request<LoginApiResponse>('/api/v1/auth/login', {
         body: payload,
