@@ -8,6 +8,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import APIError
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
+from app.domains.audit.schemas import AuditEventCreate
+from app.domains.audit.service import create_audit_event
 from app.domains.audit.service import record_audit_event
 from app.domains.subscription_assets.service import list_response_rules, list_templates
 from app.domains.subscriptions.renderers import (
@@ -24,6 +26,7 @@ from app.domains.subscriptions.schemas import (
 from app.domains.subscriptions.service import (
     build_public_subscription_manifest,
     build_subscription_manifest,
+    get_subscription_by_public_id,
     revoke_subscription,
     subscription_to_response,
     update_subscription,
@@ -120,7 +123,13 @@ async def get_public_subscription_manifest(
     session: DatabaseSession,
 ):
     try:
-        return await build_public_subscription_manifest(session, public_id=public_id)
+        manifest = await build_and_record_public_subscription_request(
+            session,
+            public_id=public_id,
+            target="manifest",
+        )
+        await session.commit()
+        return manifest
     except APIError as error:
         if rule_response := await _response_rule_for_error(session, error):
             return rule_response
@@ -146,12 +155,17 @@ async def render_public_subscription(
     ),
 ) -> Response:
     try:
-        manifest = await build_public_subscription_manifest(session, public_id=public_id)
+        render_target = normalize_render_target(target or render_format)
+        manifest = await build_and_record_public_subscription_request(
+            session,
+            public_id=public_id,
+            target=render_target,
+        )
+        await session.commit()
     except APIError as error:
         if rule_response := await _response_rule_for_error(session, error):
             return rule_response
         raise
-    render_target = normalize_render_target(target or render_format)
     rendered = render_subscription_for_target(manifest, settings=settings, target=render_target)
     rendered = await _apply_subscription_template(session, rendered, render_target=render_target)
     return _render_response(rendered, render_target=render_target)
@@ -203,6 +217,32 @@ def _render_response(rendered: RenderedSubscription, *, render_target: str) -> R
             "x-lumen-render-target": render_target,
         },
     )
+
+
+async def build_and_record_public_subscription_request(
+    session: AsyncSession,
+    *,
+    public_id: str,
+    target: str,
+) -> dict[str, object]:
+    subscription = await get_subscription_by_public_id(session, public_id=public_id)
+    manifest = await build_public_subscription_manifest(session, public_id=public_id)
+    await create_audit_event(
+        session,
+        request=AuditEventCreate(
+            actor_subject="public-subscription",
+            actor_email=None,
+            action="subscription.public.rendered",
+            resource_type="user",
+            resource_id=str(subscription.user_id),
+            metadata_json={
+                "public_id": subscription.public_id,
+                "subscription_id": str(subscription.id),
+                "target": target,
+            },
+        ),
+    )
+    return manifest
 
 
 ERROR_RULE_STATUSES = {

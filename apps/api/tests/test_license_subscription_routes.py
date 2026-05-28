@@ -338,6 +338,19 @@ async def test_subscription_manifest_route_renders_vless_profile_protocol(
     assert public_manifest["subscription"]["id"] == create_response.json()["public_id"]
     assert public_manifest["nodes"][0]["protocols"][0]["type"] == "vless-tcp-tls"
 
+    async with route_app.sessionmaker() as session:
+        audit_result = await session.execute(
+            select(AuditEvent).where(
+                AuditEvent.action == "subscription.public.rendered",
+                AuditEvent.resource_type == "user",
+                AuditEvent.resource_id == str(user.id),
+            )
+        )
+        event = audit_result.scalar_one()
+        assert event.actor_subject == "public-subscription"
+        assert event.metadata_json["public_id"] == create_response.json()["public_id"]
+        assert event.metadata_json["target"] == "manifest"
+
 
 async def test_public_subscription_renderers_emit_client_compatible_formats(
     route_app: RouteTestApp,
