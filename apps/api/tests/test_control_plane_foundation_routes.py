@@ -157,6 +157,76 @@ async def test_settings_update_records_audit_event(foundation_app: FoundationRou
         assert persisted_event.actor_email == "owner@example.com"
 
 
+async def test_subscription_templates_and_response_rules_are_persisted(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    first_template = await foundation_app.client.post(
+        "/api/v1/subscription-templates",
+        json={
+            "name": "Happ default",
+            "format": "mihomo",
+            "content_json": {"profile_title": "Lumen"},
+        },
+    )
+    second_template = await foundation_app.client.post(
+        "/api/v1/subscription-templates",
+        json={"name": "Xray JSON", "format": "xray_json", "content_json": {"dns": {}}},
+    )
+    assert first_template.status_code == 201
+    assert second_template.status_code == 201
+    first_template_id = first_template.json()["id"]
+    second_template_id = second_template.json()["id"]
+
+    patch_template = await foundation_app.client.patch(
+        f"/api/v1/subscription-templates/{first_template_id}",
+        json={"status": "disabled", "content_json": {"profile_title": "Lumen Guard"}},
+    )
+    assert patch_template.status_code == 200
+    assert patch_template.json()["content_json"]["profile_title"] == "Lumen Guard"
+
+    reorder_templates = await foundation_app.client.post(
+        "/api/v1/subscription-templates/actions/reorder",
+        json={"ids": [second_template_id, first_template_id]},
+    )
+    assert reorder_templates.status_code == 200
+    list_templates = await foundation_app.client.get("/api/v1/subscription-templates")
+    assert [item["id"] for item in list_templates.json()["items"]] == [
+        second_template_id,
+        first_template_id,
+    ]
+
+    rule_response = await foundation_app.client.post(
+        "/api/v1/response-rules",
+        json={
+            "name": "Expired subscription",
+            "trigger_status": "expired",
+            "status_code": 403,
+            "body": "Subscription expired",
+            "headers": {"X-Lumen-Reason": "expired"},
+        },
+    )
+    assert rule_response.status_code == 201
+    rule_id = rule_response.json()["id"]
+
+    test_rule = await foundation_app.client.post(
+        "/api/v1/response-rules/test",
+        json={"subscription_status": "expired"},
+    )
+    assert test_rule.status_code == 200
+    assert test_rule.json()["matched"] is True
+    assert test_rule.json()["status_code"] == 403
+    assert test_rule.json()["headers"]["X-Lumen-Reason"] == "expired"
+
+    delete_rule = await foundation_app.client.delete(f"/api/v1/response-rules/{rule_id}")
+    assert delete_rule.status_code == 204
+    test_rule_after_delete = await foundation_app.client.post(
+        "/api/v1/response-rules/test",
+        json={"subscription_status": "expired"},
+    )
+    assert test_rule_after_delete.status_code == 200
+    assert test_rule_after_delete.json()["matched"] is False
+
+
 async def test_protocol_profile_port_conflict_and_host_flow(
     foundation_app: FoundationRouteApp,
 ) -> None:

@@ -12,11 +12,15 @@ import type {
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
   ProvisioningJobCreateRequest,
+  ResponseRuleCreateRequest,
+  ResponseRuleUpdateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
   SquadUpdateRequest,
   SquadUserMutationRequest,
   SubscriptionCreateRequest,
+  SubscriptionTemplateCreateRequest,
+  SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
   TokenPairResponse,
   UserBulkActionRequest,
@@ -115,12 +119,20 @@ export function createHttpLumenApiClient({
       request('/api/v1/squads', { body: payload, method: 'POST' }),
     createSubscription: (payload: SubscriptionCreateRequest) =>
       request('/api/v1/subscriptions', { body: payload, method: 'POST' }),
+    createSubscriptionTemplate: (payload: SubscriptionTemplateCreateRequest) =>
+      request('/api/v1/subscription-templates', { body: payload, method: 'POST' }),
+    createResponseRule: (payload: ResponseRuleCreateRequest) =>
+      request('/api/v1/response-rules', { body: payload, method: 'POST' }),
     createUser: (payload: UserCreateRequest) =>
       request('/api/v1/users', { body: payload, method: 'POST' }),
     deleteHost: (hostId: string) => request(`/api/v1/hosts/${hostId}`, { method: 'DELETE' }),
     deleteProfile: (profileId: string) =>
       request(`/api/v1/profiles/${profileId}`, { method: 'DELETE' }),
     deleteSquad: (squadId: string) => request(`/api/v1/squads/${squadId}`, { method: 'DELETE' }),
+    deleteSubscriptionTemplate: (templateId: string) =>
+      request(`/api/v1/subscription-templates/${templateId}`, { method: 'DELETE' }),
+    deleteResponseRule: (ruleId: string) =>
+      request(`/api/v1/response-rules/${ruleId}`, { method: 'DELETE' }),
     deleteUser: (userId: string) => request(`/api/v1/users/${userId}`, { method: 'DELETE' }),
     getUser: (userId: string) => request(`/api/v1/users/${userId}`),
     getUserDetail: (userId: string) => request(`/api/v1/users/${userId}/detail`),
@@ -133,6 +145,8 @@ export function createHttpLumenApiClient({
     listSettings: () => request('/api/v1/settings'),
     listSquads: () => request('/api/v1/squads'),
     listSubscriptions: () => request('/api/v1/subscriptions'),
+    listSubscriptionTemplates: () => request('/api/v1/subscription-templates'),
+    listResponseRules: () => request('/api/v1/response-rules'),
     listUsers: () => request('/api/v1/users'),
     getSession: async () => {
       try {
@@ -184,12 +198,24 @@ export function createHttpLumenApiClient({
       request('/api/v1/hosts/actions/reorder', { body: { ids }, method: 'POST' }),
     reorderSquads: (ids: string[]) =>
       request('/api/v1/squads/actions/reorder', { body: { ids }, method: 'POST' }),
+    reorderSubscriptionTemplates: (ids: string[]) =>
+      request('/api/v1/subscription-templates/actions/reorder', { body: { ids }, method: 'POST' }),
+    reorderResponseRules: (ids: string[]) =>
+      request('/api/v1/response-rules/actions/reorder', { body: { ids }, method: 'POST' }),
+    testResponseRule: (payload) =>
+      request('/api/v1/response-rules/test', { body: payload, method: 'POST' }),
     updateHost: (hostId: string, payload: HostUpdateRequest) =>
       request(`/api/v1/hosts/${hostId}`, { body: payload, method: 'PATCH' }),
     updateProfile: (profileId: string, payload: ProtocolProfileUpdateRequest) =>
       request(`/api/v1/profiles/${profileId}`, { body: payload, method: 'PATCH' }),
     updateSubscription: (subscriptionId: string, payload: SubscriptionUpdateRequest) =>
       request(`/api/v1/subscriptions/${subscriptionId}`, { body: payload, method: 'PATCH' }),
+    updateSubscriptionTemplate: (
+      templateId: string,
+      payload: SubscriptionTemplateUpdateRequest,
+    ) => request(`/api/v1/subscription-templates/${templateId}`, { body: payload, method: 'PATCH' }),
+    updateResponseRule: (ruleId: string, payload: ResponseRuleUpdateRequest) =>
+      request(`/api/v1/response-rules/${ruleId}`, { body: payload, method: 'PATCH' }),
     verifyMfaChallenge: async (payload: MfaChallengeVerifyRequest) => {
       const tokenPair = await request<TokenPairResponse>('/api/v1/auth/mfa/challenge/verify', {
         body: {

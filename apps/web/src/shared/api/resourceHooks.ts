@@ -8,11 +8,16 @@ import type {
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
   ProvisioningJobCreateRequest,
+  ResponseRuleCreateRequest,
+  ResponseRuleTestRequest,
+  ResponseRuleUpdateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
   SquadUpdateRequest,
   SquadUserMutationRequest,
   SubscriptionCreateRequest,
+  SubscriptionTemplateCreateRequest,
+  SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
   UserBulkActionRequest,
   UserCreateRequest,
@@ -32,6 +37,8 @@ export const resourceQueryKeys = {
   squads: ['resource', 'squads'] as const,
   squadDetail: (squadId: string) => ['resource', 'squads', squadId, 'detail'] as const,
   subscriptions: ['resource', 'subscriptions'] as const,
+  subscriptionTemplates: ['resource', 'subscription-templates'] as const,
+  responseRules: ['resource', 'response-rules'] as const,
   userDetail: (userId: string) => ['resource', 'users', userId, 'detail'] as const,
   users: ['resource', 'users'] as const,
 }
@@ -316,6 +323,131 @@ export function useSubscriptionsPageData() {
   return useQuery({
     queryFn: apiClient.listSubscriptions,
     queryKey: resourceQueryKeys.subscriptions,
+  })
+}
+
+export function useSubscriptionTemplatesData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listSubscriptionTemplates,
+    queryKey: resourceQueryKeys.subscriptionTemplates,
+  })
+}
+
+export function useCreateSubscriptionTemplate() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: SubscriptionTemplateCreateRequest) =>
+      apiClient.createSubscriptionTemplate(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionTemplates })
+    },
+  })
+}
+
+export function useUpdateSubscriptionTemplate() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: SubscriptionTemplateUpdateRequest }) =>
+      apiClient.updateSubscriptionTemplate(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionTemplates })
+    },
+  })
+}
+
+export function useDeleteSubscriptionTemplate() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteSubscriptionTemplate(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionTemplates })
+    },
+  })
+}
+
+export function useReorderSubscriptionTemplates() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (ids: string[]) => apiClient.reorderSubscriptionTemplates(ids),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionTemplates })
+    },
+  })
+}
+
+export function useResponseRulesData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listResponseRules,
+    queryKey: resourceQueryKeys.responseRules,
+  })
+}
+
+export function useCreateResponseRule() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: ResponseRuleCreateRequest) => apiClient.createResponseRule(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.responseRules })
+    },
+  })
+}
+
+export function useUpdateResponseRule() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: ResponseRuleUpdateRequest }) =>
+      apiClient.updateResponseRule(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.responseRules })
+    },
+  })
+}
+
+export function useDeleteResponseRule() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteResponseRule(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.responseRules })
+    },
+  })
+}
+
+export function useReorderResponseRules() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (ids: string[]) => apiClient.reorderResponseRules(ids),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.responseRules })
+    },
+  })
+}
+
+export function useTestResponseRule() {
+  const apiClient = useApiClient()
+
+  return useMutation({
+    mutationFn: (request: ResponseRuleTestRequest) => apiClient.testResponseRule(request),
   })
 }
 

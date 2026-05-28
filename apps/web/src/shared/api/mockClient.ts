@@ -30,6 +30,9 @@ import type {
   ProtocolProfileRecord,
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
+  ResponseRuleCreateRequest,
+  ResponseRuleRecord,
+  ResponseRuleUpdateRequest,
   ResourceListResponse,
   SettingListResponse,
   SettingRecord,
@@ -43,6 +46,9 @@ import type {
   SubscriptionCreateRequest,
   SubscriptionListResponse,
   SubscriptionRecord,
+  SubscriptionTemplateCreateRequest,
+  SubscriptionTemplateRecord,
+  SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
   UserBulkActionRequest,
   UserCreateRequest,
@@ -120,6 +126,8 @@ export function createMockLumenApiClient(): LumenApiClient {
   const settings = [...settingRecords]
   const squads = [...squadRecords]
   const subscriptions = [...subscriptionRecords]
+  const templates: SubscriptionTemplateRecord[] = []
+  const responseRules: ResponseRuleRecord[] = []
   const users = [...userRecords]
 
   function updateSettingValue(key: string, request: SettingUpdateRequest): SettingRecord {
@@ -277,6 +285,34 @@ export function createMockLumenApiClient(): LumenApiClient {
       subscriptions.unshift(subscription)
       return subscription
     },
+    createSubscriptionTemplate: async (
+      request: SubscriptionTemplateCreateRequest,
+    ): Promise<SubscriptionTemplateRecord> => {
+      const template: SubscriptionTemplateRecord = {
+        content_json: request.content_json ?? {},
+        format: request.format,
+        id: `tpl_${Date.now()}`,
+        name: request.name,
+        order: request.order ?? templates.length,
+        status: request.status ?? 'active',
+      }
+      templates.unshift(template)
+      return template
+    },
+    createResponseRule: async (request: ResponseRuleCreateRequest): Promise<ResponseRuleRecord> => {
+      const rule: ResponseRuleRecord = {
+        body: request.body ?? '',
+        enabled: request.enabled ?? true,
+        headers: request.headers ?? {},
+        id: `rule_${Date.now()}`,
+        name: request.name,
+        order: request.order ?? responseRules.length,
+        status_code: request.status_code ?? 200,
+        trigger_status: request.trigger_status,
+      }
+      responseRules.unshift(rule)
+      return rule
+    },
     createUser: async (request: UserCreateRequest): Promise<UserRecord> => {
       const now = new Date().toISOString()
       const user: UserRecord = {
@@ -315,6 +351,18 @@ export function createMockLumenApiClient(): LumenApiClient {
       const index = squads.findIndex((squad) => squad.id === squadId)
       if (index >= 0) {
         squads.splice(index, 1)
+      }
+    },
+    deleteSubscriptionTemplate: async (templateId: string) => {
+      const index = templates.findIndex((template) => template.id === templateId)
+      if (index >= 0) {
+        templates.splice(index, 1)
+      }
+    },
+    deleteResponseRule: async (ruleId: string) => {
+      const index = responseRules.findIndex((rule) => rule.id === ruleId)
+      if (index >= 0) {
+        responseRules.splice(index, 1)
       }
     },
     deleteUser: async (userId: string) => {
@@ -437,6 +485,8 @@ export function createMockLumenApiClient(): LumenApiClient {
     listSubscriptions: async (): Promise<SubscriptionListResponse> => ({
       items: subscriptions,
     }),
+    listSubscriptionTemplates: async () => ({ items: templates }),
+    listResponseRules: async () => ({ items: responseRules }),
     listUsers: async (): Promise<UserListResponse> => ({ items: users }),
     login: async () => ({
       challengeToken: 'mock-mfa-challenge',
@@ -542,6 +592,40 @@ export function createMockLumenApiClient(): LumenApiClient {
       })
       return { updated: ordered.length }
     },
+    reorderSubscriptionTemplates: async (ids: string[]) => {
+      const ordered = ids
+        .map((id) => templates.find((template) => template.id === id))
+        .filter((template): template is SubscriptionTemplateRecord => Boolean(template))
+      const remainder = templates.filter((template) => !ids.includes(template.id))
+      templates.splice(0, templates.length, ...ordered, ...remainder)
+      ordered.forEach((template, order) => {
+        template.order = order
+      })
+      return { updated: ordered.length }
+    },
+    reorderResponseRules: async (ids: string[]) => {
+      const ordered = ids
+        .map((id) => responseRules.find((rule) => rule.id === id))
+        .filter((rule): rule is ResponseRuleRecord => Boolean(rule))
+      const remainder = responseRules.filter((rule) => !ids.includes(rule.id))
+      responseRules.splice(0, responseRules.length, ...ordered, ...remainder)
+      ordered.forEach((rule, order) => {
+        rule.order = order
+      })
+      return { updated: ordered.length }
+    },
+    testResponseRule: async (request) => {
+      const rule = responseRules.find(
+        (item) => item.enabled && item.trigger_status === request.subscription_status,
+      )
+      return {
+        body: rule?.body ?? '',
+        headers: rule?.headers ?? {},
+        matched: Boolean(rule),
+        rule: rule ?? null,
+        status_code: rule?.status_code ?? 200,
+      }
+    },
     bulkUsers: async (
       action: string,
       request: UserBulkActionRequest,
@@ -580,6 +664,25 @@ export function createMockLumenApiClient(): LumenApiClient {
       }
       Object.assign(subscription, request)
       return subscription
+    },
+    updateSubscriptionTemplate: async (
+      templateId: string,
+      request: SubscriptionTemplateUpdateRequest,
+    ) => {
+      const template = templates.find((item) => item.id === templateId)
+      if (!template) {
+        throw new Error('Template not found')
+      }
+      Object.assign(template, request)
+      return template
+    },
+    updateResponseRule: async (ruleId: string, request: ResponseRuleUpdateRequest) => {
+      const rule = responseRules.find((item) => item.id === ruleId)
+      if (!rule) {
+        throw new Error('Response rule not found')
+      }
+      Object.assign(rule, request)
+      return rule
     },
     updateSquad: async (squadId: string, request: SquadUpdateRequest) => {
       const squad = squads.find((item) => item.id === squadId)

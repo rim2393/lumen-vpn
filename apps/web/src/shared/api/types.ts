@@ -514,12 +514,82 @@ export type SubscriptionListResponse = {
   items: SubscriptionRecord[]
 }
 
+export type SubscriptionTemplateFormat =
+  | 'xray_json'
+  | 'mihomo'
+  | 'stash'
+  | 'sing_box'
+  | 'clash'
+  | 'raw_uri'
+
+export type SubscriptionTemplateRecord = {
+  content_json: Record<string, unknown>
+  format: SubscriptionTemplateFormat
+  id: string
+  name: string
+  order: number
+  status: string
+}
+
+export type SubscriptionTemplateCreateRequest = {
+  content_json?: Record<string, unknown>
+  format: SubscriptionTemplateFormat
+  name: string
+  order?: number | null
+  status?: string
+}
+
+export type SubscriptionTemplateUpdateRequest = Partial<SubscriptionTemplateCreateRequest>
+
+export type SubscriptionTemplateListResponse = {
+  items: SubscriptionTemplateRecord[]
+}
+
+export type ResponseRuleRecord = {
+  body: string
+  enabled: boolean
+  headers: Record<string, string>
+  id: string
+  name: string
+  order: number
+  status_code: number
+  trigger_status: string
+}
+
+export type ResponseRuleCreateRequest = {
+  body?: string
+  enabled?: boolean
+  headers?: Record<string, string>
+  name: string
+  order?: number | null
+  status_code?: number
+  trigger_status: string
+}
+
+export type ResponseRuleUpdateRequest = Partial<ResponseRuleCreateRequest>
+
+export type ResponseRuleListResponse = {
+  items: ResponseRuleRecord[]
+}
+
+export type ResponseRuleTestRequest = {
+  subscription_status: string
+}
+
+export type ResponseRuleTestResponse = {
+  body: string
+  headers: Record<string, string>
+  matched: boolean
+  rule: ResponseRuleRecord | null
+  status_code: number
+}
+
 export type SettingRecord = {
   id?: string
   key: string
   updated_at: string
   updated_by: string | null
-  value_json: Record<string, string>
+  value_json: Record<string, unknown>
 }
 
 export type SettingListResponse = {
@@ -527,7 +597,7 @@ export type SettingListResponse = {
 }
 
 export type SettingUpdateRequest = {
-  value_json: Record<string, string>
+  value_json: Record<string, unknown>
 }
 
 export type ApiKeyCreateRequest = {
@@ -599,10 +669,16 @@ export type LumenApiClient = {
   ) => Promise<ProvisioningJobResponse>
   createSquad: (request: SquadCreateRequest) => Promise<SquadRecord>
   createSubscription: (request: SubscriptionCreateRequest) => Promise<SubscriptionRecord>
+  createSubscriptionTemplate: (
+    request: SubscriptionTemplateCreateRequest,
+  ) => Promise<SubscriptionTemplateRecord>
+  createResponseRule: (request: ResponseRuleCreateRequest) => Promise<ResponseRuleRecord>
   createUser: (request: UserCreateRequest) => Promise<UserRecord>
   deleteHost: (hostId: string) => Promise<void>
   deleteProfile: (profileId: string) => Promise<void>
   deleteSquad: (squadId: string) => Promise<void>
+  deleteSubscriptionTemplate: (templateId: string) => Promise<void>
+  deleteResponseRule: (ruleId: string) => Promise<void>
   deleteUser: (userId: string) => Promise<void>
   getSession: () => Promise<AuthSession | null>
   getUser: (userId: string) => Promise<UserRecord>
@@ -615,6 +691,8 @@ export type LumenApiClient = {
   listSettings: () => Promise<SettingListResponse>
   listSquads: () => Promise<SquadListResponse>
   listSubscriptions: () => Promise<SubscriptionListResponse>
+  listSubscriptionTemplates: () => Promise<SubscriptionTemplateListResponse>
+  listResponseRules: () => Promise<ResponseRuleListResponse>
   listUsers: () => Promise<UserListResponse>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>
@@ -633,6 +711,9 @@ export type LumenApiClient = {
   ) => Promise<SquadRecord>
   reorderHosts: (ids: string[]) => Promise<ResourceBulkActionResponse>
   reorderSquads: (ids: string[]) => Promise<ResourceBulkActionResponse>
+  reorderSubscriptionTemplates: (ids: string[]) => Promise<ResourceBulkActionResponse>
+  reorderResponseRules: (ids: string[]) => Promise<ResourceBulkActionResponse>
+  testResponseRule: (request: ResponseRuleTestRequest) => Promise<ResponseRuleTestResponse>
   updateHost: (hostId: string, request: HostUpdateRequest) => Promise<HostRecord>
   updateProfile: (
     profileId: string,
@@ -642,6 +723,14 @@ export type LumenApiClient = {
     subscriptionId: string,
     request: SubscriptionUpdateRequest,
   ) => Promise<SubscriptionRecord>
+  updateSubscriptionTemplate: (
+    templateId: string,
+    request: SubscriptionTemplateUpdateRequest,
+  ) => Promise<SubscriptionTemplateRecord>
+  updateResponseRule: (
+    ruleId: string,
+    request: ResponseRuleUpdateRequest,
+  ) => Promise<ResponseRuleRecord>
   verifyMfaChallenge: (request: MfaChallengeVerifyRequest) => Promise<AuthSession>
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
   updateSquad: (squadId: string, request: SquadUpdateRequest) => Promise<SquadRecord>

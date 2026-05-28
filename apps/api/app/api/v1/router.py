@@ -13,6 +13,10 @@ from app.domains.protocols.router import (
     squads_router,
 )
 from app.domains.settings.router import router as settings_router
+from app.domains.subscription_assets.router import (
+    response_rules_router,
+    templates_router,
+)
 from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.users.router import router as users_router
 
@@ -25,6 +29,16 @@ api_v1_router.include_router(licenses_router, prefix="/licenses", tags=["license
 api_v1_router.include_router(nodes_router, prefix="/nodes", tags=["nodes"])
 api_v1_router.include_router(subscriptions_router, prefix="/subscriptions", tags=["subscriptions"])
 api_v1_router.include_router(settings_router, prefix="/settings", tags=["settings"])
+api_v1_router.include_router(
+    templates_router,
+    prefix="/subscription-templates",
+    tags=["subscription-templates"],
+)
+api_v1_router.include_router(
+    response_rules_router,
+    prefix="/response-rules",
+    tags=["response-rules"],
+)
 api_v1_router.include_router(audit_router, prefix="/audit", tags=["audit"])
 api_v1_router.include_router(protocols_router, prefix="/protocols", tags=["protocols"])
 api_v1_router.include_router(profiles_router, prefix="/profiles", tags=["profiles"])
