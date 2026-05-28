@@ -12,7 +12,7 @@ only for lookup and operator display.
 
 ## Authentication
 
-The scaffold separates:
+The product separates:
 
 - Short-lived access tokens for API authorization.
 - Rotating refresh tokens for session continuity.
@@ -40,4 +40,3 @@ or minimized unless a retention policy explicitly requires raw values.
 Logs are structured JSON. Do not log request bodies for auth, license, API key, node credential,
 or subscription delivery endpoints. Exceptions returned to clients use standard error envelopes
 without internal paths or tracebacks.
-

@@ -1,4 +1,4 @@
-export type ApiSource = 'api' | 'mock'
+export type ApiSource = 'api' | 'development'
 
 export type ResourceListResponse<TItem> = {
   generatedAt: string

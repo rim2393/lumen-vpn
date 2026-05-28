@@ -219,7 +219,7 @@ function createXrayPlan(common, security, xrayStreamSettings, credentialSlots) {
     protocol: common.protocol,
     adapter: common.protocol,
     runtime: "xray-core",
-    implementationStatus: "planned",
+    implementationStatus: "config-plan",
     nodeId: common.nodeId,
     outboundId: common.outboundId,
     displayName: common.displayName,

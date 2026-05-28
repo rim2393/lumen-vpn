@@ -15,7 +15,7 @@ import {
   SubmitButton,
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
 const formats: SubscriptionTemplateFormat[] = [
@@ -28,7 +28,7 @@ const formats: SubscriptionTemplateFormat[] = [
 ]
 
 const templatesSpec = {
-  ...placeholderSpecs.subscription,
+  ...sectionSpecs.subscription,
   description: 'Manage persisted subscription renderer templates for all client formats.',
   eyebrow: 'Subscription templates',
   primaryAction: 'New template',

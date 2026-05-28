@@ -99,31 +99,6 @@ test("creates a valid VLESS TCP TLS manifest entry", () => {
   assert.deepEqual(manifest.nodes[0].protocols[0].security.alpn, ["h2", "http/1.1"]);
 });
 
-test("creates a valid TCP smoke manifest entry for live-path smoke tests", () => {
-  const manifest = createSubscriptionManifest({
-    provider: { id: "lumen", name: "Lumen" },
-    subscription: { id: "sub_smoke", audience: "lumen-client" },
-    nodes: [
-      {
-        id: "node-smoke",
-        region: "eu",
-        protocols: [
-          {
-            type: "tcp-smoke",
-            adapter: "tcp-smoke-listener",
-            endpoint: { host: "smoke.example.invalid", port: 18081 },
-            security: { type: "none", alpn: [], allowInsecure: false },
-            credentialsRef: "vault://subscriptions/sub_smoke/tcp-smoke"
-          }
-        ]
-      }
-    ]
-  });
-
-  assert.equal(validateSubscriptionManifest(manifest).ok, true);
-  assert.equal(manifest.nodes[0].protocols[0].type, "tcp-smoke");
-});
-
 test("rejects incomplete VLESS Reality and unsafe VLESS TLS manifest entries", () => {
   const missingRealityFields = validateSubscriptionManifest(createUncheckedManifest({
     type: "vless-reality",
@@ -162,10 +137,10 @@ test("rejects inline VLESS credential material by key name", () => {
 
 test("rejects plaintext credential references", () => {
   const result = validateSubscriptionManifest(createUncheckedManifest({
-    type: "tcp-smoke",
-    adapter: "tcp-smoke-listener",
-    endpoint: { host: "smoke.example.invalid", port: 18081 },
-    security: { type: "none", alpn: [], allowInsecure: false },
+    type: "vless-tcp-tls",
+    adapter: "vless-tcp-tls",
+    endpoint: { host: "ams-1.example.net", port: 443 },
+    security: { serverName: "ams-1.example.net", alpn: [], allowInsecure: false },
     credentialsRef: "plain-password-token"
   }));
 

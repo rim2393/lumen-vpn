@@ -18,7 +18,7 @@ import {
 } from '../shared/components/ResourceScreen'
 import { OperatorGuide } from '../shared/components/OperatorGuide'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatRecord, parseKeyValueInput, toneForStatus } from '../shared/utils/resourceFormat'
 
 export function ProfilesPage() {
@@ -234,7 +234,7 @@ export function ProfilesPage() {
           />
         </div>
       }
-      spec={placeholderSpecs.profiles}
+      spec={sectionSpecs.profiles}
       tableEyebrow="Client delivery"
       tableTitle="Profile builder"
     />

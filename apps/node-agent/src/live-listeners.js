@@ -1,7 +1,7 @@
 import { createServer } from "node:net";
 
 export const LIVE_LISTENER_MODEL_VERSION = "lumen.node-agent.live-listener.v1";
-export const TCP_SMOKE_LISTENER_KIND = "tcp-smoke.v1";
+export const TCP_DIAGNOSTIC_LISTENER_KIND = "tcp-diagnostic.v1";
 
 const activeListeners = new Map();
 const activeTimers = new Map();
@@ -18,10 +18,10 @@ function requirePort(value, path, errors) {
   }
 }
 
-function validateTcpSmokeListenerPlan(plan = {}) {
+function validateTcpDiagnosticListenerPlan(plan = {}) {
   const errors = [];
-  if (plan.kind !== TCP_SMOKE_LISTENER_KIND) {
-    errors.push(`kind must be ${TCP_SMOKE_LISTENER_KIND}`);
+  if (plan.kind !== TCP_DIAGNOSTIC_LISTENER_KIND) {
+    errors.push(`kind must be ${TCP_DIAGNOSTIC_LISTENER_KIND}`);
   }
   requireString(plan.id, "id", errors);
   requirePort(plan.port, "port", errors);
@@ -37,25 +37,25 @@ function validateTcpSmokeListenerPlan(plan = {}) {
   return { ok: errors.length === 0, errors };
 }
 
-export function createTcpSmokeListenerPlan(input = {}) {
+export function createTcpDiagnosticListenerPlan(input = {}) {
   const plan = Object.freeze({
     modelVersion: LIVE_LISTENER_MODEL_VERSION,
-    kind: TCP_SMOKE_LISTENER_KIND,
+    kind: TCP_DIAGNOSTIC_LISTENER_KIND,
     id: input.id,
     address: input.address ?? "0.0.0.0",
     port: input.port,
-    banner: input.banner ?? "lumen-smoke\n",
+    banner: input.banner ?? "lumen-diagnostic\n",
     ttlMs: input.ttlMs ?? 300_000
   });
-  const result = validateTcpSmokeListenerPlan(plan);
+  const result = validateTcpDiagnosticListenerPlan(plan);
   if (!result.ok) {
     throw new Error(`Invalid live listener plan: ${result.errors.join("; ")}`);
   }
   return plan;
 }
 
-export async function startTcpSmokeListener(plan) {
-  const normalized = createTcpSmokeListenerPlan(plan);
+export async function startTcpDiagnosticListener(plan) {
+  const normalized = createTcpDiagnosticListenerPlan(plan);
   await stopLiveListener(normalized.id);
 
   const server = createServer((socket) => {

@@ -1,6 +1,6 @@
 export const PROTOCOL_ADAPTER_CONTRACT_VERSION = "lumen.protocol-adapter.v1";
 
-const ADAPTER_STATUSES = new Set(["placeholder", "experimental", "stable", "deprecated"]);
+const ADAPTER_STATUSES = new Set(["catalog", "experimental", "stable", "deprecated"]);
 
 function requireString(value, path, errors) {
   if (typeof value !== "string" || value.trim().length === 0) {

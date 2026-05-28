@@ -85,7 +85,7 @@ export function DashboardPage() {
   const metrics = buildDashboardMetrics({ license, nodes, subscriptions, t, users })
   const activityRows = buildActivityRows({ apiKeys, language, license, nodes, subscriptions, t, users })
   const riskRows = buildRiskRows({ apiKeys, license, nodes, subscriptions, t, users })
-  const sourceKey = usersQuery.data?.source === 'mock' ? 'Test data' : 'Live API'
+  const sourceKey = usersQuery.data?.source === 'development' ? 'Development API' : 'Live API'
 
   return (
     <section className="page">

@@ -64,10 +64,14 @@ The schema rejects secret-like inline keys such as `password`, `token`, `private
 Current renderers:
 
 - `lumen-json`
-- `sing-box-skeleton`
-- `clash-meta-skeleton`
+- `sing-box`
+- `clash-meta`
+- `mihomo`
 
-The skeleton renderers are intentionally not runnable client configs. For VLESS Reality/TLS they include non-secret public endpoint and TLS/Reality metadata, plus credential references so later secure render stages can resolve credentials out of band.
+The JSON renderer keeps credential references for internal handoff. Client
+renderers require a secure credential seed and emit runnable VLESS Reality/TLS
+configs without exposing vault references, private keys, access tokens, or
+subscription URLs.
 
 ## TODO
 
@@ -75,4 +79,4 @@ The skeleton renderers are intentionally not runnable client configs. For VLESS 
 - Add manifest signing and freshness fields.
 - Add client capability targeting and per-client renderer feature flags.
 - Add migration tests between manifest versions.
-- Add secure handoff from credential resolver to final client config renderer.
+- Extend the same secure renderer pattern to each protocol as its adapter becomes executable.

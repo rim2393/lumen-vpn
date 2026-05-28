@@ -19,7 +19,7 @@ import {
   SubmitButton,
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatRecord, parseKeyValueInput, toneForStatus } from '../shared/utils/resourceFormat'
 
 export function SquadsPage() {
@@ -250,7 +250,7 @@ export function SquadsPage() {
           </article>
         </div>
       }
-      spec={placeholderSpecs.squads}
+      spec={sectionSpecs.squads}
       tableEyebrow="Access groups"
       tableTitle="Squad registry"
     />

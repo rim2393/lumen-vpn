@@ -24,7 +24,7 @@ import {
 } from "./provisioning-state.js";
 import { createNodeAgentRuntimeConfig, loadNodeAgentConfigFromEnv } from "./runtime-loop.js";
 import { readSecretFromEnv } from "./secret-input.js";
-import { createTcpSmokeListenerPlan, startTcpSmokeListener, stopLiveListener } from "./live-listeners.js";
+import { createTcpDiagnosticListenerPlan, startTcpDiagnosticListener, stopLiveListener } from "./live-listeners.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
@@ -167,11 +167,11 @@ function failedCommandResult(command, error, code = "command_apply_failed") {
 }
 
 function liveListenerPlanFromEnvelope(envelope) {
-  if (envelope.payload.adapter !== "tcp-smoke-listener") {
+  if (envelope.payload.adapter !== "tcp-diagnostic-listener") {
     return null;
   }
   const listener = envelope.payload.liveListener ?? {};
-  return createTcpSmokeListenerPlan({
+  return createTcpDiagnosticListenerPlan({
     id: listener.id ?? envelope.payload.outboundId ?? envelope.id,
     address: listener.address ?? envelope.payload.bind?.address,
     port: listener.port ?? envelope.payload.bind?.port ?? envelope.payload.endpoint?.port,
@@ -202,19 +202,19 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
       implementationStatus: "live-listener-dry-run"
     });
   }
-  if (input.enableLiveSmoke !== true) {
-    return failedCommandResult(command, new Error("live smoke listener is disabled"), "live_smoke_disabled");
+  if (input.enableLiveDiagnostic !== true) {
+    return failedCommandResult(command, new Error("live diagnostic listener is disabled"), "live_diagnostic_disabled");
   }
 
   try {
-    if (commandResult.runtimeAction.type === "tcp-smoke.start") {
-      const liveListener = await startTcpSmokeListener(commandResult.runtimeAction.plan);
+    if (commandResult.runtimeAction.type === "tcp-diagnostic.start") {
+      const liveListener = await startTcpDiagnosticListener(commandResult.runtimeAction.plan);
       return withResultOutputs(commandResult, {
         implementationStatus: "live-listener-active",
         liveListener
       });
     }
-    if (commandResult.runtimeAction.type === "tcp-smoke.stop") {
+    if (commandResult.runtimeAction.type === "tcp-diagnostic.stop") {
       const liveListener = await stopLiveListener(commandResult.runtimeAction.listenerId);
       return withResultOutputs(commandResult, {
         implementationStatus: "live-listener-stopped",
@@ -228,7 +228,7 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
   return commandResult;
 }
 
-function transitionApplyScaffold(state, envelope, input = {}) {
+function transitionApplyState(state, envelope, input = {}) {
   const applyStarted = transitionProvisioningState(
     state,
     PROVISIONING_EVENTS.APPLY_STARTED,
@@ -243,7 +243,7 @@ function transitionApplyScaffold(state, envelope, input = {}) {
   });
 }
 
-function transitionValidateScaffold(state, envelope, input = {}) {
+function transitionValidateState(state, envelope, input = {}) {
   const validateStarted = transitionProvisioningState(
     state,
     PROVISIONING_EVENTS.VALIDATE_STARTED,
@@ -255,7 +255,7 @@ function transitionValidateScaffold(state, envelope, input = {}) {
   });
 }
 
-function transitionReportScaffold(state, input = {}) {
+function transitionReportState(state, input = {}) {
   const reportStarted = transitionProvisioningState(state, PROVISIONING_EVENTS.REPORT_STARTED, {
     at: input.startedAt
   });
@@ -300,7 +300,7 @@ export function applyNodeCommand(command, currentState, input = {}) {
     let runtimeAction = null;
     let outputs = {
       mode: state.mode,
-      implementationStatus: "scaffold"
+      implementationStatus: "state-transition"
     };
 
     switch (envelope.command) {
@@ -327,8 +327,11 @@ export function applyNodeCommand(command, currentState, input = {}) {
         outputs = { mode: nextState.mode, reason: envelope.payload.reason };
         break;
       case COMMAND_TYPES.DESIRED_STATE_VALIDATE:
-        nextState = transitionValidateScaffold(state, envelope, { startedAt, finishedAt });
-        outputs = { desiredRevision: nextState.desiredRevision, implementationStatus: "scaffold" };
+        nextState = transitionValidateState(state, envelope, { startedAt, finishedAt });
+        outputs = {
+          desiredRevision: nextState.desiredRevision,
+          implementationStatus: "validated"
+        };
         break;
       case COMMAND_TYPES.DESIRED_STATE_APPLY:
       case COMMAND_TYPES.FIREWALL_PLAN_APPLY:
@@ -339,17 +342,17 @@ export function applyNodeCommand(command, currentState, input = {}) {
             : null;
           if (liveListener) {
             runtimeAction = Object.freeze({
-              type: "tcp-smoke.start",
+              type: "tcp-diagnostic.start",
               plan: liveListener
             });
           }
         }
-        nextState = transitionApplyScaffold(state, envelope, { startedAt, finishedAt });
+        nextState = transitionApplyState(state, envelope, { startedAt, finishedAt });
         outputs = {
           appliedRevision: nextState.appliedRevision,
           command: envelope.command,
           dryRun: input.dryRun ?? true,
-          implementationStatus: runtimeAction ? "live-listener-pending" : "scaffold"
+          implementationStatus: runtimeAction ? "live-listener-pending" : "applied"
         };
         break;
       case COMMAND_TYPES.OUTBOUND_REMOVE:
@@ -365,21 +368,21 @@ export function applyNodeCommand(command, currentState, input = {}) {
           implementationStatus: "live-listener-stop-pending"
         };
         runtimeAction = Object.freeze({
-          type: "tcp-smoke.stop",
+          type: "tcp-diagnostic.stop",
           listenerId: envelope.payload.listenerId ?? envelope.payload.outboundId ?? envelope.id
         });
         break;
       case COMMAND_TYPES.CAPABILITIES_REPORT:
-        nextState = transitionReportScaffold(state, { startedAt, finishedAt });
+        nextState = transitionReportState(state, { startedAt, finishedAt });
         outputs = {
           capabilities: Object.freeze({ ...(input.capabilities ?? {}) }),
-          implementationStatus: "scaffold"
+          implementationStatus: "reported"
         };
         break;
       case COMMAND_TYPES.CONFLICT_SCAN:
         outputs = {
           conflictsFound: 0,
-          implementationStatus: "scaffold"
+          implementationStatus: "scanned"
         };
         break;
       default:
@@ -478,7 +481,7 @@ export async function runNodeAgentOnce(input = {}) {
     });
     commandResult = await applyRuntimeEffects(command, commandResult, {
       dryRun: enrollment.config.dryRun,
-      enableLiveSmoke: (input.env ?? {}).LUMEN_ENABLE_LIVE_SMOKE === "true"
+      enableLiveDiagnostic: (input.env ?? {}).LUMEN_ENABLE_LIVE_DIAGNOSTIC === "true"
     });
     if (commandResult.state) {
       latestState = commandResult.state;

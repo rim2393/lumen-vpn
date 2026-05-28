@@ -7,7 +7,7 @@ export function NotFoundPage() {
       <BrandMark compact />
       <p className="eyebrow">Route unavailable</p>
       <h1>Control surface not found</h1>
-      <p>The requested Lumen admin view is not part of this scaffold yet.</p>
+      <p>The requested Lumen admin view is not available in this deployment.</p>
       <Link to="/dashboard" className="button button--primary">
         Return to dashboard
       </Link>

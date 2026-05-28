@@ -5,9 +5,9 @@ export {
 } from "./adapter-interface.js";
 export {
   defaultProtocolRegistry,
-  firstProtocolPlaceholders,
-  protocolPlaceholderAdapters
-} from "./placeholders.js";
+  protocolCatalogAdapters,
+  protocolCatalogEntries
+} from "./catalog.js";
 export {
   PORT_CONFLICT_MODEL_VERSION,
   PORT_CONFLICT_TYPES,

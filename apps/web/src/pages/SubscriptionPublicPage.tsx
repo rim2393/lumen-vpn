@@ -4,15 +4,15 @@ import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataS
 import { MetricCard } from '../shared/components/MetricCard'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatDateTime, formatRecord } from '../shared/utils/resourceFormat'
 
 const pageSpec = {
-  ...placeholderSpecs.subscription,
-  description: 'Preview public subscription page metadata, support links, JSON mode, and client-facing profile hints.',
+  ...sectionSpecs.subscription,
+  description: 'Manage public subscription page metadata, support links, JSON mode, and client-facing profile hints.',
   eyebrow: 'Subscription page',
   primaryAction: 'Preview page',
-  status: 'preview',
+  status: 'active',
   title: 'Subscription Page',
 }
 
@@ -44,7 +44,7 @@ export function SubscriptionPublicPage() {
         <MetricCard
           metric={{
             detail: 'active feed records',
-            icon: placeholderSpecs.subscription.icon,
+            icon: sectionSpecs.subscription.icon,
             label: 'Subscriptions',
             tone: 'info',
             value: String(subscriptions.length),
@@ -52,8 +52,8 @@ export function SubscriptionPublicPage() {
         />
         <MetricCard
           metric={{
-            detail: 'settings-backed toggles',
-            icon: placeholderSpecs.license.icon,
+            detail: 'stored panel settings',
+            icon: sectionSpecs.license.icon,
             label: 'Page settings',
             tone: 'good',
             value: String(settings.length),
@@ -70,7 +70,7 @@ export function SubscriptionPublicPage() {
       {subscriptionsQuery.isSuccess && subscriptions.length === 0 ? (
         <EmptyState
           title="No subscription page records"
-          description="Subscription page preview needs at least one subscription record."
+          description="Create a real subscription before exposing a public customer page."
         />
       ) : null}
       {subscriptionsQuery.isSuccess && subscriptions.length > 0 ? (
@@ -78,7 +78,7 @@ export function SubscriptionPublicPage() {
           <div className="panel__header">
             <div>
               <p className="eyebrow">Public page</p>
-              <h2>Profile page preview</h2>
+              <h2>Profile page records</h2>
             </div>
             <button
               type="button"

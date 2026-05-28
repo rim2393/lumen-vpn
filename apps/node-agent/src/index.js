@@ -93,9 +93,9 @@ export { applyNodeCommand, enrollNodeAgent, runNodeAgentLoop, runNodeAgentOnce }
 export { readSecretFromEnv } from "./secret-input.js";
 export {
   LIVE_LISTENER_MODEL_VERSION,
-  TCP_SMOKE_LISTENER_KIND,
-  createTcpSmokeListenerPlan,
+  TCP_DIAGNOSTIC_LISTENER_KIND,
+  createTcpDiagnosticListenerPlan,
   listLiveListeners,
-  startTcpSmokeListener,
+  startTcpDiagnosticListener,
   stopLiveListener
 } from "./live-listeners.js";

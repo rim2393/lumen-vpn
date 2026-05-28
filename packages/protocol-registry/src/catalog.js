@@ -1,30 +1,7 @@
 import { createProtocolRegistry, defineProtocolAdapter } from "./adapter-interface.js";
 import { vlessProtocolAdapters } from "./vless.js";
 
-function createPlaceholderPlan(protocol, request = {}) {
-  return Object.freeze({
-    kind: "lumen.protocol-outbound.placeholder.v1",
-    protocol,
-    nodeId: request.nodeId ?? null,
-    outboundId: request.outboundId ?? null,
-    endpoint: Object.freeze({ ...(request.endpoint ?? {}) }),
-    credentialsRef: request.credentialsRef ?? null,
-    implementationStatus: "not-implemented",
-    warnings: Object.freeze([
-      "Protocol adapter is a placeholder and must not be used to provision live traffic."
-    ])
-  });
-}
-
-function placeholderAdapter(config) {
-  return defineProtocolAdapter({
-    status: "placeholder",
-    ...config,
-    planOutbound: (request) => createPlaceholderPlan(config.protocol, request)
-  });
-}
-
-export const firstProtocolPlaceholders = Object.freeze([
+export const protocolCatalogEntries = Object.freeze([
   Object.freeze({
     protocol: "vless",
     displayName: "VLESS",
@@ -62,11 +39,16 @@ export const firstProtocolPlaceholders = Object.freeze([
   })
 ]);
 
-export const protocolPlaceholderAdapters = Object.freeze(
-  firstProtocolPlaceholders.map((config) => placeholderAdapter(config))
+export const protocolCatalogAdapters = Object.freeze(
+  protocolCatalogEntries.map((config) => defineProtocolAdapter({
+    status: "catalog",
+    ...config,
+    planOutbound: () => {
+      throw new Error(`Protocol ${config.protocol} is catalog-only until a production adapter is registered`);
+    }
+  }))
 );
 
 export const defaultProtocolRegistry = createProtocolRegistry([
-  ...vlessProtocolAdapters,
-  ...protocolPlaceholderAdapters
+  ...vlessProtocolAdapters
 ]);

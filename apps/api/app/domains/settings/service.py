@@ -28,7 +28,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "enabled": False,
         "status": "configured",
         "scopes": ["admin:login"],
-        "metadata_json": {"webauthn": "planned"},
+        "metadata_json": {"webauthn": "disabled_until_registered"},
     },
     {
         "provider": "telegram",

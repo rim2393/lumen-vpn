@@ -65,7 +65,7 @@ export function toneForStatus(status: string): MetricTone {
   if (['failed', 'invalid', 'revoked', 'disabled', 'quarantined'].includes(normalized)) {
     return 'danger'
   }
-  if (['installing', 'provisioning', 'running', 'scaffold'].includes(normalized)) {
+  if (['installing', 'provisioning', 'running', 'catalog'].includes(normalized)) {
     return 'info'
   }
   return 'neutral'

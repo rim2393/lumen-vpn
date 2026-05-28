@@ -12,11 +12,11 @@ import {
   SubmitButton,
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatDateTime, formatRecord, parseKeyValueInput } from '../shared/utils/resourceFormat'
 
 const settingsSpec = {
-  ...placeholderSpecs.subscription,
+  ...sectionSpecs.subscription,
   description:
     'Manage subscription information, auth provider toggles, response headers, and panel-wide metadata.',
   eyebrow: 'Control plane settings',

@@ -121,7 +121,7 @@ export function createOutboundPlan(input = {}) {
     credentialsRef: input.credentialsRef,
     requiredCapabilities: freezeArray(input.requiredCapabilities),
     tags: freezeArray(input.tags),
-    status: input.status ?? "planned",
+    status: input.status ?? "queued",
     metadata: Object.freeze({ ...(input.metadata ?? {}) })
   });
 

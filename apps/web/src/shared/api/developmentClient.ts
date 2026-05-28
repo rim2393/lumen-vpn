@@ -2,7 +2,7 @@ import {
   apiKeyRecords,
   hostRecords,
   licenseSummary,
-  mockSession,
+  developmentSession,
   nodeRecords,
   profileRecords,
   protocolAdapters,
@@ -73,7 +73,7 @@ function asListResponse<TItem>(items: TItem[]): ResourceListResponse<TItem> {
   return {
     generatedAt,
     items,
-    source: 'mock',
+    source: 'development',
     total: items.length,
   }
 }
@@ -101,7 +101,7 @@ function asNodeListResponse(): NodeListResponse {
   }
 }
 
-function buildMockProvisioningJob(
+function buildDevelopmentProvisioningJob(
   request: ProvisioningJobCreateRequest,
   jobId = `job_${request.idempotency_key}`,
 ): ProvisioningJobResponse {
@@ -129,7 +129,7 @@ function buildMockProvisioningJob(
   }
 }
 
-export function createMockLumenApiClient(): LumenApiClient {
+export function createDevelopmentLumenApiClient(): LumenApiClient {
   const apiKeys = [...apiKeyRecords]
   const hosts = [...hostRecords]
   const profiles = [...profileRecords]
@@ -151,7 +151,7 @@ export function createMockLumenApiClient(): LumenApiClient {
     {
       display_name: 'Passkey',
       enabled: false,
-      metadata_json: { webauthn: 'planned' },
+      metadata_json: { webauthn: 'disabled_until_registered' },
       provider: 'passkey',
       scopes: ['admin:login'],
       status: 'configured',
@@ -205,7 +205,7 @@ export function createMockLumenApiClient(): LumenApiClient {
       id: existing?.id ?? `setting_${key}`,
       key,
       updated_at: new Date().toISOString(),
-      updated_by: mockSession.userId,
+      updated_by: developmentSession.userId,
       value_json: request.value_json,
     }
     if (existing) {
@@ -277,7 +277,7 @@ export function createMockLumenApiClient(): LumenApiClient {
         id,
         lastUsedAt: null,
         name: request.name,
-        owner: mockSession.name,
+        owner: developmentSession.name,
         scopes: request.scopes,
         status: 'active',
       })
@@ -285,7 +285,7 @@ export function createMockLumenApiClient(): LumenApiClient {
         api_key: 'lumen_key_one_time_value',
         expires_at: request.expires_at ?? null,
         id,
-        key_prefix: 'lumen_key_mock',
+        key_prefix: 'lumen_key_dev',
         name: request.name,
       }
     },
@@ -326,7 +326,7 @@ export function createMockLumenApiClient(): LumenApiClient {
       profiles.unshift(profile)
       return profile
     },
-    createProvisioningJob: async (request) => buildMockProvisioningJob(request),
+    createProvisioningJob: async (request) => buildDevelopmentProvisioningJob(request),
     createNodeCommand: async (nodeId: string, request: NodeCommandCreateRequest) => {
       const now = new Date().toISOString()
       const command: NodeCommandRecord = {
@@ -560,7 +560,7 @@ export function createMockLumenApiClient(): LumenApiClient {
           })),
       }
     },
-    getSession: async () => mockSession,
+    getSession: async () => developmentSession,
     listApiKeys: async () => asListResponse(apiKeys),
     listHosts: async (): Promise<HostListResponse> => ({ items: hosts }),
     listNodes: async () => asNodeListResponse(),
@@ -673,12 +673,12 @@ export function createMockLumenApiClient(): LumenApiClient {
     }),
     listUsers: async (): Promise<UserListResponse> => ({ items: users }),
     login: async () => ({
-      challengeToken: 'mock-mfa-challenge',
+      challengeToken: 'dev-mfa-challenge',
       expiresAt: '2026-05-27T00:05:00.000Z',
       methods: [
         {
           confirmed_at: '2026-05-27T00:00:00.000Z',
-          id: 'mock-mfa-method',
+          id: 'dev-mfa-method',
           kind: 'totp',
           label: 'Authenticator',
           last_used_at: null,
@@ -688,19 +688,19 @@ export function createMockLumenApiClient(): LumenApiClient {
     }),
     logout: async () => undefined,
     readProvisioningJob: async (jobId) =>
-      buildMockProvisioningJob(
+      buildDevelopmentProvisioningJob(
         {
-          idempotency_key: jobId.replace(/^job_/, '') || 'mock-job',
+          idempotency_key: jobId.replace(/^job_/, '') || 'dev-job',
           kind: 'node.provision',
           node: {
-            name: 'mock-node',
-            public_address: 'mock-node.lumen.local',
-            region: 'mock',
+            name: 'dev-node',
+            public_address: 'dev-node.lumen.local',
+            region: 'development',
           },
           requested_capabilities: {},
           ssh: {
-            credentials_ref: 'vault://lumen/nodes/mock-node/ssh',
-            host: 'mock-node.lumen.local',
+            credentials_ref: 'vault://lumen/nodes/dev-node/ssh',
+            host: 'dev-node.lumen.local',
             port: 22,
             username: 'root',
           },
@@ -891,9 +891,9 @@ export function createMockLumenApiClient(): LumenApiClient {
       return user
     },
     verifyMfaChallenge: async () => ({
-      ...mockSession,
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
+      ...developmentSession,
+      accessToken: 'dev-access-token',
+      refreshToken: 'dev-refresh-token',
     }),
     updateAuthProvider: async (
       provider: string,

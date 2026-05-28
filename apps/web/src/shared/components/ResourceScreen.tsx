@@ -4,7 +4,7 @@ import { EmptyState, ErrorState, LoadingState } from './DataState'
 import { DataTable } from './DataTable'
 import { PageHeader } from './PageHeader'
 import { StatusBadge } from './StatusBadge'
-import type { PlaceholderSpec } from '../data/lumenData'
+import type { SectionSpec } from '../data/lumenData'
 import { useI18n } from '../i18n/I18nProvider'
 
 type ResourceScreenProps<TItem> = {
@@ -25,7 +25,7 @@ type ResourceScreenProps<TItem> = {
   renderRow: (item: TItem) => { cells: ReactNode[]; id: string }
   rightPanel?: ReactNode
   sourceLabel?: string
-  spec: PlaceholderSpec
+  spec: SectionSpec
   tableEyebrow: string
   tableTitle: string
 }

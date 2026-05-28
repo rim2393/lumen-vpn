@@ -353,21 +353,21 @@ async def test_protocol_profile_port_conflict_and_host_flow(
     assert host_response.status_code == 201
     assert host_response.json()["hostname"] == "auto.example.test"
 
-    smoke_profile_response = await foundation_app.client.post(
+    diagnostic_profile_response = await foundation_app.client.post(
         "/api/v1/profiles",
         json={
-            "name": "TCP Smoke",
+            "name": "Diagnostic TLS",
             "node_id": node_id,
             "squad_id": squad_id,
-            "adapter": "tcp-smoke",
-            "credentials_ref": "vault://protocols/tcp-smoke",
+            "adapter": "vless-tcp-tls",
+            "credentials_ref": "vault://protocols/vless-tcp-tls/diagnostic",
             "port_reservations": [
                 {"address": WILDCARD_BIND_ADDRESS, "port": 18081, "protocol": "tcp"}
             ],
         },
     )
-    assert smoke_profile_response.status_code == 201
-    assert smoke_profile_response.json()["adapter"] == "tcp-smoke"
+    assert diagnostic_profile_response.status_code == 201
+    assert diagnostic_profile_response.json()["adapter"] == "vless-tcp-tls"
 
 
 async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRouteApp) -> None:
@@ -883,7 +883,7 @@ async def test_protocol_profile_rejects_plaintext_credentials_ref(
         json={
             "name": "Plain credentials",
             "node_id": node_id,
-            "adapter": "tcp-smoke",
+            "adapter": "vless-tcp-tls",
             "credentials_ref": "plain-password-token",
         },
     )

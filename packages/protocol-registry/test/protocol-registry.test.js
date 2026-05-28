@@ -4,7 +4,8 @@ import {
   createProtocolRegistry,
   detectExclusiveBindPortConflicts,
   defaultProtocolRegistry,
-  firstProtocolPlaceholders
+  protocolCatalogAdapters,
+  protocolCatalogEntries
 } from "../src/index.js";
 
 function realityRequest(overrides = {}) {
@@ -25,30 +26,29 @@ function realityRequest(overrides = {}) {
   };
 }
 
-test("registers VLESS real adapters alongside first protocol placeholders", () => {
+test("default registry exposes only production-plan adapters while catalog entries stay separate", () => {
   const protocols = defaultProtocolRegistry.list().map((adapter) => adapter.protocol);
-  assert.deepEqual(protocols.slice(2), firstProtocolPlaceholders.map((adapter) => adapter.protocol));
+  assert.deepEqual(protocols, ["vless-reality", "vless-tcp-tls"]);
+  assert.deepEqual(protocolCatalogEntries.map((adapter) => adapter.protocol), ["vless", "trojan", "shadowsocks", "wireguard", "hysteria2"]);
   assert.equal(defaultProtocolRegistry.require("vless-reality").status, "experimental");
   assert.equal(defaultProtocolRegistry.require("vless-tcp-tls").status, "experimental");
-  assert.equal(defaultProtocolRegistry.require("vless").status, "placeholder");
+  assert.equal(defaultProtocolRegistry.get("vless"), null);
 });
 
-test("placeholder adapter returns a non-live outbound plan", () => {
-  const plan = defaultProtocolRegistry.require("wireguard").planOutbound({
+test("catalog adapters cannot provision live outbound plans", () => {
+  const wireguard = protocolCatalogAdapters.find((adapter) => adapter.protocol === "wireguard");
+  assert.equal(wireguard.status, "catalog");
+  assert.throws(() => wireguard.planOutbound({
     nodeId: "ams-1",
     outboundId: "wg-1",
     endpoint: { host: "ams-1.example.net", port: 51820 },
     credentialsRef: "vault://nodes/ams-1/wireguard"
-  });
-
-  assert.equal(plan.implementationStatus, "not-implemented");
-  assert.match(plan.warnings[0], /placeholder/);
-  assert.equal(plan.credentialsRef, "vault://nodes/ams-1/wireguard");
+  }), /catalog-only/);
 });
 
 test("rejects duplicate protocol adapters", () => {
   assert.throws(
-    () => createProtocolRegistry([defaultProtocolRegistry.require("vless"), defaultProtocolRegistry.require("vless")]),
+    () => createProtocolRegistry([defaultProtocolRegistry.require("vless-reality"), defaultProtocolRegistry.require("vless-reality")]),
     /Duplicate protocol adapter/
   );
 });
@@ -57,7 +57,7 @@ test("VLESS Reality adapter validates config and renders a safe Xray-shaped plan
   const plan = defaultProtocolRegistry.require("vless-reality").planOutbound(realityRequest());
 
   assert.equal(plan.kind, "lumen.protocol-outbound.xray.v1");
-  assert.equal(plan.implementationStatus, "planned");
+  assert.equal(plan.implementationStatus, "config-plan");
   assert.equal(plan.xray.inbound.streamSettings.security, "reality");
   assert.equal(plan.clientSecurity.publicKey, "F1E2D3C4B5A69788776655443322110abcdEFGH_-");
   assert.equal(plan.bind.exclusive, true);

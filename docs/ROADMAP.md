@@ -1,14 +1,14 @@
 # Roadmap
 
-## v0.1.0-prototype
+## v0.1.x Production Base
 
-1. Repository scaffolds and control documents.
+1. Repository layout and control documents.
 2. Public installer repository with Nginx, acme.sh, compose templates, and
    safe scripts.
-3. Private control-plane scaffold: API, web, node-agent, edge, subscription
+3. Private control-plane: API, web, node-agent, edge, subscription
    packages.
-4. License server scaffold with offline signed license model and mock billing
-   adapter.
+4. License server with offline signed license model. Payment integration is
+   deferred until the product surface is stable.
 5. Security core: admin auth, sessions, API keys, RBAC, audit, emergency mode.
 6. Node provisioning: push by SSH from panel, fallback pull install, outbound
    agent channel.

@@ -8,7 +8,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { FormError, ScreenForm, SubmitButton } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { MetricTone } from '../shared/data/lumenData'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 
 const statusTone: Record<ApiKeyStatus, MetricTone> = {
   active: 'good',
@@ -17,7 +17,7 @@ const statusTone: Record<ApiKeyStatus, MetricTone> = {
 }
 
 export function ApiKeysPage() {
-  const spec = placeholderSpecs.apiKeys
+  const spec = sectionSpecs.apiKeys
   const query = useApiKeysPageData()
   const createApiKey = useCreateApiKey()
   const revokeApiKey = useRevokeApiKey()

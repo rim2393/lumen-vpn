@@ -539,7 +539,7 @@ h2 {
 }
 
 .metrics-grid,
-.placeholder-layout,
+.section-layout,
 .dashboard-grid {
   display: grid;
   gap: var(--space-4);
@@ -550,7 +550,7 @@ h2 {
 }
 
 .dashboard-grid,
-.placeholder-layout {
+.section-layout {
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
 }
 
@@ -562,14 +562,14 @@ h2 {
 
 .metric-card,
 .panel,
-.placeholder-card {
+.section-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 320px auto 220px;
 }
 
 .metric-card,
 .panel,
-.placeholder-card,
+.section-card,
 .auth-card {
   background:
     linear-gradient(180deg, rgb(255 255 255 / 7%), transparent 56%),
@@ -593,7 +593,7 @@ h2 {
 
 .metric-card__icon,
 .auth-card__icon,
-.placeholder-card__icon {
+.section-card__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -619,7 +619,7 @@ h2 {
 }
 
 .panel,
-.placeholder-card {
+.section-card {
   padding: var(--space-6);
 }
 
@@ -668,18 +668,18 @@ h2 {
   margin-top: var(--space-5);
 }
 
-.placeholder-card--primary {
+.section-card--primary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-5);
   align-content: start;
 }
 
-.placeholder-card h2 {
+.section-card h2 {
   margin-top: var(--space-3);
 }
 
-.placeholder-card p {
+.section-card p {
   margin-top: var(--space-3);
   color: var(--color-muted);
 }
@@ -1019,7 +1019,7 @@ h2 {
 @supports not (content-visibility: auto) {
   .metric-card,
   .panel,
-  .placeholder-card {
+  .section-card {
     contain: layout style paint;
   }
 }
@@ -1027,7 +1027,7 @@ h2 {
 @media (max-width: 1100px) {
   .metrics-grid,
   .dashboard-grid,
-  .placeholder-layout,
+  .section-layout,
   .resource-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1106,7 +1106,7 @@ h2 {
 @media (max-width: 620px) {
   .metrics-grid,
   .dashboard-grid,
-  .placeholder-layout,
+  .section-layout,
   .resource-grid {
     grid-template-columns: 1fr;
   }
@@ -1117,7 +1117,7 @@ h2 {
 
   .metric-card,
   .panel,
-  .placeholder-card,
+  .section-card,
   .auth-card {
     padding: var(--space-4);
   }
@@ -1132,7 +1132,7 @@ h2 {
     grid-column: 2;
   }
 
-  .placeholder-card--primary {
+  .section-card--primary {
     grid-template-columns: 1fr;
   }
 

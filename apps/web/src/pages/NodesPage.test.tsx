@@ -1,19 +1,19 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { createMockLumenApiClient } from '../shared/api/mockClient'
+import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
 import type {
   LumenApiClient,
   NodeResponse,
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
 } from '../shared/api/types'
-import { mockSession } from '../shared/data/lumenData'
+import { developmentSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
 function createTestClient(overrides: Partial<LumenApiClient> = {}): LumenApiClient {
   return {
-    ...createMockLumenApiClient(),
+    ...createDevelopmentLumenApiClient(),
     createProvisioningJob: async () => {
       throw new Error('Provisioning is unavailable')
     },
@@ -21,14 +21,14 @@ function createTestClient(overrides: Partial<LumenApiClient> = {}): LumenApiClie
     listApiKeys: async () => ({
       generatedAt: '2026-05-27T00:00:00Z',
       items: [],
-      source: 'mock',
+      source: 'development',
       total: 0,
     }),
     listNodes: async () => ({ items: [] }),
     listUsers: async () => ({
       generatedAt: '2026-05-27T00:00:00Z',
       items: [],
-      source: 'mock',
+      source: 'development',
       total: 0,
     }),
     readLicense: async () => null,
@@ -101,7 +101,7 @@ describe('NodesPage backend wiring', () => {
       }),
     })
 
-    renderWithRouter('/nodes', { apiClient, initialSession: mockSession })
+    renderWithRouter('/nodes', { apiClient, initialSession: developmentSession })
 
     expect(
       await screen.findByRole('table', { name: /node provisioning and heartbeat inventory/i }),
@@ -116,14 +116,14 @@ describe('NodesPage backend wiring', () => {
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
   })
 
-  it('creates a provisioning job with credentials_ref only and safe token placeholders', async () => {
+  it('creates a provisioning job with credentials_ref only and safe token templates', async () => {
     const createProvisioningJob = vi.fn(async (request: ProvisioningJobCreateRequest) =>
       buildProvisioningJob(request),
     )
     const apiClient = createTestClient({ createProvisioningJob })
     const user = userEvent.setup()
 
-    renderWithRouter('/nodes', { apiClient, initialSession: mockSession })
+    renderWithRouter('/nodes', { apiClient, initialSession: developmentSession })
 
     await user.type(screen.getByLabelText(/node name/i), 'edge-new')
     await user.type(screen.getByLabelText(/region/i), 'eu')

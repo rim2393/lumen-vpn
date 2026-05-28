@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { createSubscriptionManifest } from "../../subscription-schema/src/index.js";
 import {
   renderClientSubscription,
-  renderClashMetaSkeleton,
   renderJsonManifest,
-  renderSingBoxSkeleton
+  renderMihomoYaml,
+  renderSingBoxConfig
 } from "../src/index.js";
+
+const CREDENTIAL_SEED = "0123456789abcdef0123456789abcdef";
 
 function fixtureManifest() {
   return createSubscriptionManifest({
@@ -46,28 +48,31 @@ test("renders stable lumen json", () => {
   assert.doesNotMatch(output, /password|privateKey|accessToken|uuid/i);
 });
 
-test("renders sing-box and clash skeletons without inline credentials", () => {
+test("renders runnable sing-box and Mihomo configs with derived credentials", () => {
   const manifest = fixtureManifest();
-  const singBox = renderSingBoxSkeleton(manifest);
-  const clash = renderClashMetaSkeleton(manifest);
+  const singBox = renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED });
+  const mihomo = renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED });
 
   assert.equal(singBox.outbounds[0].type, "vless");
-  assert.equal(singBox.outbounds[0].implementation_status, "skeleton-no-inline-credentials");
+  assert.match(singBox.outbounds[0].uuid, /^[0-9a-f-]{36}$/);
   assert.equal(singBox.outbounds[0].tls.reality.public_key, "F1E2D3C4B5A69788776655443322110abcdEFGH_-");
-  assert.match(clash, /reality-opts:/);
-  assert.match(clash, /public-key:/);
-  assert.match(clash, /lumen_credentials_ref/);
-  assert.doesNotMatch(JSON.stringify(singBox), /password|privateKey|accessToken|uuid/i);
-  assert.doesNotMatch(clash, /password|privateKey|accessToken|uuid/i);
+  assert.match(mihomo, /reality-opts:/);
+  assert.match(mihomo, /public-key:/);
+  assert.match(mihomo, /uuid:/);
+  assert.doesNotMatch(JSON.stringify(singBox), /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
+  assert.doesNotMatch(mihomo, /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
 });
 
 test("dispatches renderer formats and rejects unknown formats", () => {
   const manifest = fixtureManifest();
-  assert.match(renderClientSubscription(manifest, "clash-meta-skeleton"), /proxies:/);
+  assert.match(renderClientSubscription(manifest, "clash-meta", { credentialSeed: CREDENTIAL_SEED }), /proxies:/);
+  assert.match(renderClientSubscription(manifest, "mihomo", { credentialSeed: CREDENTIAL_SEED }), /proxies:/);
+  assert.match(renderClientSubscription(manifest, "sing-box", { credentialSeed: CREDENTIAL_SEED }), /"outbounds":/);
   assert.throws(() => renderClientSubscription(manifest, "raw-url"), /Unsupported/);
+  assert.throws(() => renderClientSubscription(manifest, "sing-box"), /credentialSeed/);
 });
 
-test("renders VLESS TCP TLS skeleton fields without credentials", () => {
+test("renders VLESS TCP TLS fields with real derived credentials", () => {
   const manifest = createSubscriptionManifest({
     generatedAt: "2026-05-26T00:00:00.000Z",
     provider: { id: "lumen", name: "Lumen VPN" },
@@ -89,12 +94,13 @@ test("renders VLESS TCP TLS skeleton fields without credentials", () => {
     ]
   });
 
-  const singBox = renderSingBoxSkeleton(manifest);
-  const clash = renderClashMetaSkeleton(manifest);
+  const singBox = renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED });
+  const mihomo = renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED });
 
   assert.equal(singBox.outbounds[0].tls.server_name, "ams-1.example.net");
   assert.deepEqual(singBox.outbounds[0].tls.alpn, ["h2"]);
-  assert.match(clash, /skip-cert-verify: false/);
-  assert.doesNotMatch(JSON.stringify(singBox), /password|privateKey|accessToken|uuid/i);
-  assert.doesNotMatch(clash, /password|privateKey|accessToken|uuid/i);
+  assert.match(singBox.outbounds[0].uuid, /^[0-9a-f-]{36}$/);
+  assert.match(mihomo, /skip-cert-verify: false/);
+  assert.doesNotMatch(JSON.stringify(singBox), /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
+  assert.doesNotMatch(mihomo, /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
 });

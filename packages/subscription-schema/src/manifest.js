@@ -7,8 +7,7 @@ export const SUPPORTED_SUBSCRIPTION_PROTOCOLS = Object.freeze([
   "trojan",
   "shadowsocks",
   "wireguard",
-  "hysteria2",
-  "tcp-smoke"
+  "hysteria2"
 ]);
 
 const SUPPORTED_PROTOCOL_SET = new Set(SUPPORTED_SUBSCRIPTION_PROTOCOLS);

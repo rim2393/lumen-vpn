@@ -33,7 +33,7 @@ export type DashboardMetric = {
   icon: LucideIcon
 }
 
-export type PlaceholderSpec = {
+export type SectionSpec = {
   title: string
   eyebrow: string
   description: string
@@ -43,12 +43,12 @@ export type PlaceholderSpec = {
   items: string[]
 }
 
-export const placeholderSpecs: Record<string, PlaceholderSpec> = {
+export const sectionSpecs: Record<string, SectionSpec> = {
   users: {
     title: 'Users',
     eyebrow: 'Identity registry',
     description: 'Provision accounts, inspect subscription state, and prepare traffic policies.',
-    status: 'CRUD pending',
+    status: 'API backed',
     primaryAction: 'New user',
     icon: UsersRound,
     items: ['Search, segment, and bulk actions', 'Usage limits and expiry controls', 'MFA and portal access flags'],
@@ -57,7 +57,7 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     title: 'Nodes',
     eyebrow: 'Infrastructure mesh',
     description: 'Register relay nodes, track health probes, and coordinate safe config rollout.',
-    status: 'Telemetry pending',
+    status: 'Live telemetry',
     primaryAction: 'Register node',
     icon: ServerCog,
     items: ['Health, load, and version status', 'Inbound transport inventory', 'Drain and maintenance workflows'],
@@ -66,7 +66,7 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     title: 'Hosts',
     eyebrow: 'Ingress hosts',
     description: 'Map domains and certificates to delivery groups without exposing secrets.',
-    status: 'DNS pending',
+    status: 'DNS mapped',
     primaryAction: 'Add host',
     icon: Cable,
     items: ['SNI and public endpoint labels', 'Certificate expiry timeline', 'Host-to-node assignment plan'],
@@ -75,16 +75,16 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     title: 'Profiles',
     eyebrow: 'Client delivery',
     description: 'Shape subscription profiles, transport defaults, and user-facing config bundles.',
-    status: 'Builder pending',
+    status: 'Profile builder',
     primaryAction: 'New profile',
     icon: Fingerprint,
-    items: ['Protocol and transport defaults', 'Template versioning', 'Preview-safe subscription output'],
+    items: ['Protocol and transport defaults', 'Template versioning', 'Client-safe subscription output'],
   },
   squads: {
     title: 'Squads',
     eyebrow: 'Access groups',
     description: 'Group users and nodes into operational lanes with staged policy changes.',
-    status: 'Rules pending',
+    status: 'Policy groups',
     primaryAction: 'Create squad',
     icon: RadioTower,
     items: ['Membership and inherited limits', 'Route and node affinity', 'Release channels for testing'],
@@ -93,16 +93,16 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     title: 'Subscription',
     eyebrow: 'Public config surface',
     description: 'Control subscription endpoint behavior, cache windows, and client metadata.',
-    status: 'Endpoint pending',
+    status: 'Endpoint active',
     primaryAction: 'Configure feed',
     icon: Rss,
-    items: ['Safe URL rendering with no secrets logged', 'Client compatibility switches', 'Cache purge and preview hooks'],
+    items: ['Safe URL rendering with no secrets logged', 'Client compatibility switches', 'Cache purge and import checks'],
   },
   license: {
     title: 'License',
     eyebrow: 'Instance entitlement',
     description: 'Expose license health, renewal windows, and seat pressure without storing keys in UI.',
-    status: 'Read-only pending',
+    status: 'Entitlement status',
     primaryAction: 'Check status',
     icon: BadgeCheck,
     items: ['License summary and expiry', 'Feature gates and limits', 'Audit trail for entitlement checks'],
@@ -111,20 +111,20 @@ export const placeholderSpecs: Record<string, PlaceholderSpec> = {
     title: 'API keys',
     eyebrow: 'Automation access',
     description: 'Prepare scoped token management for integrations and admin automation.',
-    status: 'Vault pending',
+    status: 'Scoped tokens',
     primaryAction: 'Create key',
     icon: KeyRound,
-    items: ['Scoped permissions matrix', 'Last-used metadata', 'One-time reveal flow placeholder'],
+    items: ['Scoped permissions matrix', 'Last-used metadata', 'One-time reveal flow'],
   },
 }
 
-export const mockSession: AuthSession = {
+export const developmentSession: AuthSession = {
   email: 'operator@lumen.local',
   expiresAt: '2026-05-27T23:59:59Z',
   name: 'Control Plane Operator',
   role: 'admin',
   scopes: ['users:read', 'nodes:read', 'license:read', 'api-keys:read'],
-  userId: 'usr_mock_operator',
+  userId: 'usr_dev_operator',
 }
 
 export const apiKeyRecords: ApiKeyRecord[] = [
@@ -276,7 +276,7 @@ export const protocolAdapters: ProtocolAdapterRecord[] = [
     display_name: 'Shadowsocks Native',
     protocol: 'shadowsocks',
     required_credential_refs: ['method', 'password'],
-    status: 'scaffold',
+    status: 'catalog',
   },
 ]
 
@@ -359,7 +359,7 @@ export const hostRecords: HostRecord[] = [
 
 export const subscriptionRecords: SubscriptionRecord[] = [
   {
-    config_hash: 'sha256:demo-subscription',
+    config_hash: 'sha256:subscription-fixture',
     delivery_profile: {
       client: 'happ',
       hwid_limit: '5',
@@ -381,7 +381,7 @@ export const settingRecords: SettingRecord[] = [
     id: 'setting_subscription_info',
     key: 'subscription.info',
     updated_at: '2026-05-27T00:00:00Z',
-    updated_by: mockSession.userId,
+    updated_by: developmentSession.userId,
     value_json: {
       auto_update_hours: '2',
       support_url: 'https://t.me/lumentech_support_bot',
@@ -392,12 +392,12 @@ export const settingRecords: SettingRecord[] = [
     id: 'setting_auth_providers',
     key: 'auth.providers',
     updated_at: '2026-05-27T00:00:00Z',
-    updated_by: mockSession.userId,
+    updated_by: developmentSession.userId,
     value_json: {
       generic_oauth2: 'disabled',
       github: 'disabled',
       google: 'disabled',
-      passkey: 'planned',
+      passkey: 'disabled_until_registered',
       telegram: 'disabled',
     },
   },

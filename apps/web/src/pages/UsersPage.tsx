@@ -18,7 +18,7 @@ import {
 } from '../shared/components/ResourceScreen'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { useI18n } from '../shared/i18n/I18nProvider'
 import { toneForStatus } from '../shared/utils/resourceFormat'
 
@@ -36,7 +36,7 @@ function formatLimit(user: UserRecord, t: (value: string) => string): string {
 
 export function UsersPage() {
   const { t } = useI18n()
-  const spec = placeholderSpecs.users
+  const spec = sectionSpecs.users
   const query = useUsersPageData()
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()

@@ -1,32 +1,38 @@
 # Lumen Client Compatibility
 
-This document tracks intended client compatibility for subscription renderers.
+This document tracks verified client compatibility for subscription renderers.
 
 ## Current Status
 
-No renderer produces a live production subscription yet. The current outputs are:
+The active renderer slice produces runnable client output for subscriptions that
+are attached to a real node and a renderable VLESS profile. Public subscription
+creation rejects records without a node or without a supported protocol.
 
 - `lumen-json`: canonical internal manifest JSON
-- `sing-box-skeleton`: non-runnable sing-box-like shape
-- `clash-meta-skeleton`: non-runnable Clash Meta-like shape
+- `sing-box`: runnable sing-box JSON with derived per-subscription credentials
+- `clash-meta`: runnable Clash Meta YAML with derived per-subscription credentials
+- `mihomo`: runnable Mihomo-compatible YAML with derived per-subscription credentials
 
-All outputs carry `credentialsRef` or `lumen_credentials_ref` values instead of secrets. VLESS Reality/TLS skeletons include only public client metadata such as server name, Reality public key, short ID, fingerprint, ALPN, and flow.
+`lumen-json` keeps credential references only. Client configs require a
+credential seed from the secure render context and do not emit vault references,
+private keys, access tokens, or generated subscription URLs.
 
 ## Compatibility Matrix
 
 | Format | Target | Status | Notes |
 | --- | --- | --- | --- |
 | `lumen-json` | Lumen clients | Stable schema v1 | Stable internal shape, no inline secrets |
-| `sing-box-skeleton` | sing-box family | VLESS skeleton | VLESS Reality/TLS shape without credential values |
-| `clash-meta-skeleton` | Clash Meta family | VLESS skeleton | VLESS Reality/TLS YAML skeleton without credential values |
+| `sing-box` | sing-box family | VLESS Reality/TLS runnable config | Requires secure credential seed |
+| `clash-meta` | Clash Meta family | VLESS Reality/TLS runnable YAML | Alias of Mihomo renderer |
+| `mihomo` | Mihomo family | VLESS Reality/TLS runnable YAML | Requires secure credential seed |
 
 ## Protocol Matrix
 
-| Protocol | Lumen JSON | sing-box skeleton | Clash Meta skeleton | Notes |
+| Protocol | Lumen JSON | sing-box | Clash Meta/Mihomo | Notes |
 | --- | --- | --- | --- | --- |
-| `vless-reality` | Yes | Yes | Yes | Non-runnable until credentials are resolved out of band |
+| `vless-reality` | Yes | Yes | Yes | Reality public metadata plus derived UUID |
 | `vless-tcp-tls` | Yes | Yes | Yes | `allowInsecure` is rejected |
-| Placeholder protocols | Yes | Placeholder | Placeholder | Kept for discovery only |
+| Catalog-only protocols | Yes | Not emitted | Not emitted | Hidden from production provisioning until their adapter is implemented |
 
 ## Fallback Landing
 
@@ -35,6 +41,6 @@ All outputs carry `credentialsRef` or `lumen_credentials_ref` values instead of 
 ## TODO
 
 - Define minimum supported versions for each target client.
-- Add renderer fixture tests from real client parsers once formats are executable.
+- Add renderer fixture tests from real client parsers for every newly enabled target.
 - Add negative tests that fail on inline secrets or subscription URLs.
 - Add localized fallback landing copy after product text is approved.

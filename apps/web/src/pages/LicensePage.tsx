@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataS
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { MetricTone } from '../shared/data/lumenData'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 
 const licenseTone: Record<LicenseStatus, MetricTone> = {
   expiring: 'watch',
@@ -14,7 +14,7 @@ const licenseTone: Record<LicenseStatus, MetricTone> = {
 }
 
 export function LicensePage() {
-  const spec = placeholderSpecs.license
+  const spec = sectionSpecs.license
   const query = useLicensePageData()
   const license = query.data
 

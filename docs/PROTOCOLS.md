@@ -24,13 +24,12 @@ An adapter descriptor contains:
 The control-plane API exposes a product-size adapter catalog through
 `/api/v1/protocols/adapters`. It includes VLESS Reality/TLS transport variants,
 VMess, Trojan, Shadowsocks, WireGuard/AmneziaWG, Hysteria2, TUIC, NaiveProxy,
-SOCKS/HTTP proxy entries, legacy aliases, and the internal `tcp-smoke` adapter.
+SOCKS/HTTP proxy entries, and legacy aliases.
 
-The currently executable runtime slice is still limited: VLESS TCP Reality/TLS
-and `tcp-smoke` have the most complete backend contracts. Planned adapters are
-listed so the UI, profile validation, port reservations, and staged
-implementation work operate against stable protocol identifiers instead of fake
-frontend-only options.
+The currently executable runtime slice is VLESS TCP Reality/TLS. Other catalog
+entries are accepted as profile metadata only when their backend contract exists;
+they are not registered as live node-agent provisioning adapters until their
+install, health, export, conflict, and client compatibility tests are completed.
 
 The VLESS Reality adapter expects public client subscription fields:
 
@@ -46,12 +45,11 @@ The VLESS TCP TLS adapter expects:
 - optional `security.alpn`
 - `security.allowInsecure` must remain false
 
-## Planned Runtime Work
+## Runtime Enablement
 
-Adapters marked `planned` or `legacy` are accepted by the control plane as
-profile metadata, but must not be treated as fully runnable node-agent protocol
-installers until their protocol-specific install, health, export, conflict, and
-client compatibility tests are completed.
+Adapters marked `legacy` are compatibility entries. Catalog entries outside the
+default protocol registry throw on provisioning attempts instead of returning a
+successful non-live plan.
 
 ## Bind Reservations
 

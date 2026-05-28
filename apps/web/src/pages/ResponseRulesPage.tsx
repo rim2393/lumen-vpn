@@ -15,11 +15,11 @@ import {
   SubmitButton,
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { formatRecord } from '../shared/utils/resourceFormat'
 
 const rulesSpec = {
-  ...placeholderSpecs.subscription,
+  ...sectionSpecs.subscription,
   description: 'Control public subscription responses for expired, limited, disabled, and custom states.',
   eyebrow: 'Response rules',
   primaryAction: 'Save rule',

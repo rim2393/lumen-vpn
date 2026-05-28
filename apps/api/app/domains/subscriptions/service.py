@@ -188,7 +188,7 @@ async def build_subscription_manifest(
                         "credentialsRef": credentials_ref,
                         "capabilities": _manifest_capabilities(protocol_type),
                         "rendererHints": {
-                            "liveSmoke": False,
+                            "liveDiagnostic": False,
                             "name": delivery.get("profile_title") or delivery.get("name"),
                             "method": delivery.get("method"),
                         },

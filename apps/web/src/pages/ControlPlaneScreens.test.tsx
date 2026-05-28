@@ -1,67 +1,67 @@
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { createMockLumenApiClient } from '../shared/api/mockClient'
+import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
 import type { LumenApiClient, SettingUpdateRequest, SquadCreateRequest } from '../shared/api/types'
-import { mockSession } from '../shared/data/lumenData'
+import { developmentSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
 describe('Control plane resource screens', () => {
   it('renders API-backed hosts, profiles, squads, subscriptions, and settings screens', async () => {
-    const apiClient = createMockLumenApiClient()
+    const apiClient = createDevelopmentLumenApiClient()
 
-    const hosts = renderWithRouter('/hosts', { apiClient, initialSession: mockSession })
+    const hosts = renderWithRouter('/hosts', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /host inventory/i })).toBeInTheDocument()
     expect(screen.getByText('auto.lumen.local')).toBeInTheDocument()
     hosts.unmount()
 
-    const profiles = renderWithRouter('/profiles', { apiClient, initialSession: mockSession })
+    const profiles = renderWithRouter('/profiles', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /protocol profile inventory/i })).toBeInTheDocument()
     expect(screen.getAllByText('StealConfig').length).toBeGreaterThan(0)
     profiles.unmount()
 
-    const squads = renderWithRouter('/squads', { apiClient, initialSession: mockSession })
+    const squads = renderWithRouter('/squads', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /squad inventory/i })).toBeInTheDocument()
     expect(screen.getByText('Default-Squad')).toBeInTheDocument()
     squads.unmount()
 
-    const subscription = renderWithRouter('/subscription', { apiClient, initialSession: mockSession })
+    const subscription = renderWithRouter('/subscription', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /subscription inventory/i })).toBeInTheDocument()
     expect(screen.getAllByText('sub_pub_default').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /open subscription page/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /users/i })).toHaveAttribute('href', '/users')
     subscription.unmount()
 
-    const userDetail = renderWithRouter('/users/usr_mira', { apiClient, initialSession: mockSession })
+    const userDetail = renderWithRouter('/users/usr_mira', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('heading', { name: /mira volkova/i })).toBeInTheDocument()
     expect(screen.getByRole('table', { name: /issued subscriptions/i })).toBeInTheDocument()
     expect(screen.getAllByText('sub_pub_default').length).toBeGreaterThan(0)
     userDetail.unmount()
 
-    renderWithRouter('/settings', { apiClient, initialSession: mockSession })
+    renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /panel setting inventory/i })).toBeInTheDocument()
     expect(screen.getByText('subscription.info')).toBeInTheDocument()
     cleanup()
 
-    const templates = renderWithRouter('/templates', { apiClient, initialSession: mockSession })
+    const templates = renderWithRouter('/templates', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('heading', { name: /templates/i })).toBeInTheDocument()
     templates.unmount()
 
-    const rules = renderWithRouter('/response-rules', { apiClient, initialSession: mockSession })
+    const rules = renderWithRouter('/response-rules', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('heading', { name: /response rules/i })).toBeInTheDocument()
     rules.unmount()
 
-    const page = renderWithRouter('/subscription-page', { apiClient, initialSession: mockSession })
+    const page = renderWithRouter('/subscription-page', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('heading', { name: /subscription page/i })).toBeInTheDocument()
     page.unmount()
 
-    renderWithRouter('/tools', { apiClient, initialSession: mockSession })
+    renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /operational tools/i })).toBeInTheDocument()
     cleanup()
   })
 
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {
-    const apiClient = createMockLumenApiClient()
+    const apiClient = createDevelopmentLumenApiClient()
 
     for (const [path, label] of [
       ['/users', /refresh users/i],
@@ -74,7 +74,7 @@ describe('Control plane resource screens', () => {
       ['/response-rules', /refresh response rules/i],
       ['/settings', /refresh settings/i],
     ] as const) {
-      const view = renderWithRouter(path, { apiClient, initialSession: mockSession })
+      const view = renderWithRouter(path, { apiClient, initialSession: developmentSession })
       const refreshButton = await screen.findByRole('button', { name: label })
       await waitFor(() => expect(refreshButton).toBeEnabled())
       view.unmount()
@@ -91,12 +91,12 @@ describe('Control plane resource screens', () => {
       status: request.status ?? 'active',
     }))
     const apiClient: LumenApiClient = {
-      ...createMockLumenApiClient(),
+      ...createDevelopmentLumenApiClient(),
       createSquad,
       listSquads: async () => ({ items: [] }),
     }
 
-    renderWithRouter('/squads', { apiClient, initialSession: mockSession })
+    renderWithRouter('/squads', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('heading', { name: /no squads created/i })).toBeInTheDocument()
     await user.type(screen.getByLabelText(/^name$/i), 'Canary')
@@ -122,11 +122,11 @@ describe('Control plane resource screens', () => {
       value_json: request.value_json,
     }))
     const apiClient: LumenApiClient = {
-      ...createMockLumenApiClient(),
+      ...createDevelopmentLumenApiClient(),
       updateSetting,
     }
 
-    renderWithRouter('/settings', { apiClient, initialSession: mockSession })
+    renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('table', { name: /panel setting inventory/i })).toBeInTheDocument()
     await user.clear(screen.getByLabelText(/^key$/i))

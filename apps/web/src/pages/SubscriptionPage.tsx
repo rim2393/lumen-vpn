@@ -19,7 +19,7 @@ import {
   SubmitButton,
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { useI18n } from '../shared/i18n/I18nProvider'
 import { formatDateTime, formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
@@ -119,7 +119,7 @@ export function SubscriptionPage() {
           users={users}
         />
       }
-      spec={placeholderSpecs.subscription}
+      spec={sectionSpecs.subscription}
       tableEyebrow="Public config surface"
       tableTitle="Subscription feed records"
     />

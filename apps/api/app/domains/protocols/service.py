@@ -47,7 +47,7 @@ def _adapter(
     *,
     capabilities: list[str],
     required_credential_refs: list[str],
-    status: str = "planned",
+    status: str = "catalog",
 ) -> ProtocolAdapterResponse:
     return ProtocolAdapterResponse(
         protocol=protocol,
@@ -273,13 +273,6 @@ PROTOCOL_ADAPTERS = (
         status="legacy",
         capabilities=["wireguard", "subscription"],
         required_credential_refs=["private_key"],
-    ),
-    _adapter(
-        "tcp-smoke",
-        "TCP Smoke Listener",
-        status="internal",
-        capabilities=["tcp", "live-smoke", "subscription"],
-        required_credential_refs=[],
     ),
 )
 
@@ -1195,8 +1188,6 @@ def _inbound_protocol(adapter: str) -> str:
         return "socks"
     if adapter == "http-proxy":
         return "http"
-    if adapter == "tcp-smoke":
-        return "tcp"
     return adapter.split("-", maxsplit=1)[0]
 
 

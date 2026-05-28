@@ -61,7 +61,7 @@ test("run once exchanges install token, persists node token, and sends heartbeat
       env: {
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
         LUMEN_INSTALL_TOKEN_FILE: installTokenFile,
-        LUMEN_NODE_NAME: "smoke-node-01",
+        LUMEN_NODE_NAME: "diagnostic-node-01",
         LUMEN_STATE_DIR: stateDir
       },
       fetchImpl: async (url, options) => {
@@ -122,7 +122,7 @@ test("run once reuses persisted node token without exchanging install token agai
     const result = await runNodeAgentOnce({
       env: {
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
-        LUMEN_NODE_NAME: "smoke-node-01",
+        LUMEN_NODE_NAME: "diagnostic-node-01",
         LUMEN_STATE_DIR: stateDir
       },
       fetchImpl: async (url, options) => {
@@ -362,7 +362,7 @@ test("run once polls command, completes it, persists state, and records metric",
   }
 });
 
-test("run once can start a gated live tcp smoke listener from outbound apply", async () => {
+test("run once can start a gated live tcp diagnostic listener from outbound apply", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
   const port = await freeTcpPort();
   try {
@@ -373,10 +373,10 @@ test("run once can start a gated live tcp smoke listener from outbound apply", a
     const result = await runNodeAgentOnce({
       env: {
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
-        LUMEN_NODE_NAME: "smoke-node-01",
+        LUMEN_NODE_NAME: "diagnostic-node-01",
         LUMEN_STATE_DIR: stateDir,
         LUMEN_DRY_RUN: "false",
-        LUMEN_ENABLE_LIVE_SMOKE: "true"
+        LUMEN_ENABLE_LIVE_DIAGNOSTIC: "true"
       },
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
@@ -396,11 +396,11 @@ test("run once can start a gated live tcp smoke listener from outbound apply", a
             command_type: COMMAND_TYPES.OUTBOUND_APPLY,
             status: "claimed",
             payload_json: {
-              outboundId: "live-smoke-1",
-              adapter: "tcp-smoke-listener",
+              outboundId: "live-diagnostic-1",
+              adapter: "tcp-diagnostic-listener",
               bind: { address: "127.0.0.1", port, protocol: "tcp" },
               liveListener: {
-                id: "live-smoke-1",
+                id: "live-diagnostic-1",
                 address: "127.0.0.1",
                 port,
                 banner: "lumen-live-ok\n",
@@ -433,7 +433,7 @@ test("run once can start a gated live tcp smoke listener from outbound apply", a
     assert.equal(JSON.parse(calls[2].options.body).result_json.outputs.implementationStatus, "live-listener-active");
     assert.equal(await readTcpBanner(port), "lumen-live-ok\n");
   } finally {
-    await stopLiveListener("live-smoke-1");
+    await stopLiveListener("live-diagnostic-1");
     rmSync(stateDir, { recursive: true, force: true });
   }
 });

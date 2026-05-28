@@ -1,17 +1,19 @@
-# Lumen Node Provisioning Scaffold
+# Lumen Node Provisioning
 
-This document defines the first local contract surface for `apps/node-agent`.
+This document defines the local contract surface for `apps/node-agent`.
 
 ## Scope
 
-The node agent scaffold owns local provisioning models only:
+The node agent owns local provisioning models and the guarded command loop:
 
 - outbound plan records
 - provisioning job and result envelopes
 - system capability reports
 - port and local system conflict detection
 
-It does not contain live protocol implementation, runtime secrets, generated client configs, install scripts, or backend control-plane code.
+It does not persist runtime secrets or generated client configs. Live protocol
+implementation is enabled per adapter only after the adapter has install,
+health, conflict, export, and client import tests.
 
 ## Outbound Plan Model
 
@@ -29,7 +31,9 @@ Required fields:
 - `endpoint.port`
 - `credentialsRef`
 
-`credentialsRef` is the only supported credential carrier in this scaffold. Inline `password`, `token`, `privateKey`, subscription URL, generated runtime config, and similar secret-like fields are rejected.
+`credentialsRef` is the only supported credential carrier. Inline `password`,
+`token`, `privateKey`, subscription URL, generated runtime config, and similar
+secret-like fields are rejected.
 
 ## Provisioning Jobs
 
@@ -86,7 +90,7 @@ Source: `apps/node-agent/src/conflict-model.js`
 
 Version: `lumen.node-agent.conflict.v1`
 
-The scaffold detects:
+The agent detects:
 
 - overlapping exclusive address/port/protocol reservations
 - privileged port usage without `bind.privileged_ports`

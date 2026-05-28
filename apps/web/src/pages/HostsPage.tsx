@@ -20,7 +20,7 @@ import {
 } from '../shared/components/ResourceScreen'
 import { OperatorGuide } from '../shared/components/OperatorGuide'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 import { toneForStatus } from '../shared/utils/resourceFormat'
 
 export function HostsPage() {
@@ -246,7 +246,7 @@ export function HostsPage() {
           />
         </div>
       }
-      spec={placeholderSpecs.hosts}
+      spec={sectionSpecs.hosts}
       tableEyebrow="Ingress hosts"
       tableTitle="Host routing"
     />

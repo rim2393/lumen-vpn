@@ -1,12 +1,12 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createMockLumenApiClient } from '../shared/api/mockClient'
+import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
 import type { LumenApiClient } from '../shared/api/types'
-import { mockSession } from '../shared/data/lumenData'
+import { developmentSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
-describe('Lumen admin routing scaffold', () => {
+describe('Lumen admin routing', () => {
   beforeEach(() => {
     window.localStorage.clear()
     document.documentElement.lang = 'en'
@@ -14,7 +14,7 @@ describe('Lumen admin routing scaffold', () => {
 
   it('renders the dashboard shell with primary navigation', async () => {
     const apiClient: LumenApiClient = {
-      ...createMockLumenApiClient(),
+      ...createDevelopmentLumenApiClient(),
       listApiKeys: async () => ({
         generatedAt: '2026-05-28T00:00:00Z',
         items: [],
@@ -44,7 +44,7 @@ describe('Lumen admin routing scaffold', () => {
       readLicense: async () => null,
     }
 
-    renderWithRouter('/dashboard', { apiClient, initialSession: mockSession })
+    renderWithRouter('/dashboard', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('heading', { name: /command dashboard/i })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('Lumen admin routing scaffold', () => {
   it('wires shell controls to real UI state and routes', async () => {
     const user = userEvent.setup()
 
-    renderWithRouter('/dashboard', { apiClient: createMockLumenApiClient(), initialSession: mockSession })
+    renderWithRouter('/dashboard', { apiClient: createDevelopmentLumenApiClient(), initialSession: developmentSession })
 
     await user.click(await screen.findByRole('button', { name: /notifications/i }))
     expect(screen.getByText(/no active notifications/i)).toBeInTheDocument()
@@ -87,8 +87,8 @@ describe('Lumen admin routing scaffold', () => {
 
   it('renders API-backed resource screens with mock data', async () => {
     renderWithRouter('/api-keys', {
-      apiClient: createMockLumenApiClient(),
-      initialSession: mockSession,
+      apiClient: createDevelopmentLumenApiClient(),
+      initialSession: developmentSession,
     })
 
     expect(screen.getByRole('heading', { level: 1, name: /api keys/i })).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('Lumen admin routing scaffold', () => {
 
   it('renders graceful empty and error resource states', async () => {
     const emptyApiClient: LumenApiClient = {
-      ...createMockLumenApiClient(),
+      ...createDevelopmentLumenApiClient(),
       createProvisioningJob: async () => {
         throw new Error('Provisioning is unavailable')
       },
@@ -106,7 +106,7 @@ describe('Lumen admin routing scaffold', () => {
       listApiKeys: async () => ({
         generatedAt: '2026-05-27T00:00:00Z',
         items: [],
-        source: 'mock',
+        source: 'development',
         total: 0,
       }),
       listNodes: async () => {
@@ -115,7 +115,7 @@ describe('Lumen admin routing scaffold', () => {
       listUsers: async () => ({
         generatedAt: '2026-05-27T00:00:00Z',
         items: [],
-        source: 'mock',
+        source: 'development',
         total: 0,
       }),
       readProvisioningJob: async () => {
@@ -124,10 +124,10 @@ describe('Lumen admin routing scaffold', () => {
       readLicense: async () => null,
     }
 
-    renderWithRouter('/api-keys', { apiClient: emptyApiClient, initialSession: mockSession })
+    renderWithRouter('/api-keys', { apiClient: emptyApiClient, initialSession: developmentSession })
     expect(await screen.findByRole('heading', { name: /no api keys issued/i })).toBeInTheDocument()
 
-    renderWithRouter('/nodes', { apiClient: emptyApiClient, initialSession: mockSession })
+    renderWithRouter('/nodes', { apiClient: emptyApiClient, initialSession: developmentSession })
     expect(await screen.findByRole('alert')).toHaveTextContent(/node registry is unavailable/i)
   })
 })

@@ -17,7 +17,7 @@ import { OperatorGuide } from '../shared/components/OperatorGuide'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { MetricTone } from '../shared/data/lumenData'
-import { placeholderSpecs } from '../shared/data/lumenData'
+import { sectionSpecs } from '../shared/data/lumenData'
 
 type ProvisioningFormState = {
   capabilities: string
@@ -304,7 +304,7 @@ function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) 
         </li>
         <li>
           <span aria-hidden="true">-</span>
-          <span>Heartbeat endpoint placeholder: /api/v1/nodes/{job.node_id}/heartbeat</span>
+          <span>Heartbeat endpoint: /api/v1/nodes/{job.node_id}/heartbeat</span>
         </li>
       </ul>
     </article>
@@ -312,7 +312,7 @@ function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) 
 }
 
 export function NodesPage() {
-  const spec = placeholderSpecs.nodes
+  const spec = sectionSpecs.nodes
   const query = useNodesPageData()
   const createJob = useCreateNodeProvisioningJob()
   const [form, setForm] = useState<ProvisioningFormState>(initialFormState)
