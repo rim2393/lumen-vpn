@@ -289,6 +289,54 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_hwid_tools'))
   })
 
+  it('wires session browser revoke actions to backend requests', async () => {
+    const user = userEvent.setup()
+    const revokeToolSession = vi.fn(async () => ({
+      items: [
+        {
+          created_at: '2026-05-28T00:00:00.000Z',
+          email: 'operator@lumen.local',
+          expires_at: '2026-05-29T00:00:00.000Z',
+          id: 'session-operator',
+          ip_fingerprint: 'ip-hash',
+          is_current: false,
+          revoked_at: '2026-05-28T01:00:00.000Z',
+          status: 'revoked',
+          updated_at: '2026-05-28T01:00:00.000Z',
+          user_agent_fingerprint: 'ua-hash',
+          user_id: 'usr_operator',
+        },
+      ],
+    }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      inspectSessions: async () => ({
+        items: [
+          {
+            created_at: '2026-05-28T00:00:00.000Z',
+            email: 'operator@lumen.local',
+            expires_at: '2026-05-29T00:00:00.000Z',
+            id: 'session-operator',
+            ip_fingerprint: 'ip-hash',
+            is_current: false,
+            revoked_at: null,
+            status: 'active',
+            updated_at: '2026-05-28T00:00:00.000Z',
+            user_agent_fingerprint: 'ua-hash',
+            user_id: 'usr_operator',
+          },
+        ],
+      }),
+      revokeToolSession,
+    }
+
+    renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
+
+    await user.click(await screen.findByRole('button', { name: /session browser/i }))
+    await user.click(screen.getByRole('button', { name: /^revoke$/i }))
+    await waitFor(() => expect(revokeToolSession).toHaveBeenCalledWith('session-operator'))
+  })
+
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {
     const apiClient = createDevelopmentLumenApiClient()
 

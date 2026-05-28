@@ -147,6 +147,8 @@ export function createHttpLumenApiClient({
       request(`/api/v1/users/${userId}/devices/${encodeURIComponent(deviceId)}`, {
         method: 'DELETE',
       }),
+    revokeToolSession: (sessionId: string) =>
+      request(`/api/v1/tools/sessions/${sessionId}`, { method: 'DELETE' }),
     getUser: (userId: string) => request(`/api/v1/users/${userId}`),
     getUserDetail: (userId: string) => request(`/api/v1/users/${userId}/detail`),
     getSquadDetail: (squadId: string) => request(`/api/v1/squads/${squadId}/detail`),

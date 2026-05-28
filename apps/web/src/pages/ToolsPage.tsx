@@ -5,6 +5,7 @@ import {
   useDeleteUserDevice,
   useHappRoutingData,
   useHwidInspectorData,
+  useRevokeToolSession,
   useSessionInspectorData,
   useSrhInspectorData,
   useToolSummaryData,
@@ -66,6 +67,7 @@ export function ToolsPage() {
   const happQuery = useHappRoutingData()
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
+  const revokeToolSession = useRevokeToolSession()
   const queries = [summaryQuery, hwidQuery, srhQuery, sessionsQuery, torrentQuery, happQuery]
   const isLoading = queries.some((query) => query.isLoading)
   const error = queries.find((query) => query.isError)?.error
@@ -138,15 +140,31 @@ export function ToolsPage() {
     }
     if (activeTool === 'sessions') {
       return {
-        columns: ['User', 'Status', 'IP', 'User agent', 'Expires'],
+        columns: ['User', 'Status', 'IP', 'User agent', 'Expires', 'Revoked', 'Actions'],
         empty: 'No sessions recorded.',
         rows: (sessionsQuery.data?.items ?? []).map((item) => ({
           cells: [
-            item.email ?? item.user_id,
+            item.is_current
+              ? `${item.email ?? item.user_id} (current)`
+              : (item.email ?? item.user_id),
             <StatusBadge tone={toneForStatus(item.status)}>{item.status}</StatusBadge>,
             item.ip_fingerprint ?? '-',
             item.user_agent_fingerprint ?? '-',
             formatDateTime(item.expires_at),
+            item.revoked_at ? formatDateTime(item.revoked_at) : '-',
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={item.status !== 'active' || item.is_current || revokeToolSession.isPending}
+              onClick={() => void revokeToolSession.mutateAsync(item.id)}
+              title={
+                item.is_current
+                  ? 'Current browser session cannot be revoked from this row'
+                  : undefined
+              }
+            >
+              Revoke
+            </button>,
           ],
           id: item.id,
         })),
@@ -191,6 +209,7 @@ export function ToolsPage() {
     deleteDevice,
     happQuery.data,
     hwidQuery.data,
+    revokeToolSession,
     sessionsQuery.data,
     srhQuery.data,
     torrentQuery.data,

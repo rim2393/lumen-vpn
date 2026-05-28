@@ -662,6 +662,8 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         expires_at: user.expires_at ?? generatedAt,
         id: `session-${user.id}`,
         ip_fingerprint: null,
+        is_current: false,
+        revoked_at: null,
         status: 'active',
         updated_at: user.updated_at,
         user_agent_fingerprint: null,
@@ -669,6 +671,21 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       })),
     }),
     inspectTorrentReports: async (): Promise<TorrentReportResponse> => ({ items: [] }),
+    revokeToolSession: async (sessionId: string): Promise<SessionInspectorResponse> => ({
+      items: users.slice(0, 3).map((user) => ({
+        created_at: generatedAt,
+        email: user.email,
+        expires_at: user.expires_at ?? generatedAt,
+        id: `session-${user.id}`,
+        ip_fingerprint: null,
+        is_current: false,
+        revoked_at: `session-${user.id}` === sessionId ? `2026-05-28T00:00:00.000Z` : null,
+        status: `session-${user.id}` === sessionId ? 'revoked' : 'active',
+        updated_at: user.updated_at,
+        user_agent_fingerprint: null,
+        user_id: user.id,
+      })),
+    }),
     inspectHappRouting: async (): Promise<HappRoutingResponse> => ({
       items: subscriptions.map((subscription) => {
         const node = asNodeListResponse().items.find((item) => item.id === subscription.node_id)

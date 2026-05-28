@@ -46,9 +46,11 @@ class SessionInspectorRow(BaseModel):
     user_id: UUID
     email: str | None
     status: str
+    is_current: bool = False
     ip_fingerprint: str | None
     user_agent_fingerprint: str | None
     expires_at: datetime
+    revoked_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

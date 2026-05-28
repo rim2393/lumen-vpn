@@ -675,6 +675,8 @@ export type SessionInspectorRow = {
   expires_at: string
   id: string
   ip_fingerprint: string | null
+  is_current: boolean
+  revoked_at: string | null
   status: string
   updated_at: string
   user_agent_fingerprint: string | null
@@ -844,6 +846,7 @@ export type LumenApiClient = {
   deleteUser: (userId: string) => Promise<void>
   clearUserDevices: (userId: string) => Promise<UserDetailResponse>
   deleteUserDevice: (userId: string, deviceId: string) => Promise<UserDetailResponse>
+  revokeToolSession: (sessionId: string) => Promise<SessionInspectorResponse>
   getSession: () => Promise<AuthSession | null>
   getUser: (userId: string) => Promise<UserRecord>
   getUserDetail: (userId: string) => Promise<UserDetailResponse>

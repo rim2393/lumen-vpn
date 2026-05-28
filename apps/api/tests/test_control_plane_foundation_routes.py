@@ -1001,6 +1001,32 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
         item["email"] == "tools-user@example.com"
         for item in sessions_response.json()["items"]
     )
+    session_row = next(
+        item
+        for item in sessions_response.json()["items"]
+        if item["email"] == "tools-user@example.com"
+    )
+    assert session_row["status"] == "active"
+    assert session_row["revoked_at"] is None
+
+    revoke_session_response = await foundation_app.client.delete(
+        f"/api/v1/tools/sessions/{session_row['id']}"
+    )
+    assert revoke_session_response.status_code == 200
+    revoked_row = next(
+        item
+        for item in revoke_session_response.json()["items"]
+        if item["id"] == session_row["id"]
+    )
+    assert revoked_row["status"] == "revoked"
+    assert revoked_row["revoked_at"] is not None
+    async with foundation_app.sessionmaker() as session:
+        session_audit = (
+            await session.execute(
+                select(AuditEvent).where(AuditEvent.action == "session.revoked")
+            )
+        ).scalar_one()
+        assert session_audit.resource_id == session_row["id"]
 
     torrent_response = await foundation_app.client.get("/api/v1/tools/torrent-blocker-reports")
     assert torrent_response.status_code == 200

@@ -573,6 +573,19 @@ export function useSessionInspectorData() {
   })
 }
 
+export function useRevokeToolSession() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (sessionId: string) => apiClient.revokeToolSession(sessionId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolSessions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolSummary })
+    },
+  })
+}
+
 export function useTorrentReportsData() {
   const apiClient = useApiClient()
 

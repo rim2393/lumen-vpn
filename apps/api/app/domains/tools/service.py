@@ -1,12 +1,16 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.errors import APIError
+from app.core.rbac import Principal
 from app.domains.audit.models import AuditEvent
+from app.domains.audit.service import record_audit_event
 from app.domains.auth.models import UserSession
+from app.domains.auth.service import revoke_session
 from app.domains.nodes.models import Node
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.renderers import build_subscription_headers
@@ -84,7 +88,11 @@ async def inspect_srh(session: AsyncSession, *, settings: Settings) -> SrhInspec
     return SrhInspectorResponse(items=rows)
 
 
-async def inspect_sessions(session: AsyncSession) -> SessionInspectorResponse:
+async def inspect_sessions(
+    session: AsyncSession,
+    *,
+    principal: Principal | None = None,
+) -> SessionInspectorResponse:
     result = await session.execute(
         select(UserSession, User.email)
         .outerjoin(User, User.id == UserSession.user_id)
@@ -107,14 +115,58 @@ async def inspect_sessions(session: AsyncSession) -> SessionInspectorResponse:
                 user_id=user_session.user_id,
                 email=email,
                 status=status,
+                is_current=principal.session_id == user_session.id if principal else False,
                 ip_fingerprint=_short_fingerprint(user_session.ip_hash),
                 user_agent_fingerprint=_short_fingerprint(user_session.user_agent_hash),
                 expires_at=user_session.expires_at,
+                revoked_at=user_session.revoked_at,
                 created_at=user_session.created_at,
                 updated_at=user_session.updated_at,
             )
         )
     return SessionInspectorResponse(items=rows)
+
+
+async def revoke_inspected_session(
+    session: AsyncSession,
+    *,
+    session_id: UUID,
+    principal: Principal,
+) -> SessionInspectorRow:
+    user_session = await revoke_session(session, session_id=session_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="session.revoked",
+        resource_type="user_session",
+        resource_id=str(user_session.id),
+        metadata_json={
+            "user_id": str(user_session.user_id),
+            "revoked_current_session": str(principal.session_id == user_session.id).lower(),
+        },
+    )
+    user = await session.get(User, user_session.user_id)
+    now = datetime.now(UTC)
+    status = (
+        "revoked"
+        if user_session.revoked_at
+        else "expired"
+        if _is_expired(user_session.expires_at, now)
+        else "active"
+    )
+    return SessionInspectorRow(
+        id=user_session.id,
+        user_id=user_session.user_id,
+        email=user.email if user else None,
+        status=status,
+        is_current=principal.session_id == user_session.id,
+        ip_fingerprint=_short_fingerprint(user_session.ip_hash),
+        user_agent_fingerprint=_short_fingerprint(user_session.user_agent_hash),
+        expires_at=user_session.expires_at,
+        revoked_at=user_session.revoked_at,
+        created_at=user_session.created_at,
+        updated_at=user_session.updated_at,
+    )
 
 
 async def inspect_torrent_reports(session: AsyncSession) -> TorrentReportResponse:

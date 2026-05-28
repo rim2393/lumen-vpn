@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,11 +21,13 @@ from app.domains.tools.service import (
     inspect_sessions,
     inspect_srh,
     inspect_torrent_reports,
+    revoke_inspected_session,
     summarize_tools,
 )
 
 router = APIRouter()
 ToolManager = Annotated[Principal, Depends(require_permission(Permission.SUBSCRIPTION_READ))]
+SessionManager = Annotated[Principal, Depends(require_permission(Permission.USER_MANAGE))]
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
@@ -50,10 +53,21 @@ async def read_srh_inspector(
 
 @router.get("/sessions", response_model=SessionInspectorResponse)
 async def read_session_inspector(
-    _: ToolManager,
+    principal: ToolManager,
     session: DatabaseSession,
 ) -> SessionInspectorResponse:
-    return await inspect_sessions(session)
+    return await inspect_sessions(session, principal=principal)
+
+
+@router.delete("/sessions/{session_id}", response_model=SessionInspectorResponse)
+async def revoke_session_from_inspector(
+    session_id: UUID,
+    principal: SessionManager,
+    session: DatabaseSession,
+) -> SessionInspectorResponse:
+    await revoke_inspected_session(session, session_id=session_id, principal=principal)
+    await session.commit()
+    return await inspect_sessions(session, principal=principal)
 
 
 @router.get("/torrent-blocker-reports", response_model=TorrentReportResponse)
