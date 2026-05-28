@@ -19,14 +19,18 @@ An adapter descriptor contains:
 
 `requiredCredentialRefs` names reference slots, not credential values. Adapter implementations must consume secret material only through a runtime resolver outside this package.
 
-## Active Adapters
+## Adapter Catalog
 
-The first real protocol slice is Xray VLESS over TCP:
+The control-plane API exposes a product-size adapter catalog through
+`/api/v1/protocols/adapters`. It includes VLESS Reality/TLS transport variants,
+VMess, Trojan, Shadowsocks, WireGuard/AmneziaWG, Hysteria2, TUIC, NaiveProxy,
+SOCKS/HTTP proxy entries, legacy aliases, and the internal `tcp-smoke` adapter.
 
-- `vless-reality`
-- `vless-tcp-tls`
-
-Both adapters are marked `experimental`. They validate public protocol configuration, reject inline secret-like fields, require `credentialsRef`, and render Xray-shaped outbound plans with exclusive bind port reservations. The plans are not live Xray config files: credential material such as VLESS client IDs, Reality key material, and TLS certificate material stays behind references.
+The currently executable runtime slice is still limited: VLESS TCP Reality/TLS
+and `tcp-smoke` have the most complete backend contracts. Planned adapters are
+listed so the UI, profile validation, port reservations, and staged
+implementation work operate against stable protocol identifiers instead of fake
+frontend-only options.
 
 The VLESS Reality adapter expects public client subscription fields:
 
@@ -42,17 +46,12 @@ The VLESS TCP TLS adapter expects:
 - optional `security.alpn`
 - `security.allowInsecure` must remain false
 
-## Placeholders
+## Planned Runtime Work
 
-The registry still keeps placeholder adapters for:
-
-- VLESS
-- Trojan
-- Shadowsocks
-- WireGuard
-- Hysteria2
-
-All are marked `placeholder`. Their `planOutbound` method returns `implementationStatus: "not-implemented"` and must not be used for live traffic.
+Adapters marked `planned` or `legacy` are accepted by the control plane as
+profile metadata, but must not be treated as fully runnable node-agent protocol
+installers until their protocol-specific install, health, export, conflict, and
+client compatibility tests are completed.
 
 ## Bind Reservations
 
