@@ -11,3 +11,8 @@ export {
   normalizeApiInternalUrl,
   validateSubscriptionPublicId
 } from "./subscription-proxy.js";
+export {
+  SUBSCRIPTION_PAGE_MODEL_VERSION,
+  renderSubscriptionPageHtml,
+  wantsHtmlSubscriptionPage
+} from "./subscription-page.js";

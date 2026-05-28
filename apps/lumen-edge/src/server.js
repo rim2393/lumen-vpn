@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 
 import { createFallbackLandingModel, renderFallbackLandingHtml } from "./fallback-landing.js";
+import { renderSubscriptionPageHtml, wantsHtmlSubscriptionPage } from "./subscription-page.js";
 import {
   matchSubscriptionManifestPath,
   matchSubscriptionRenderPath,
@@ -85,6 +86,31 @@ async function proxySubscriptionRender(request, response, input) {
   }
 
   const target = match.target || url.searchParams.get("target") || url.searchParams.get("format") || inferTargetFromUserAgent(request.headers["user-agent"]);
+  if (!match.target && wantsHtmlSubscriptionPage(request)) {
+    const manifestUrl = `${apiInternalUrl}/api/v1/subscriptions/public/${encodeURIComponent(match.publicId)}/manifest`;
+    const manifestResponse = await input.fetchImpl(manifestUrl, {
+      headers: { accept: "application/json" }
+    });
+    const manifestText = await manifestResponse.text();
+    if (!manifestResponse.ok) {
+      response.writeHead(manifestResponse.status, {
+        "content-type": manifestResponse.headers.get("content-type") ?? "application/json; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      response.end(manifestText);
+      return true;
+    }
+    const publicUrl = `${url.protocol}//${request.headers.host}${url.pathname.replace(/\/$/, "")}`;
+    response.writeHead(200, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store"
+    });
+    response.end(renderSubscriptionPageHtml({
+      manifest: JSON.parse(manifestText),
+      publicUrl
+    }));
+    return true;
+  }
   const upstreamUrl = `${apiInternalUrl}/api/v1/subscriptions/public/${encodeURIComponent(match.publicId)}/render?target=${encodeURIComponent(target)}`;
   const upstream = await input.fetchImpl(upstreamUrl, {
     headers: { accept: request.headers.accept ?? "*/*" }

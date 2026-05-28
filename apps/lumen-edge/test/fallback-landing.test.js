@@ -5,6 +5,7 @@ import {
   createLumenEdgeServer,
   matchSubscriptionManifestPath,
   matchSubscriptionRenderPath,
+  renderSubscriptionPageHtml,
   renderFallbackLandingHtml,
   validateSubscriptionPublicId
 } from "../src/index.js";
@@ -134,6 +135,57 @@ test("proxies public rendered subscription with target negotiation", async () =>
   } finally {
     await close(server);
   }
+});
+
+test("renders browser subscription portal while preserving client render endpoints", async () => {
+  const upstreamCalls = [];
+  const server = createLumenEdgeServer({
+    env: { API_INTERNAL_URL: "http://api.internal:8000" },
+    fetchImpl: async (url, options) => {
+      upstreamCalls.push({ url, options });
+      return new Response(JSON.stringify({
+        schemaVersion: "lumen.subscription-manifest.v1",
+        provider: { name: "Lumen" },
+        subscription: { id: "lumen_sub_abc1234567890xyz", expiresAt: "2027-12-20T00:00:00Z" },
+        nodes: [],
+        metadata: { profileTitle: "Lumen Live Compat", supportUrl: "https://t.me/lumen" }
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    },
+    randomUUID: () => "req_test"
+  });
+  const port = await listen(server);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/sub/lumen_sub_abc1234567890xyz`, {
+      headers: { accept: "text/html", "user-agent": "Mozilla/5.0" }
+    });
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /text\/html/);
+    assert.match(body, /Lumen Live Compat/);
+    assert.match(body, /Hiddify/);
+    assert.match(body, /\/sub\/lumen_sub_abc1234567890xyz\/mihomo/);
+    assert.equal(upstreamCalls[0].url, "http://api.internal:8000/api/v1/subscriptions/public/lumen_sub_abc1234567890xyz/manifest");
+  } finally {
+    await close(server);
+  }
+});
+
+test("escapes subscription portal fields", () => {
+  const html = renderSubscriptionPageHtml({
+    publicUrl: "https://sub.example/sub/lumen_sub_abc1234567890xyz",
+    manifest: {
+      provider: { name: "<brand>" },
+      subscription: { id: "lumen_sub_abc1234567890xyz" },
+      metadata: { profileTitle: "<script>alert(1)</script>" }
+    }
+  });
+
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>alert/);
 });
 
 test("malformed public subscription id returns 404 instead of upstream error", async () => {
