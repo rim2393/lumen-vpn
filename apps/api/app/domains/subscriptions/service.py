@@ -33,6 +33,7 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "runtime_config",
     }
 )
+RENDERABLE_PROTOCOL_PREFIXES = ("vless", "trojan", "shadowsocks", "hysteria2")
 
 
 def utc_now() -> datetime:
@@ -125,14 +126,18 @@ async def build_subscription_manifest(
     delivery = subscription.delivery_profile
     profile = await _get_optional_profile(session, delivery.get("profile_id"))
     host = await _get_optional_host(session, delivery.get("host_id"))
-    protocol_type = delivery.get("protocol") or (
-        profile.adapter if profile is not None else "tcp-smoke"
-    )
-    adapter = delivery.get("adapter") or (
-        profile.adapter
-        if profile is not None and profile.adapter != "tcp-smoke"
-        else "tcp-smoke-listener"
-    )
+    protocol_type = delivery.get("protocol") or (profile.adapter if profile is not None else None)
+    if protocol_type is None or not str(protocol_type).startswith(RENDERABLE_PROTOCOL_PREFIXES):
+        raise APIError(
+            code="subscription_protocol_required",
+            message=(
+                "Subscription delivery profile must reference a renderable protocol "
+                "or profile."
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=["delivery_profile.protocol"],
+        )
+    adapter = delivery.get("adapter") or (profile.adapter if profile is not None else protocol_type)
     endpoint_host = host.hostname if host is not None else node.public_address
     endpoint_port = _manifest_port(delivery=delivery, profile=profile)
     credentials_ref = _manifest_credentials_ref(
@@ -183,7 +188,7 @@ async def build_subscription_manifest(
                         "credentialsRef": credentials_ref,
                         "capabilities": _manifest_capabilities(protocol_type),
                         "rendererHints": {
-                            "liveSmoke": protocol_type == "tcp-smoke",
+                            "liveSmoke": False,
                             "name": delivery.get("profile_title") or delivery.get("name"),
                             "method": delivery.get("method"),
                         },
@@ -248,6 +253,11 @@ async def create_subscription(
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+    _ensure_renderable_subscription_request(
+        node_id=request.node_id,
+        delivery_profile=request.delivery_profile,
+    )
+
     subscription = Subscription(
         public_id=await create_subscription_public_id(session),
         user_id=request.user_id,
@@ -284,10 +294,18 @@ async def update_subscription(
     if "delivery_profile" in updated_fields:
         delivery_profile = request.delivery_profile or {}
         ensure_no_inline_secret_keys(delivery_profile, field_name="delivery_profile")
+        _ensure_renderable_subscription_request(
+            node_id=subscription.node_id,
+            delivery_profile=delivery_profile,
+        )
         subscription.delivery_profile = delivery_profile
     if "status" in updated_fields and request.status is not None:
         subscription.status = request.status
     if "node_id" in updated_fields:
+        _ensure_renderable_subscription_request(
+            node_id=request.node_id,
+            delivery_profile=subscription.delivery_profile,
+        )
         subscription.node_id = request.node_id
     if "config_hash" in updated_fields:
         subscription.config_hash = request.config_hash
@@ -319,6 +337,28 @@ def subscription_to_response(subscription: Subscription) -> SubscriptionResponse
         config_hash=subscription.config_hash,
         expires_at=subscription.expires_at,
         revoked_at=subscription.revoked_at,
+    )
+
+
+def _ensure_renderable_subscription_request(
+    *,
+    node_id: UUID | None,
+    delivery_profile: dict[str, str],
+) -> None:
+    if node_id is None:
+        raise APIError(
+            code="subscription_node_required",
+            message="Subscription must be attached to a node before it can be shared.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    protocol = str(delivery_profile.get("protocol") or "")
+    if protocol.startswith(RENDERABLE_PROTOCOL_PREFIXES):
+        return
+    raise APIError(
+        code="subscription_protocol_required",
+        message="Subscription delivery profile must reference a renderable protocol or profile.",
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        details=["delivery_profile.protocol"],
     )
 
 
@@ -485,8 +525,6 @@ def _manifest_alpn(*, security: dict[str, object], delivery: dict[str, str]) -> 
 
 
 def _manifest_capabilities(protocol_type: str) -> list[str]:
-    if protocol_type == "tcp-smoke":
-        return ["tcp", "live-smoke"]
     return ["subscription"]
 
 

@@ -169,6 +169,10 @@ test("renders browser subscription portal while preserving client render endpoin
     assert.match(body, /Lumen Live Compat/);
     assert.match(body, /Hiddify/);
     assert.match(body, /\/sub\/lumen_sub_abc1234567890xyz\/mihomo/);
+    assert.match(body, /\/sub\/lumen_sub_abc1234567890xyz\/v2ray-base64/);
+    assert.match(body, /Подписка активна/);
+    assert.match(body, /Streisand/);
+    assert.match(body, /Shadowrocket/);
     assert.equal(upstreamCalls[0].url, "http://api.internal:8000/api/v1/subscriptions/public/lumen_sub_abc1234567890xyz/manifest");
   } finally {
     await close(server);
@@ -240,6 +244,21 @@ test("escapes subscription portal fields", () => {
 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>alert/);
+});
+
+test("renders v2rayNG deep link and no mojibake text", () => {
+  const html = renderSubscriptionPageHtml({
+    publicUrl: "https://sub.example/sub/lumen_sub_abc1234567890xyz",
+    manifest: {
+      provider: { name: "Lumen" },
+      subscription: { id: "lumen_sub_abc1234567890xyz" },
+      metadata: { profileTitle: "Lumen Live Compat" }
+    }
+  });
+
+  assert.match(html, /v2rayng:\/\/install-sub\?url=/);
+  assert.match(html, /Добавить подписку/);
+  assert.doesNotMatch(html, /Рџ|Рґ|Рё|Р°|вњ|в†/);
 });
 
 test("malformed public subscription id returns 404 instead of upstream error", async () => {

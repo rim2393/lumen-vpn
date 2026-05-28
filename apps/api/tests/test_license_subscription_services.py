@@ -198,9 +198,33 @@ async def test_create_subscription_validates_related_records(
             user_id=user.id,
             license_id=license_record.id,
             node_id=node.id,
+            delivery_profile={"protocol": "vless"},
         ),
     )
     assert valid.node_id == node.id
+
+    with pytest.raises(APIError) as missing_renderable_node:
+        await create_subscription(
+            db_session,
+            request=SubscriptionCreateRequest(
+                user_id=user.id,
+                license_id=license_record.id,
+                delivery_profile={"protocol": "vless"},
+            ),
+        )
+    assert missing_renderable_node.value.code == "subscription_node_required"
+
+    with pytest.raises(APIError) as missing_protocol:
+        await create_subscription(
+            db_session,
+            request=SubscriptionCreateRequest(
+                user_id=user.id,
+                license_id=license_record.id,
+                node_id=node.id,
+                delivery_profile={"format": "happ"},
+            ),
+        )
+    assert missing_protocol.value.code == "subscription_protocol_required"
 
 
 async def test_create_subscription_rejects_inline_secret_delivery_fields(
@@ -254,7 +278,7 @@ async def test_update_subscription_patches_lifecycle_fields(
         request=SubscriptionUpdateRequest(
             status="limited",
             node_id=replacement_node.id,
-            delivery_profile={"protocol": "tcp-smoke", "format": "lumen-json"},
+            delivery_profile={"protocol": "vless", "format": "lumen-json"},
             config_hash=None,
             expires_at=None,
         ),
@@ -262,7 +286,7 @@ async def test_update_subscription_patches_lifecycle_fields(
 
     assert updated.status == "limited"
     assert updated.node_id == replacement_node.id
-    assert updated.delivery_profile == {"protocol": "tcp-smoke", "format": "lumen-json"}
+    assert updated.delivery_profile == {"protocol": "vless", "format": "lumen-json"}
     assert updated.config_hash is None
     assert updated.expires_at is None
 
@@ -270,10 +294,15 @@ async def test_update_subscription_patches_lifecycle_fields(
 async def test_update_subscription_validates_node_and_secret_delivery_fields(
     db_session: AsyncSession,
 ) -> None:
-    user, license_record, _ = await seed_user_license_node(db_session)
+    user, license_record, node = await seed_user_license_node(db_session)
     subscription = await create_subscription(
         db_session,
-        request=SubscriptionCreateRequest(user_id=user.id, license_id=license_record.id),
+        request=SubscriptionCreateRequest(
+            user_id=user.id,
+            license_id=license_record.id,
+            node_id=node.id,
+            delivery_profile={"protocol": "vless"},
+        ),
     )
 
     with pytest.raises(APIError) as missing_node:
@@ -305,6 +334,7 @@ async def test_revoke_subscription_sets_status_and_revoked_at(
             user_id=user.id,
             license_id=license_record.id,
             node_id=node.id,
+            delivery_profile={"protocol": "vless"},
         ),
     )
 

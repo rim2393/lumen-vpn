@@ -2,13 +2,15 @@ import { useState, type FormEvent } from 'react'
 import { ExternalLink, RefreshCw, Rss, Save, ShieldX, Smartphone } from 'lucide-react'
 import {
   useCreateSubscription,
+  useHostsPageData,
   useNodesPageData,
+  useProfilesPageData,
   useRevokeSubscription,
   useSubscriptionsPageData,
   useUpdateSubscription,
   useUsersPageData,
 } from '../shared/api/resourceHooks'
-import type { SubscriptionRecord } from '../shared/api/types'
+import type { HostRecord, ProtocolProfileRecord, SubscriptionRecord } from '../shared/api/types'
 import { OperatorGuide } from '../shared/components/OperatorGuide'
 import {
   FormError,
@@ -26,6 +28,8 @@ export function SubscriptionPage() {
   const query = useSubscriptionsPageData()
   const usersQuery = useUsersPageData()
   const nodesQuery = useNodesPageData()
+  const profilesQuery = useProfilesPageData()
+  const hostsQuery = useHostsPageData()
   const createSubscription = useCreateSubscription()
   const updateSubscription = useUpdateSubscription()
   const revokeSubscription = useRevokeSubscription()
@@ -104,12 +108,14 @@ export function SubscriptionPage() {
       createForm={
         <SubscriptionCreateForm
           defaultLicenseId={subscriptions[0]?.license_id ?? ''}
+          hosts={hostsQuery.data?.items ?? []}
           nodes={nodes}
           onCreate={async (request) => {
             await createSubscription.mutateAsync(request)
             await query.refetch()
           }}
           pending={createSubscription.isPending}
+          profiles={profilesQuery.data?.items ?? []}
           users={users}
         />
       }
@@ -157,42 +163,69 @@ function SubscriptionActions({
 
 function SubscriptionCreateForm({
   defaultLicenseId,
+  hosts,
   nodes,
   onCreate,
   pending,
+  profiles,
   users,
 }: {
   defaultLicenseId: string
+  hosts: HostRecord[]
   nodes: Array<{ id: string; name: string }>
   onCreate: (request: {
     delivery_profile: Record<string, string>
     license_id: string
-    node_id: string | null
+    node_id: string
     user_id: string
   }) => Promise<void>
   pending: boolean
+  profiles: ProtocolProfileRecord[]
   users: Array<{ email: string; id: string; username: string | null }>
 }) {
   const { t } = useI18n()
   const [userId, setUserId] = useState(users[0]?.id ?? '')
   const [licenseId, setLicenseId] = useState(defaultLicenseId)
-  const [nodeId, setNodeId] = useState('')
-  const [deliveryProfile, setDeliveryProfile] = useState('format=happ, profile_title=Lumen')
+  const [nodeId, setNodeId] = useState(nodes[0]?.id ?? '')
+  const [profileId, setProfileId] = useState('')
+  const [hostId, setHostId] = useState('')
+  const [clientPreset, setClientPreset] = useState('happ')
+  const [deliveryProfile, setDeliveryProfile] = useState(
+    [
+      'protocol=vless-tcp-tls',
+      'adapter=vless-tcp-tls',
+      'format=happ',
+      'profile_title=Lumen',
+      'security=tls',
+      'server_name=panel.89-185-85-184.sslip.io',
+      'alpn=h2,http/1.1',
+      'traffic_limit_gb=500',
+    ].join(', '),
+  )
   const [formError, setFormError] = useState<string | null>(null)
+  const profilesForNode = profiles.filter((profile) => !nodeId || profile.node_id === nodeId)
+  const hostsForNode = hosts.filter((host) => !nodeId || host.node_id === nodeId)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
     try {
-      const parsedDeliveryProfile = parseDeliveryProfile(deliveryProfile)
-      if (!userId || !licenseId.trim()) {
-        setFormError(t('User and license are required.'))
+      if (!userId || !licenseId.trim() || !nodeId) {
+        setFormError(t('User, license, and node are required.'))
         return
+      }
+      const parsedDeliveryProfile = parseDeliveryProfile(deliveryProfile)
+      parsedDeliveryProfile.format = clientPreset
+      if (profileId) {
+        parsedDeliveryProfile.profile_id = profileId
+      }
+      if (hostId) {
+        parsedDeliveryProfile.host_id = hostId
       }
       await onCreate({
         delivery_profile: parsedDeliveryProfile,
         license_id: licenseId.trim(),
-        node_id: nodeId || null,
+        node_id: nodeId,
         user_id: userId,
       })
     } catch (error) {
@@ -224,13 +257,54 @@ function SubscriptionCreateForm({
       </label>
       <label htmlFor="subscription-node">
         {t('Node')}
-        <select id="subscription-node" value={nodeId} onChange={(event) => setNodeId(event.target.value)}>
-          <option value="">{t('All nodes')}</option>
+        <select
+          id="subscription-node"
+          required
+          value={nodeId}
+          onChange={(event) => {
+            setNodeId(event.target.value)
+            setProfileId('')
+            setHostId('')
+          }}
+        >
+          <option value="">{t('Select node')}</option>
           {nodes.map((node) => (
             <option key={node.id} value={node.id}>
               {node.name}
             </option>
           ))}
+        </select>
+      </label>
+      <label htmlFor="subscription-profile">
+        {t('Protocol profile')}
+        <select id="subscription-profile" value={profileId} onChange={(event) => setProfileId(event.target.value)}>
+          <option value="">{t('Use delivery profile fields')}</option>
+          {profilesForNode.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name} · {profile.adapter}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label htmlFor="subscription-host">
+        {t('Host')}
+        <select id="subscription-host" value={hostId} onChange={(event) => setHostId(event.target.value)}>
+          <option value="">{t('Use node public address')}</option>
+          {hostsForNode.map((host) => (
+            <option key={host.id} value={host.id}>
+              {host.name} · {host.hostname}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label htmlFor="subscription-client-preset">
+        {t('Default client format')}
+        <select id="subscription-client-preset" value={clientPreset} onChange={(event) => setClientPreset(event.target.value)}>
+          <option value="happ">Happ / Hiddify / raw URI</option>
+          <option value="v2ray-base64">v2ray base64</option>
+          <option value="mihomo">Mihomo / Clash Meta</option>
+          <option value="sing-box">Sing-box / NekoBox</option>
+          <option value="amnezia">Amnezia / Xray JSON</option>
         </select>
       </label>
       <label htmlFor="subscription-delivery">

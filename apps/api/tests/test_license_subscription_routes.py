@@ -165,6 +165,36 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert get_response.json()["public_id"] == created["public_id"]
 
 
+async def test_subscription_create_requires_node_and_renderable_protocol(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+
+    missing_node_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": None,
+            "delivery_profile": {"protocol": "vless"},
+        },
+    )
+    assert missing_node_response.status_code == 422
+    assert missing_node_response.json()["error"]["code"] == "subscription_node_required"
+
+    missing_protocol_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {"format": "happ"},
+        },
+    )
+    assert missing_protocol_response.status_code == 422
+    assert missing_protocol_response.json()["error"]["code"] == "subscription_protocol_required"
+
+
 async def test_subscription_routes_patch_revoke_and_record_audit(
     route_app: RouteTestApp,
 ) -> None:
@@ -199,7 +229,7 @@ async def test_subscription_routes_patch_revoke_and_record_audit(
         json={
             "status": "limited",
             "node_id": replacement_node_id,
-            "delivery_profile": {"protocol": "tcp-smoke", "format": "lumen-json"},
+            "delivery_profile": {"protocol": "vless", "format": "lumen-json"},
             "config_hash": None,
             "expires_at": None,
         },
@@ -208,7 +238,7 @@ async def test_subscription_routes_patch_revoke_and_record_audit(
     patched = patch_response.json()
     assert patched["status"] == "limited"
     assert patched["node_id"] == replacement_node_id
-    assert patched["delivery_profile"] == {"protocol": "tcp-smoke", "format": "lumen-json"}
+    assert patched["delivery_profile"] == {"protocol": "vless", "format": "lumen-json"}
     assert patched["config_hash"] is None
     assert patched["expires_at"] is None
 
@@ -231,31 +261,31 @@ async def test_subscription_routes_patch_revoke_and_record_audit(
     assert all(event.actor_email == "owner@example.com" for event in events)
 
 
-async def test_subscription_manifest_route_renders_live_smoke_protocol(
+async def test_subscription_manifest_route_renders_vless_profile_protocol(
     route_app: RouteTestApp,
 ) -> None:
     user, license_record, node = await seed_subscription_dependencies(route_app)
     async with route_app.sessionmaker() as session:
         profile = ProtocolProfile(
-            name="tcp-smoke-profile",
+            name="vless-profile",
             node_id=node.id,
-            adapter="tcp-smoke",
+            adapter="vless-tcp-tls",
             status="active",
-            config_json={},
+            config_json={"security": {"type": "tls", "serverName": "route.example.net"}},
             port_reservations=[
                 {"address": "0.0.0.0", "port": 18081, "protocol": "tcp"},  # noqa: S104
             ],
-            credentials_ref="vault://subscriptions/live-smoke/tcp-smoke",
+            credentials_ref="vault://subscriptions/vless-profile/client",
         )
         session.add(profile)
         await session.flush()
         host = Host(
-            name="tcp-smoke-host",
+            name="vless-host",
             hostname="85.192.60.8",
             node_id=node.id,
             protocol_profile_id=profile.id,
             status="active",
-            tags=["live-smoke"],
+            tags=["vless"],
         )
         session.add(host)
         await session.commit()
@@ -267,13 +297,13 @@ async def test_subscription_manifest_route_renders_live_smoke_protocol(
             "license_id": str(license_record.id),
             "node_id": str(node.id),
             "delivery_profile": {
-                "protocol": "tcp-smoke",
-                "adapter": "tcp-smoke-listener",
+                "protocol": "vless-tcp-tls",
+                "adapter": "vless-tcp-tls",
                 "profile_id": str(profile.id),
                 "host_id": str(host.id),
                 "format": "lumen-json",
             },
-            "config_hash": "sha256:tcp-smoke",
+            "config_hash": "sha256:vless-profile",
         },
     )
     assert create_response.status_code == 201
@@ -287,15 +317,15 @@ async def test_subscription_manifest_route_renders_live_smoke_protocol(
     protocol = manifest["nodes"][0]["protocols"][0]
     assert manifest["schemaVersion"] == "lumen.subscription-manifest.v1"
     assert manifest["subscription"]["id"].startswith("lumen_sub_")
-    assert protocol["type"] == "tcp-smoke"
-    assert protocol["adapter"] == "tcp-smoke-listener"
+    assert protocol["type"] == "vless-tcp-tls"
+    assert protocol["adapter"] == "vless-tcp-tls"
     assert protocol["endpoint"] == {
         "host": "85.192.60.8",
         "port": 18081,
         "transport": "tcp",
         "network": "public",
     }
-    assert protocol["security"]["type"] == "none"
+    assert protocol["security"]["type"] == "tls"
 
     public_manifest_response = await route_app.client.get(
         f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/manifest",
@@ -304,7 +334,7 @@ async def test_subscription_manifest_route_renders_live_smoke_protocol(
     assert public_manifest_response.status_code == 200
     public_manifest = public_manifest_response.json()
     assert public_manifest["subscription"]["id"] == create_response.json()["public_id"]
-    assert public_manifest["nodes"][0]["protocols"][0]["type"] == "tcp-smoke"
+    assert public_manifest["nodes"][0]["protocols"][0]["type"] == "vless-tcp-tls"
 
 
 async def test_public_subscription_renderers_emit_client_compatible_formats(
@@ -387,9 +417,9 @@ async def test_public_subscription_manifest_rejects_plaintext_profile_credential
         profile = ProtocolProfile(
             name="legacy-plaintext-profile",
             node_id=node.id,
-            adapter="tcp-smoke",
+            adapter="vless-tcp-tls",
             status="active",
-            config_json={},
+            config_json={"security": {"type": "tls", "serverName": "legacy.example.net"}},
             port_reservations=[
                 {"address": "0.0.0.0", "port": 18081, "protocol": "tcp"},  # noqa: S104
             ],
@@ -405,10 +435,10 @@ async def test_public_subscription_manifest_rejects_plaintext_profile_credential
             "license_id": str(license_record.id),
             "node_id": str(node.id),
             "delivery_profile": {
-                "protocol": "tcp-smoke",
+                "protocol": "vless-tcp-tls",
                 "profile_id": str(profile.id),
             },
-            "config_hash": "sha256:tcp-smoke",
+            "config_hash": "sha256:vless-tls",
         },
     )
     assert create_response.status_code == 201
@@ -432,13 +462,13 @@ async def test_public_subscription_manifest_rejects_invalid_profile_port(
         profile = ProtocolProfile(
             name="legacy-invalid-port-profile",
             node_id=node.id,
-            adapter="tcp-smoke",
+            adapter="vless-tcp-tls",
             status="active",
-            config_json={},
+            config_json={"security": {"type": "tls", "serverName": "legacy.example.net"}},
             port_reservations=[
                 {"address": "0.0.0.0", "port": "not-a-port", "protocol": "tcp"},  # noqa: S104
             ],
-            credentials_ref="vault://subscriptions/legacy/tcp-smoke",
+            credentials_ref="vault://subscriptions/legacy/vless-tls",
         )
         session.add(profile)
         await session.commit()
@@ -450,10 +480,10 @@ async def test_public_subscription_manifest_rejects_invalid_profile_port(
             "license_id": str(license_record.id),
             "node_id": str(node.id),
             "delivery_profile": {
-                "protocol": "tcp-smoke",
+                "protocol": "vless-tcp-tls",
                 "profile_id": str(profile.id),
             },
-            "config_hash": "sha256:tcp-smoke",
+            "config_hash": "sha256:vless-tls",
         },
     )
     assert create_response.status_code == 201
@@ -484,8 +514,8 @@ async def test_public_subscription_manifest_rejects_expired_license(
             "user_id": str(user.id),
             "license_id": str(license_record.id),
             "node_id": str(node.id),
-            "delivery_profile": {"protocol": "tcp-smoke"},
-            "config_hash": "sha256:tcp-smoke",
+            "delivery_profile": {"protocol": "vless"},
+            "config_hash": "sha256:vless",
         },
     )
     assert create_response.status_code == 201
@@ -526,7 +556,7 @@ async def test_subscription_patch_route_rejects_inline_secret_delivery_field(
             "user_id": str(user.id),
             "license_id": str(license_record.id),
             "node_id": str(node.id),
-            "delivery_profile": {"protocol": "tcp-smoke"},
+            "delivery_profile": {"protocol": "vless"},
         },
     )
     assert create_response.status_code == 201

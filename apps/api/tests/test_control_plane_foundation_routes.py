@@ -759,7 +759,11 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
             "user_id": user_id,
             "license_id": license_id,
             "node_id": node_id,
-            "delivery_profile": {"format": "happ", "profile_title": "Detail profile"},
+            "delivery_profile": {
+                "format": "happ",
+                "profile_title": "Detail profile",
+                "protocol": "vless",
+            },
         },
     )
     assert subscription_response.status_code == 201

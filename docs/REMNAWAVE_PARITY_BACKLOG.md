@@ -2,6 +2,14 @@
 
 This backlog is the working contract for closing Lumen admin parity. Each item must be backed by real API, database state or external service state before it can be marked done. Production UI must not use fake counters or mock-only data.
 
+## Production Reality Contract
+
+- Every deployed page, button, metric, subscription link, node action and API response must reflect real panel/node/database/external-service state.
+- Test fixtures, smoke adapters, mocks, scaffold pages and demo data are allowed only inside automated tests or explicitly local development paths; they must never be reachable from production install scripts, deployed images, live admin UI or public subscription URLs.
+- A public subscription must always be attached to a real node and a renderable protocol/profile. The backend must reject subscriptions without a node, without a renderable protocol, or with test-only adapters such as `tcp-smoke`.
+- If a feature is not production-ready, the UI must hide it or mark it unavailable with a real backend status. It must not show fake success, fake counts, fake nodes, fake users or fake client compatibility.
+- Any future parity item can be closed only after live VPS/API verification proves the state is real.
+
 ## Users
 
 - Users list/create/edit/delete.

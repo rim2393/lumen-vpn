@@ -1,12 +1,97 @@
 export const SUBSCRIPTION_PAGE_MODEL_VERSION = "lumen.edge.subscription-page.v1";
 
 const CLIENTS = Object.freeze([
-  { key: "hiddify", label: "Hiddify", scheme: "hiddify" },
-  { key: "happ", label: "Happ", scheme: null },
-  { key: "v2ray", label: "v2rayNG / v2rayN", scheme: null },
-  { key: "mihomo", label: "Mihomo / Clash Meta", scheme: null },
-  { key: "sing-box", label: "Sing-box / NekoBox", scheme: null },
-  { key: "amnezia", label: "Amnezia / Xray JSON", scheme: null }
+  {
+    key: "hiddify",
+    label: "Hiddify",
+    platform: "Android, iOS, Windows, macOS, Linux",
+    renderer: "Raw URI subscription",
+    scheme: "hiddify"
+  },
+  {
+    key: "happ",
+    label: "Happ",
+    platform: "Android, iOS, Windows, macOS",
+    renderer: "Raw URI subscription",
+    scheme: null
+  },
+  {
+    key: "v2ray",
+    label: "v2rayNG / v2rayN",
+    platform: "Android, Windows",
+    renderer: "Raw URI subscription",
+    scheme: "v2rayng"
+  },
+  {
+    key: "v2ray-base64",
+    label: "v2ray base64",
+    platform: "Legacy v2ray clients",
+    renderer: "Base64 URI subscription",
+    scheme: null
+  },
+  {
+    key: "streisand",
+    label: "Streisand",
+    platform: "iOS, macOS",
+    renderer: "Raw URI subscription",
+    scheme: null
+  },
+  {
+    key: "shadowrocket",
+    label: "Shadowrocket",
+    platform: "iOS",
+    renderer: "Raw URI subscription",
+    scheme: null
+  },
+  {
+    key: "mihomo",
+    label: "Mihomo / Clash Meta",
+    platform: "Desktop, Android",
+    renderer: "YAML proxy groups",
+    scheme: null
+  },
+  {
+    key: "flclash",
+    label: "FlClash",
+    platform: "Android, Windows, macOS, Linux",
+    renderer: "YAML proxy groups",
+    scheme: null
+  },
+  {
+    key: "stash",
+    label: "Stash",
+    platform: "iOS, macOS",
+    renderer: "YAML proxy groups",
+    scheme: null
+  },
+  {
+    key: "koala-clash",
+    label: "Koala Clash",
+    platform: "Android",
+    renderer: "YAML proxy groups",
+    scheme: null
+  },
+  {
+    key: "sing-box",
+    label: "Sing-box / NekoBox",
+    platform: "Android, iOS, desktop",
+    renderer: "sing-box JSON",
+    scheme: null
+  },
+  {
+    key: "nekoray",
+    label: "NekoRay",
+    platform: "Windows, Linux",
+    renderer: "sing-box JSON",
+    scheme: null
+  },
+  {
+    key: "amnezia",
+    label: "Amnezia / Xray JSON",
+    platform: "Android, iOS, desktop",
+    renderer: "Xray JSON",
+    scheme: null
+  }
 ]);
 
 export function wantsHtmlSubscriptionPage(request) {
@@ -23,13 +108,20 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
   const expiresText = expiresAt && !Number.isNaN(expiresAt.getTime())
     ? expiresAt.toLocaleDateString("ru-RU", { year: "numeric", month: "long", day: "numeric" })
     : "без срока";
+  const supportUrl = manifest.metadata?.supportUrl || "#";
   const clientLinks = CLIENTS.map((client) => {
     const targetUrl = `${publicUrl}/${client.key}`;
-    const importUrl = client.scheme === "hiddify"
-      ? `hiddify://import/${targetUrl}#${encodeURIComponent(title)}`
-      : targetUrl;
+    const encodedTargetUrl = encodeURIComponent(targetUrl);
+    let importUrl = targetUrl;
+    if (client.scheme === "hiddify") {
+      importUrl = `hiddify://import/${targetUrl}#${encodeURIComponent(title)}`;
+    }
+    if (client.scheme === "v2rayng") {
+      importUrl = `v2rayng://install-sub?url=${encodedTargetUrl}#${encodeURIComponent(title)}`;
+    }
     return { ...client, importUrl, targetUrl };
   });
+  const rawSubscriptionUrl = `${publicUrl}/v2ray`;
 
   return `<!doctype html>
 <html lang="ru">
@@ -42,7 +134,7 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #10151d 0%, #151a25 100%); }
     body::before { content: ""; position: fixed; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
-    main { position: relative; width: min(860px, calc(100% - 32px)); margin: 0 auto; padding: 30px 0 54px; }
+    main { position: relative; width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 30px 0 54px; }
     header, section { border: 1px solid #2d3748; background: rgba(28, 34, 46, .88); border-radius: 16px; }
     header { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 22px 28px; }
     .brand { display: flex; gap: 12px; align-items: center; font-weight: 800; color: #56dff7; font-size: 22px; }
@@ -59,8 +151,10 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
     .info { border: 1px solid #334155; border-radius: 10px; padding: 14px; background: rgba(15, 23, 42, .35); }
     .info span { display: block; color: #94a3b8; font-size: 13px; margin-bottom: 5px; }
     .apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-    .app { border: 1px solid #334155; background: #1b2330; color: #edf2f7; border-radius: 10px; padding: 14px; text-decoration: none; display: flex; justify-content: space-between; align-items: center; min-height: 58px; }
+    .app { border: 1px solid #334155; background: #1b2330; color: #edf2f7; border-radius: 10px; padding: 14px; text-decoration: none; display: grid; gap: 6px; min-height: 88px; }
     .app:hover { border-color: #22d3ee; color: #67e8f9; }
+    .app span { color: #94a3b8; font-size: 12px; }
+    .app em { color: #67e8f9; font-style: normal; font-size: 13px; }
     .copy { margin-top: 18px; display: grid; gap: 10px; }
     code { display: block; word-break: break-all; color: #cbd5e1; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; }
     @media (max-width: 620px) { header { padding: 18px; } .card { padding: 22px 18px; } .grid { grid-template-columns: 1fr; } }
@@ -70,7 +164,7 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
   <main>
     <header>
       <div class="brand"><span class="mark" aria-hidden="true"></span>${escapeHtml(provider)}</div>
-      <a class="telegram" href="${escapeHtml(manifest.metadata?.supportUrl || "#")}" aria-label="Support">↗</a>
+      <a class="telegram" href="${escapeHtml(supportUrl)}" aria-label="Support">↗</a>
     </header>
     <section class="card">
       <div class="status">
@@ -90,10 +184,11 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
     <section class="card">
       <h2>Добавить подписку</h2>
       <div class="apps">
-        ${clientLinks.map((client) => `<a class="app" href="${escapeHtml(client.importUrl)}"><strong>${escapeHtml(client.label)}</strong><span>Открыть</span></a>`).join("")}
+        ${clientLinks.map((client) => `<a class="app" href="${escapeHtml(client.importUrl)}"><strong>${escapeHtml(client.label)}</strong><span>${escapeHtml(client.platform)}</span><em>${escapeHtml(client.renderer)}</em></a>`).join("")}
       </div>
       <div class="copy">
-        <p class="muted">Для ручного импорта используйте нужный URL формата:</p>
+        <p class="muted">Для ручного импорта используйте универсальный URL или нужный URL формата:</p>
+        <code>${escapeHtml(rawSubscriptionUrl)}</code>
         ${clientLinks.map((client) => `<code>${escapeHtml(client.targetUrl)}</code>`).join("")}
       </div>
     </section>
