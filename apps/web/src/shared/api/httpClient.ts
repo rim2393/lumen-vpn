@@ -1,5 +1,6 @@
 import type {
   ApiKeyCreateRequest,
+  HostBulkActionRequest,
   AuthSession,
   HostCreateRequest,
   HostUpdateRequest,
@@ -88,6 +89,11 @@ export function createHttpLumenApiClient({
   }
 
   return {
+    bulkHosts: (action: string, payload: HostBulkActionRequest) =>
+      request(`/api/v1/hosts/bulk/${encodeURIComponent(action)}`, {
+        body: payload,
+        method: 'POST',
+      }),
     bulkUsers: (action: string, payload: UserBulkActionRequest) =>
       request(`/api/v1/users/bulk/${encodeURIComponent(action)}`, {
         body: payload,
@@ -167,6 +173,8 @@ export function createHttpLumenApiClient({
       request(`/api/v1/api-keys/${apiKeyId}`, { method: 'DELETE' }),
     revokeSubscription: (subscriptionId: string) =>
       request(`/api/v1/subscriptions/${subscriptionId}/revoke`, { method: 'POST' }),
+    reorderHosts: (ids: string[]) =>
+      request('/api/v1/hosts/actions/reorder', { body: { ids }, method: 'POST' }),
     updateHost: (hostId: string, payload: HostUpdateRequest) =>
       request(`/api/v1/hosts/${hostId}`, { body: payload, method: 'PATCH' }),
     updateProfile: (profileId: string, payload: ProtocolProfileUpdateRequest) =>

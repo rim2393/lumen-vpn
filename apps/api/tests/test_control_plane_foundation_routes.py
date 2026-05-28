@@ -433,6 +433,68 @@ async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
     }
 
 
+async def test_host_bulk_actions_and_reorder_are_persisted(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    node_id = await seeded_node_id(foundation_app)
+    host_ids: list[str] = []
+    for index in range(2):
+        response = await foundation_app.client.post(
+            "/api/v1/hosts",
+            json={
+                "name": f"Bulk Host {index}",
+                "hostname": f"bulk-{index}.example.test",
+                "node_id": node_id,
+                "tags": ["bulk"],
+            },
+        )
+        assert response.status_code == 201
+        host_ids.append(response.json()["id"])
+
+    inbound_response = await foundation_app.client.post(
+        "/api/v1/hosts/bulk/set-inbound",
+        json={"ids": host_ids, "inbound_tag": "BULK_INBOUND"},
+    )
+    assert inbound_response.status_code == 200
+    assert inbound_response.json()["updated"] == 2
+
+    port_response = await foundation_app.client.post(
+        "/api/v1/hosts/bulk/set-port",
+        json={"ids": host_ids, "port": 9443},
+    )
+    assert port_response.status_code == 200
+
+    disable_response = await foundation_app.client.post(
+        "/api/v1/hosts/bulk/disable",
+        json={"ids": [host_ids[0]]},
+    )
+    assert disable_response.status_code == 200
+
+    reorder_response = await foundation_app.client.post(
+        "/api/v1/hosts/actions/reorder",
+        json={"ids": [host_ids[1], host_ids[0]]},
+    )
+    assert reorder_response.status_code == 200
+
+    list_response = await foundation_app.client.get("/api/v1/hosts")
+    assert list_response.status_code == 200
+    hosts = list_response.json()["items"]
+    assert [host["id"] for host in hosts[:2]] == [host_ids[1], host_ids[0]]
+    assert hosts[0]["metadata_json"]["order"] == 0
+    assert hosts[0]["inbound_tag"] == "BULK_INBOUND"
+    assert hosts[0]["port"] == 9443
+    assert hosts[1]["status"] == "disabled"
+
+    delete_response = await foundation_app.client.post(
+        "/api/v1/hosts/bulk/delete",
+        json={"ids": host_ids},
+    )
+    assert delete_response.status_code == 200
+    final_response = await foundation_app.client.get("/api/v1/hosts")
+    assert final_response.status_code == 200
+    assert final_response.json()["items"] == []
+
+
 async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
     foundation_app: FoundationRouteApp,
 ) -> None:

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApiClient } from './apiClientContext'
 import type {
   ApiKeyCreateRequest,
+  HostBulkActionRequest,
   HostCreateRequest,
   HostUpdateRequest,
   ProtocolProfileCreateRequest,
@@ -178,6 +179,31 @@ export function useDeleteHost() {
 
   return useMutation({
     mutationFn: (id: string) => apiClient.deleteHost(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+    },
+  })
+}
+
+export function useBulkHosts() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ action, request }: { action: string; request: HostBulkActionRequest }) =>
+      apiClient.bulkHosts(action, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+    },
+  })
+}
+
+export function useReorderHosts() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (ids: string[]) => apiClient.reorderHosts(ids),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
     },

@@ -9,8 +9,10 @@ from app.db.session import get_db_session
 from app.domains.audit.service import record_audit_event
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import (
+    HostBulkActionRequest,
     HostCreateRequest,
     HostListResponse,
+    HostReorderRequest,
     HostResponse,
     HostUpdateRequest,
     PortCheckRequest,
@@ -31,6 +33,7 @@ from app.domains.protocols.schemas import (
 )
 from app.domains.protocols.service import (
     bulk_set_status,
+    bulk_update_hosts,
     check_port_conflicts,
     create_host,
     create_profile,
@@ -50,6 +53,7 @@ from app.domains.protocols.service import (
     list_protocol_adapters,
     list_squads,
     profile_response,
+    reorder_hosts,
     squad_response,
     update_host,
     update_profile,
@@ -386,6 +390,43 @@ async def bulk_host_status(
         principal=principal,
         action="host.bulk.status",
         resource_type="host",
+    )
+    await session.commit()
+    return ResourceBulkActionResponse(updated=updated)
+
+
+@hosts_router.post("/bulk/{action}", response_model=ResourceBulkActionResponse)
+async def bulk_host_action(
+    action: str,
+    request: HostBulkActionRequest,
+    principal: Manager,
+    session: DatabaseSession,
+) -> ResourceBulkActionResponse:
+    updated = await bulk_update_hosts(session, request=request, action=action)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action=f"host.bulk.{action}",
+        resource_type="host",
+        metadata_json={"host_ids": [str(host_id) for host_id in request.ids]},
+    )
+    await session.commit()
+    return ResourceBulkActionResponse(updated=updated)
+
+
+@hosts_router.post("/actions/reorder", response_model=ResourceBulkActionResponse)
+async def reorder_host_route(
+    request: HostReorderRequest,
+    principal: Manager,
+    session: DatabaseSession,
+) -> ResourceBulkActionResponse:
+    updated = await reorder_hosts(session, request=request)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="host.reordered",
+        resource_type="host",
+        metadata_json={"host_ids": [str(host_id) for host_id in request.ids]},
     )
     await session.commit()
     return ResourceBulkActionResponse(updated=updated)

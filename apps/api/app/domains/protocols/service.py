@@ -10,7 +10,9 @@ from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import (
     WILDCARD_BIND_ADDRESS,
+    HostBulkActionRequest,
     HostCreateRequest,
+    HostReorderRequest,
     HostResponse,
     HostUpdateRequest,
     PortCheckRequest,
@@ -536,7 +538,8 @@ async def delete_squad(session: AsyncSession, *, squad_id: UUID) -> None:
 
 async def list_hosts(session: AsyncSession) -> list[Host]:
     result = await session.execute(select(Host).order_by(Host.created_at.desc()))
-    return list(result.scalars().all())
+    hosts = list(result.scalars().all())
+    return sorted(hosts, key=_host_sort_key)
 
 
 async def get_host(session: AsyncSession, *, host_id: UUID) -> Host:
@@ -597,6 +600,60 @@ async def delete_host(session: AsyncSession, *, host_id: UUID) -> None:
     await session.flush()
 
 
+async def bulk_update_hosts(
+    session: AsyncSession,
+    *,
+    request: HostBulkActionRequest,
+    action: str,
+) -> int:
+    hosts = await _get_hosts_by_ids(session, request.ids)
+    if action == "delete":
+        for host in hosts:
+            await session.delete(host)
+        await session.flush()
+        return len(hosts)
+    for host in hosts:
+        if action == "enable":
+            host.status = "active"
+        elif action == "disable":
+            host.status = "disabled"
+        elif action == "set-inbound":
+            if request.inbound_tag is None:
+                raise APIError(
+                    code="host_bulk_inbound_required",
+                    message="inbound_tag is required for set-inbound.",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+            host.inbound_tag = request.inbound_tag
+        elif action == "set-port":
+            if request.port is None:
+                raise APIError(
+                    code="host_bulk_port_required",
+                    message="port is required for set-port.",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+            host.port = request.port
+        else:
+            raise APIError(
+                code="host_bulk_action_unknown",
+                message="Host bulk action is not supported.",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                details=[action],
+            )
+    await session.flush()
+    return len(hosts)
+
+
+async def reorder_hosts(session: AsyncSession, *, request: HostReorderRequest) -> int:
+    hosts = await _get_hosts_by_ids(session, request.ids)
+    hosts_by_id = {host.id: host for host in hosts}
+    for order, host_id in enumerate(request.ids):
+        host = hosts_by_id[host_id]
+        host.metadata_json = {**host.metadata_json, "order": order}
+    await session.flush()
+    return len(hosts)
+
+
 async def bulk_set_status(
     session: AsyncSession,
     *,
@@ -619,6 +676,21 @@ async def bulk_set_status(
         record.status = status_value
     await session.flush()
     return len(records)
+
+
+async def _get_hosts_by_ids(session: AsyncSession, ids: list[UUID]) -> list[Host]:
+    result = await session.execute(select(Host).where(Host.id.in_(ids)))
+    hosts = list(result.scalars().all())
+    if len(hosts) != len(set(ids)):
+        found = {host.id for host in hosts}
+        missing = [str(host_id) for host_id in ids if host_id not in found]
+        raise APIError(
+            code="host_not_found",
+            message="One or more hosts were not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=missing,
+        )
+    return hosts
 
 
 async def _ensure_node_exists(session: AsyncSession, node_id: UUID) -> None:
@@ -710,6 +782,15 @@ def host_response(host: Host) -> HostResponse:
         remark=host.remark,
         metadata_json=host.metadata_json,
     )
+
+
+def _host_sort_key(host: Host) -> tuple[int, str]:
+    order = host.metadata_json.get("order")
+    if isinstance(order, int):
+        return (order, host.name)
+    if isinstance(order, str) and order.isdigit():
+        return (int(order), host.name)
+    return (1_000_000, host.name)
 
 
 async def _get_profile_node(session: AsyncSession, profile: ProtocolProfile) -> Node:

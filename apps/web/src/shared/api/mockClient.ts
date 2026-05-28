@@ -14,6 +14,7 @@ import {
 import type {
   ApiKeyCreateRequest,
   ApiKeyCreateResponse,
+  HostBulkActionRequest,
   HostCreateRequest,
   HostListResponse,
   HostRecord,
@@ -136,6 +137,33 @@ export function createMockLumenApiClient(): LumenApiClient {
   }
 
   return {
+    bulkHosts: async (action: string, request: HostBulkActionRequest) => {
+      const selected = hosts.filter((host) => request.ids.includes(host.id))
+      if (action === 'delete') {
+        for (const host of selected) {
+          const index = hosts.findIndex((item) => item.id === host.id)
+          if (index >= 0) {
+            hosts.splice(index, 1)
+          }
+        }
+        return { updated: selected.length }
+      }
+      for (const host of selected) {
+        if (action === 'enable') {
+          host.status = 'active'
+        }
+        if (action === 'disable') {
+          host.status = 'disabled'
+        }
+        if (action === 'set-inbound') {
+          host.inbound_tag = request.inbound_tag ?? null
+        }
+        if (action === 'set-port') {
+          host.port = request.port ?? null
+        }
+      }
+      return { updated: selected.length }
+    },
     checkPortConflicts: async (request: PortCheckRequest): Promise<PortCheckResponse> => {
       const conflicts = profiles
         .filter((profile) => profile.node_id === request.node_id)
@@ -384,6 +412,17 @@ export function createMockLumenApiClient(): LumenApiClient {
       subscription.status = 'revoked'
       subscription.revoked_at = new Date().toISOString()
       return subscription
+    },
+    reorderHosts: async (ids: string[]) => {
+      const ordered = ids
+        .map((id) => hosts.find((host) => host.id === id))
+        .filter((host): host is HostRecord => Boolean(host))
+      const remainder = hosts.filter((host) => !ids.includes(host.id))
+      hosts.splice(0, hosts.length, ...ordered, ...remainder)
+      ordered.forEach((host, order) => {
+        host.metadata_json = { ...host.metadata_json, order }
+      })
+      return { updated: ordered.length }
     },
     bulkUsers: async (
       action: string,

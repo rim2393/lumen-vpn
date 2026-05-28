@@ -250,6 +250,21 @@ class HostListResponse(BaseModel):
     items: list[HostResponse]
 
 
+class HostBulkActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[UUID] = Field(min_length=1)
+    inbound_tag: str | None = Field(default=None, max_length=128)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    status: str | None = Field(default=None, max_length=32)
+
+
+class HostReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[UUID] = Field(min_length=1)
+
+
 class ResourceBulkActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

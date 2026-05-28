@@ -399,6 +399,17 @@ export type HostListResponse = {
   items: HostRecord[]
 }
 
+export type HostBulkActionRequest = {
+  ids: string[]
+  inbound_tag?: string | null
+  port?: number | null
+  status?: string | null
+}
+
+export type ResourceBulkActionResponse = {
+  updated: number
+}
+
 export type SubscriptionRecord = {
   config_hash: string | null
   delivery_profile: Record<string, string>
@@ -505,6 +516,10 @@ export type LumenApiClient = {
     action: string,
     request: UserBulkActionRequest,
   ) => Promise<UserBulkActionResponse>
+  bulkHosts: (
+    action: string,
+    request: HostBulkActionRequest,
+  ) => Promise<ResourceBulkActionResponse>
   checkPortConflicts: (request: PortCheckRequest) => Promise<PortCheckResponse>
   createApiKey: (request: ApiKeyCreateRequest) => Promise<ApiKeyCreateResponse>
   createHost: (request: HostCreateRequest) => Promise<HostRecord>
@@ -537,6 +552,7 @@ export type LumenApiClient = {
   readLicense: () => Promise<LicenseSummary | null>
   revokeApiKey: (apiKeyId: string) => Promise<void>
   revokeSubscription: (subscriptionId: string) => Promise<SubscriptionRecord>
+  reorderHosts: (ids: string[]) => Promise<ResourceBulkActionResponse>
   updateHost: (hostId: string, request: HostUpdateRequest) => Promise<HostRecord>
   updateProfile: (
     profileId: string,
