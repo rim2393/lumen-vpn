@@ -2,6 +2,7 @@ import type {
   ApiKeyCreateRequest,
   HostBulkActionRequest,
   AuthSession,
+  AuthProviderUpdateRequest,
   HostCreateRequest,
   HostUpdateRequest,
   LoginRequest,
@@ -151,6 +152,7 @@ export function createHttpLumenApiClient({
     listProfiles: () => request('/api/v1/profiles'),
     listProtocolAdapters: () => request('/api/v1/protocols/adapters'),
     listSettings: () => request('/api/v1/settings'),
+    listAuthProviders: () => request('/api/v1/settings/auth/providers'),
     listSquads: () => request('/api/v1/squads'),
     listSubscriptions: () => request('/api/v1/subscriptions'),
     listSubscriptionTemplates: () => request('/api/v1/subscription-templates'),
@@ -257,6 +259,11 @@ export function createHttpLumenApiClient({
       }
     },
     logout: () => request('/api/v1/auth/logout', { method: 'POST' }),
+    updateAuthProvider: (provider: string, payload: AuthProviderUpdateRequest) =>
+      request(`/api/v1/settings/auth/providers/${encodeURIComponent(provider)}`, {
+        body: payload,
+        method: 'PATCH',
+      }),
     updateSetting: (key: string, payload: SettingUpdateRequest) =>
       request(`/api/v1/settings/${encodeURIComponent(key)}`, { body: payload, method: 'PUT' }),
     updateSquad: (squadId: string, payload: SquadUpdateRequest) =>

@@ -14,6 +14,8 @@ import {
 import type {
   ApiKeyCreateRequest,
   ApiKeyCreateResponse,
+  AuthProviderRecord,
+  AuthProviderUpdateRequest,
   HappRoutingResponse,
   HostBulkActionRequest,
   HostCreateRequest,
@@ -137,6 +139,64 @@ export function createMockLumenApiClient(): LumenApiClient {
   const templates: SubscriptionTemplateRecord[] = []
   const responseRules: ResponseRuleRecord[] = []
   const nodeCommands: NodeCommandRecord[] = []
+  const authProviders: AuthProviderRecord[] = [
+    {
+      display_name: 'Password',
+      enabled: true,
+      metadata_json: { mfa_required: true },
+      provider: 'password',
+      scopes: ['admin:login'],
+      status: 'active',
+    },
+    {
+      display_name: 'Passkey',
+      enabled: false,
+      metadata_json: { webauthn: 'planned' },
+      provider: 'passkey',
+      scopes: ['admin:login'],
+      status: 'configured',
+    },
+    {
+      display_name: 'Telegram',
+      enabled: false,
+      metadata_json: { bot_binding: 'api-key' },
+      provider: 'telegram',
+      scopes: ['admin:login', 'bot:manage'],
+      status: 'disabled',
+    },
+    {
+      display_name: 'GitHub',
+      enabled: false,
+      metadata_json: {},
+      provider: 'github',
+      scopes: ['read:user', 'user:email'],
+      status: 'disabled',
+    },
+    {
+      display_name: 'Google',
+      enabled: false,
+      metadata_json: {},
+      provider: 'google',
+      scopes: ['openid', 'email', 'profile'],
+      status: 'disabled',
+    },
+    {
+      display_name: 'Keycloak',
+      enabled: false,
+      metadata_json: {},
+      provider: 'keycloak',
+      scopes: ['openid', 'email', 'profile'],
+      status: 'disabled',
+    },
+    {
+      display_name: 'Generic OAuth2',
+      enabled: false,
+      metadata_json: {},
+      provider: 'generic_oauth2',
+      scopes: ['openid', 'email', 'profile'],
+      status: 'disabled',
+    },
+  ]
   const users = [...userRecords]
 
   function updateSettingValue(key: string, request: SettingUpdateRequest): SettingRecord {
@@ -524,6 +584,7 @@ export function createMockLumenApiClient(): LumenApiClient {
       items: protocolAdapters,
     }),
     listSettings: async (): Promise<SettingListResponse> => ({ items: settings }),
+    listAuthProviders: async () => ({ items: authProviders }),
     listSquads: async (): Promise<SquadListResponse> => ({ items: squads }),
     listSubscriptions: async (): Promise<SubscriptionListResponse> => ({
       items: subscriptions,
@@ -834,6 +895,17 @@ export function createMockLumenApiClient(): LumenApiClient {
       accessToken: 'mock-access-token',
       refreshToken: 'mock-refresh-token',
     }),
+    updateAuthProvider: async (
+      provider: string,
+      request: AuthProviderUpdateRequest,
+    ): Promise<AuthProviderRecord> => {
+      const record = authProviders.find((item) => item.provider === provider)
+      if (!record) {
+        throw new Error('Auth provider not found')
+      }
+      Object.assign(record, request)
+      return record
+    },
     updateSetting: async (key: string, request: SettingUpdateRequest) =>
       updateSettingValue(key, request),
   }

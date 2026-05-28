@@ -6,11 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
 from app.domains.audit.service import record_audit_event
-from app.domains.settings.schemas import SettingListResponse, SettingResponse, SettingUpdateRequest
+from app.domains.settings.schemas import (
+    AuthProviderListResponse,
+    AuthProviderResponse,
+    AuthProviderUpdateRequest,
+    SettingListResponse,
+    SettingResponse,
+    SettingUpdateRequest,
+)
 from app.domains.settings.service import (
     get_setting,
+    list_auth_providers,
     list_settings,
     setting_response,
+    update_auth_provider,
     upsert_setting,
 )
 
@@ -27,6 +36,38 @@ async def list_panel_settings(
 ) -> SettingListResponse:
     settings = await list_settings(session)
     return SettingListResponse(items=[setting_response(setting) for setting in settings])
+
+
+@router.get("/auth/providers", response_model=AuthProviderListResponse)
+async def list_panel_auth_providers(
+    _: SettingsManager,
+    session: DatabaseSession,
+) -> AuthProviderListResponse:
+    return AuthProviderListResponse(items=await list_auth_providers(session))
+
+
+@router.patch("/auth/providers/{provider}", response_model=AuthProviderResponse)
+async def patch_panel_auth_provider(
+    provider: str,
+    request: AuthProviderUpdateRequest,
+    principal: SettingsManager,
+    session: DatabaseSession,
+) -> AuthProviderResponse:
+    record = await update_auth_provider(
+        session,
+        provider=provider,
+        request=request,
+        principal=principal,
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="auth_provider.updated",
+        resource_type="auth_provider",
+        resource_id=provider,
+    )
+    await session.commit()
+    return record
 
 
 @router.get("/{key}", response_model=SettingResponse)

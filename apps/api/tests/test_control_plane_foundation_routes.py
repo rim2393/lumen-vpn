@@ -160,6 +160,59 @@ async def test_settings_update_records_audit_event(foundation_app: FoundationRou
         assert persisted_event.actor_email == "owner@example.com"
 
 
+async def test_auth_provider_settings_are_typed_and_audited(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    providers_response = await foundation_app.client.get("/api/v1/settings/auth/providers")
+    assert providers_response.status_code == 200
+    providers = providers_response.json()["items"]
+    assert {item["provider"] for item in providers} >= {
+        "password",
+        "telegram",
+        "github",
+        "google",
+        "keycloak",
+        "generic_oauth2",
+    }
+    password_provider = next(item for item in providers if item["provider"] == "password")
+    assert password_provider["enabled"] is True
+    assert password_provider["metadata_json"]["mfa_required"] is True
+
+    patch_response = await foundation_app.client.patch(
+        "/api/v1/settings/auth/providers/google",
+        json={
+            "enabled": True,
+            "status": "active",
+            "metadata_json": {"issuer": "https://accounts.google.com"},
+        },
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["enabled"] is True
+
+    reject_secret_response = await foundation_app.client.patch(
+        "/api/v1/settings/auth/providers/github",
+        json={"metadata_json": {"client_secret": "inline-secret"}},
+    )
+    assert reject_secret_response.status_code == 422
+
+    settings_response = await foundation_app.client.get("/api/v1/settings/auth.providers")
+    assert settings_response.status_code == 200
+    saved_google = next(
+        item
+        for item in settings_response.json()["value_json"]["items"]
+        if item["provider"] == "google"
+    )
+    assert saved_google["status"] == "active"
+
+    audit_response = await foundation_app.client.get("/api/v1/audit/events")
+    assert audit_response.status_code == 200
+    assert any(
+        event["action"] == "auth_provider.updated"
+        and event["resource_id"] == "google"
+        for event in audit_response.json()["items"]
+    )
+
+
 async def test_subscription_templates_and_response_rules_are_persisted(
     foundation_app: FoundationRouteApp,
 ) -> None:

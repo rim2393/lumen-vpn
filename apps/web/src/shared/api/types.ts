@@ -730,6 +730,27 @@ export type SettingUpdateRequest = {
   value_json: Record<string, unknown>
 }
 
+export type AuthProviderRecord = {
+  display_name: string
+  enabled: boolean
+  metadata_json: Record<string, unknown>
+  provider: string
+  scopes: string[]
+  status: string
+}
+
+export type AuthProviderUpdateRequest = Partial<{
+  display_name: string
+  enabled: boolean
+  metadata_json: Record<string, unknown>
+  scopes: string[]
+  status: string
+}>
+
+export type AuthProviderListResponse = {
+  items: AuthProviderRecord[]
+}
+
 export type ApiKeyCreateRequest = {
   expires_at?: string | null
   name: string
@@ -825,6 +846,7 @@ export type LumenApiClient = {
   listProfiles: () => Promise<ProtocolProfileListResponse>
   listProtocolAdapters: () => Promise<ProtocolAdapterListResponse>
   listSettings: () => Promise<SettingListResponse>
+  listAuthProviders: () => Promise<AuthProviderListResponse>
   listSquads: () => Promise<SquadListResponse>
   listSubscriptions: () => Promise<SubscriptionListResponse>
   listSubscriptionTemplates: () => Promise<SubscriptionTemplateListResponse>
@@ -877,6 +899,10 @@ export type LumenApiClient = {
     request: ResponseRuleUpdateRequest,
   ) => Promise<ResponseRuleRecord>
   verifyMfaChallenge: (request: MfaChallengeVerifyRequest) => Promise<AuthSession>
+  updateAuthProvider: (
+    provider: string,
+    request: AuthProviderUpdateRequest,
+  ) => Promise<AuthProviderRecord>
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
   updateSquad: (squadId: string, request: SquadUpdateRequest) => Promise<SquadRecord>
   updateUser: (userId: string, request: UserUpdateRequest) => Promise<UserRecord>

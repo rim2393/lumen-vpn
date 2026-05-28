@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApiClient } from './apiClientContext'
 import type {
   ApiKeyCreateRequest,
+  AuthProviderUpdateRequest,
   HostBulkActionRequest,
   HostCreateRequest,
   HostUpdateRequest,
@@ -40,6 +41,7 @@ export const resourceQueryKeys = {
   provisioningJob: (jobId: string) => ['resource', 'nodes', 'provisioning-job', jobId] as const,
   session: ['auth', 'session'] as const,
   settings: ['resource', 'settings'] as const,
+  authProviders: ['resource', 'settings', 'auth-providers'] as const,
   squads: ['resource', 'squads'] as const,
   squadDetail: (squadId: string) => ['resource', 'squads', squadId, 'detail'] as const,
   subscriptions: ['resource', 'subscriptions'] as const,
@@ -635,6 +637,34 @@ export function useSettingsPageData() {
   return useQuery({
     queryFn: apiClient.listSettings,
     queryKey: resourceQueryKeys.settings,
+  })
+}
+
+export function useAuthProvidersData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listAuthProviders,
+    queryKey: resourceQueryKeys.authProviders,
+  })
+}
+
+export function useUpdateAuthProvider() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      provider,
+      request,
+    }: {
+      provider: string
+      request: AuthProviderUpdateRequest
+    }) => apiClient.updateAuthProvider(provider, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.authProviders })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settings })
+    },
   })
 }
 
