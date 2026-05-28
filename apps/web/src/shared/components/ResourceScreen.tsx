@@ -85,7 +85,13 @@ export function ResourceScreen<TItem>({
         description={spec.description}
         actions={
           actions ?? (
-            <button type="button" className="button button--secondary" onClick={onRefresh}>
+            <button
+              type="button"
+              className="button button--secondary"
+              aria-label={`Refresh ${spec.title.toLowerCase()}`}
+              disabled={!onRefresh}
+              onClick={onRefresh}
+            >
               <RefreshCw size={18} aria-hidden="true" />
               Refresh
             </button>

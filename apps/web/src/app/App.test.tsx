@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createMockLumenApiClient } from '../shared/api/mockClient'
 import type { LumenApiClient } from '../shared/api/types'
@@ -46,6 +47,23 @@ describe('Lumen admin routing scaffold', () => {
     expect(screen.getByRole('combobox', { name: /interface language/i })).toBeInTheDocument()
     expect(await screen.findByText('1 / 1')).toBeInTheDocument()
     expect(screen.getByText('Live API')).toBeInTheDocument()
+  })
+
+  it('wires shell controls to real UI state and routes', async () => {
+    const user = userEvent.setup()
+
+    renderWithRouter('/dashboard', { apiClient: createMockLumenApiClient(), initialSession: mockSession })
+
+    await user.click(await screen.findByRole('button', { name: /notifications/i }))
+    expect(screen.getByText(/no active notifications/i)).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /interface language/i }), 'ru')
+    expect(document.documentElement.lang).toBe('ru')
+    expect(window.localStorage.getItem('lumen-ui-language')).toBe('ru')
+
+    await user.type(screen.getByPlaceholderText(/search users, nodes, hosts/i), 'nodes')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('heading', { name: /nodes/i })).toBeInTheDocument()
   })
 
   it('redirects protected admin routes to real sign in without a session', async () => {

@@ -52,6 +52,24 @@ describe('Control plane resource screens', () => {
     cleanup()
   })
 
+  it('exposes refresh buttons as real accessible controls on resource screens', async () => {
+    const apiClient = createMockLumenApiClient()
+
+    for (const [path, label] of [
+      ['/hosts', /refresh hosts/i],
+      ['/profiles', /refresh profiles/i],
+      ['/squads', /refresh squads/i],
+      ['/subscription', /refresh subscription/i],
+      ['/templates', /refresh templates/i],
+      ['/response-rules', /refresh response rules/i],
+      ['/settings', /refresh settings/i],
+    ] as const) {
+      const view = renderWithRouter(path, { apiClient, initialSession: mockSession })
+      expect(await screen.findByRole('button', { name: label })).toBeEnabled()
+      view.unmount()
+    }
+  })
+
   it('creates squads through the typed API client contract', async () => {
     const user = userEvent.setup()
     const createSquad = vi.fn(async (request: SquadCreateRequest) => ({
