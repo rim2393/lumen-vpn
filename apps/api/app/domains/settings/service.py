@@ -28,7 +28,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "passkey",
         "display_name": "Passkey",
         "enabled": False,
-        "status": "configured",
+        "status": "unimplemented",
         "scopes": ["admin:login"],
         "metadata_json": {"webauthn": "disabled_until_registered"},
     },
@@ -36,7 +36,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "telegram",
         "display_name": "Telegram",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["admin:login"],
         "metadata_json": {"bot_binding": "disabled_until_callback_implemented"},
     },
@@ -44,7 +44,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "github",
         "display_name": "GitHub",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["read:user", "user:email"],
         "metadata_json": {},
     },
@@ -52,7 +52,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "google",
         "display_name": "Google",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -60,7 +60,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "pocketid",
         "display_name": "Pocket ID",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -68,7 +68,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "keycloak",
         "display_name": "Keycloak",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -76,7 +76,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "generic_oauth2",
         "display_name": "Generic OAuth2",
         "enabled": False,
-        "status": "disabled",
+        "status": "unimplemented",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -216,6 +216,11 @@ async def _auth_provider_records(session: AsyncSession) -> list[dict[str, object
     for default in DEFAULT_AUTH_PROVIDERS:
         provider_id = str(default["provider"])
         merged = {**default, **persisted.get(provider_id, {})}
+        if provider_id not in LIVE_AUTH_PROVIDERS:
+            merged["enabled"] = False
+            merged["status"] = default["status"]
+            merged["scopes"] = default["scopes"]
+            merged["metadata_json"] = default["metadata_json"]
         providers.append(merged)
     return providers
 

@@ -22,6 +22,7 @@ from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
 from app.domains.nodes.service import hash_node_token
 from app.domains.protocols.schemas import WILDCARD_BIND_ADDRESS
+from app.domains.settings.models import PanelSetting
 from app.domains.subscriptions.models import Subscription
 from app.domains.users.models import User
 from app.main import create_app
@@ -218,6 +219,7 @@ async def test_auth_provider_settings_are_typed_and_audited(
     assert password_provider["enabled"] is True
     assert password_provider["metadata_json"]["mfa_required"] is True
     telegram_provider = next(item for item in providers if item["provider"] == "telegram")
+    assert telegram_provider["status"] == "unimplemented"
     assert telegram_provider["scopes"] == ["admin:login"]
     assert telegram_provider["metadata_json"]["bot_binding"] == "disabled_until_callback_implemented"
 
@@ -261,6 +263,41 @@ async def test_auth_provider_settings_are_typed_and_audited(
         and event["resource_id"] == "password"
         for event in audit_response.json()["items"]
     )
+
+
+async def test_auth_provider_catalog_sanitizes_persisted_non_live_state(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    async with foundation_app.sessionmaker() as session:
+        session.add(
+            PanelSetting(
+                key="auth.providers",
+                value_json={
+                    "items": [
+                        {
+                            "provider": "telegram",
+                            "display_name": "Telegram",
+                            "enabled": True,
+                            "status": "active",
+                            "scopes": ["admin:login", "bot:manage"],
+                            "metadata_json": {"bot_binding": "api-key"},
+                        }
+                    ]
+                },
+                updated_by="legacy-test",
+            )
+        )
+        await session.commit()
+
+    providers_response = await foundation_app.client.get("/api/v1/settings/auth/providers")
+    assert providers_response.status_code == 200
+    telegram_provider = next(
+        item for item in providers_response.json()["items"] if item["provider"] == "telegram"
+    )
+    assert telegram_provider["enabled"] is False
+    assert telegram_provider["status"] == "unimplemented"
+    assert telegram_provider["scopes"] == ["admin:login"]
+    assert telegram_provider["metadata_json"]["bot_binding"] == "disabled_until_callback_implemented"
 
 
 async def test_subscription_templates_and_response_rules_are_persisted(
