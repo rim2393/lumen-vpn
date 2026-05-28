@@ -2,7 +2,13 @@ import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
-import type { LumenApiClient, SettingUpdateRequest, SquadCreateRequest, UserRecord } from '../shared/api/types'
+import type {
+  LumenApiClient,
+  SettingUpdateRequest,
+  SquadCreateRequest,
+  UserRecord,
+  UserUpdateRequest,
+} from '../shared/api/types'
 import { developmentSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
@@ -93,6 +99,51 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByRole('heading', { name: /command dashboard/i })).toBeInTheDocument()
     expect(await screen.findByText('12 GiB')).toBeInTheDocument()
     expect(screen.getByText(/users limited or in grace/i)).toBeInTheDocument()
+  })
+
+  it('wires per-user lifecycle controls to real update requests', async () => {
+    const user = userEvent.setup()
+    const users: UserRecord[] = [
+      {
+        created_at: '2026-05-27T00:00:00Z',
+        device_limit: 3,
+        display_name: 'Lifecycle User',
+        email: 'lifecycle@lumen.local',
+        expires_at: null,
+        id: 'usr_lifecycle',
+        metadata_json: {},
+        role: 'user',
+        status: 'active',
+        tags: [],
+        telegram_id: null,
+        traffic_limit_gb: 300,
+        traffic_used_gb: 42,
+        updated_at: '2026-05-27T00:00:00Z',
+        username: 'lifecycle',
+      },
+    ]
+    const updateUser = vi.fn(async (userId: string, request: UserUpdateRequest) => ({
+      ...users[0],
+      id: userId,
+      ...request,
+    }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      listUsers: async () => ({ items: users }),
+      updateUser,
+    }
+
+    renderWithRouter('/users', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByText('Lifecycle User')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /toggle status lifecycle user/i }))
+    await user.click(screen.getByRole('button', { name: /reset traffic lifecycle user/i }))
+    await user.click(screen.getByRole('button', { name: /revoke lifecycle user/i }))
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(3))
+    expect(updateUser.mock.calls[0]).toEqual(['usr_lifecycle', { status: 'disabled' }])
+    expect(updateUser.mock.calls[1]).toEqual(['usr_lifecycle', { traffic_used_gb: 0 }])
+    expect(updateUser.mock.calls[2]).toEqual(['usr_lifecycle', { status: 'revoked' }])
   })
 
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {

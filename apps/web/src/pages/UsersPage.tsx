@@ -34,6 +34,10 @@ function formatLimit(user: UserRecord, t: (value: string) => string): string {
   return `${used} / ${user.traffic_limit_gb.toFixed(0)} GB`
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 export function UsersPage() {
   const { t } = useI18n()
   const spec = sectionSpecs.users
@@ -175,7 +179,7 @@ export function UsersPage() {
             rows={users.map((user) => ({
               cells: [
                 <input
-                  aria-label={t('select.user', { name: formatUserName(user) })}
+                  aria-label={t('Select {name}', { name: formatUserName(user) })}
                   checked={selectedIds.has(user.id)}
                   type="checkbox"
                   onChange={() => toggleSelected(user.id)}
@@ -195,7 +199,8 @@ export function UsersPage() {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={t('toggle.user.status', { name: formatUserName(user) })}
+                    aria-label={t('Toggle status {name}', { name: formatUserName(user) })}
+                    disabled={updateUser.isPending}
                     onClick={() =>
                       void updateUser.mutateAsync({
                         id: user.id,
@@ -208,7 +213,36 @@ export function UsersPage() {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={t('delete.user', { name: formatUserName(user) })}
+                    aria-label={t('Reset traffic {name}', { name: formatUserName(user) })}
+                    disabled={updateUser.isPending}
+                    onClick={() =>
+                      void updateUser.mutateAsync({
+                        id: user.id,
+                        request: { traffic_used_gb: 0 },
+                      })
+                    }
+                  >
+                    <RotateCcw size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t('Revoke {name}', { name: formatUserName(user) })}
+                    disabled={updateUser.isPending}
+                    onClick={() =>
+                      void updateUser.mutateAsync({
+                        id: user.id,
+                        request: { status: 'revoked' },
+                      })
+                    }
+                  >
+                    <Ban size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t('Delete {name}', { name: formatUserName(user) })}
+                    disabled={deleteUser.isPending}
                     onClick={() => void deleteUser.mutateAsync(user.id)}
                   >
                     <Trash2 size={16} aria-hidden="true" />
@@ -270,6 +304,34 @@ export function UsersPage() {
             />
           </label>
           <FormError message={formError} />
+          <FormError
+            message={
+              createUser.isError
+                ? getErrorMessage(createUser.error, t('User could not be created.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              updateUser.isError
+                ? getErrorMessage(updateUser.error, t('User could not be updated.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              deleteUser.isError
+                ? getErrorMessage(deleteUser.error, t('User could not be deleted.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              bulkUsers.isError
+                ? getErrorMessage(bulkUsers.error, t('Bulk user action failed.'))
+                : null
+            }
+          />
           <SubmitButton pending={createUser.isPending}>{t('Create user')}</SubmitButton>
         </ScreenForm>
       </section>
