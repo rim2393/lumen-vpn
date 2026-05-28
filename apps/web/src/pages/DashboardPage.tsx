@@ -14,6 +14,7 @@ import { MetricCard } from '../shared/components/MetricCard'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { DashboardMetric } from '../shared/data/lumenData'
+import { useI18n } from '../shared/i18n/I18nProvider'
 
 type DashboardQueryResult<TData> = {
   data: TData | undefined
@@ -37,6 +38,7 @@ const ATTENTION_NODE_STATUSES = new Set(['failed', 'offline', 'license_paused', 
 
 export function DashboardPage() {
   const apiClient = useApiClient()
+  const { language, t } = useI18n()
   const [usersQuery, nodesQuery, subscriptionsQuery, apiKeysQuery, licenseQuery] = useQueries({
     queries: [
       {
@@ -80,9 +82,9 @@ export function DashboardPage() {
   const subscriptions = subscriptionsQuery.data?.items ?? []
   const apiKeys = apiKeysQuery.data?.items ?? []
   const license = licenseQuery.data ?? null
-  const metrics = buildDashboardMetrics({ license, nodes, subscriptions, users })
-  const activityRows = buildActivityRows({ apiKeys, license, nodes, subscriptions, users })
-  const riskRows = buildRiskRows({ apiKeys, license, nodes, subscriptions, users })
+  const metrics = buildDashboardMetrics({ license, nodes, subscriptions, t, users })
+  const activityRows = buildActivityRows({ apiKeys, language, license, nodes, subscriptions, t, users })
+  const riskRows = buildRiskRows({ apiKeys, license, nodes, subscriptions, t, users })
   const sourceLabel = usersQuery.data?.source === 'mock' ? 'Test data' : 'Live API'
 
   return (
@@ -167,11 +169,13 @@ function buildDashboardMetrics({
   license,
   nodes,
   subscriptions,
+  t,
   users,
 }: {
   license: LicenseSummary | null
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
+  t: (value: string) => string
   users: AdminUserRecord[]
 }): DashboardMetric[] {
   const activeUsers = users.filter((user) => user.status === 'active').length
@@ -184,14 +188,17 @@ function buildDashboardMetrics({
 
   return [
     {
-      detail: `${users.length} total`,
+      detail: t('metric.total').replace('{count}', formatInteger(users.length)),
       icon: UsersRound,
       label: 'Active users',
       tone: activeUsers > 0 ? 'good' : 'neutral',
       value: formatInteger(activeUsers),
     },
     {
-      detail: attentionNodes > 0 ? `${attentionNodes} need attention` : `${nodes.length} total`,
+      detail:
+        attentionNodes > 0
+          ? t('metric.need_attention').replace('{count}', formatInteger(attentionNodes))
+          : t('metric.total').replace('{count}', formatInteger(nodes.length)),
       icon: Network,
       label: 'Healthy nodes',
       tone: attentionNodes > 0 ? 'watch' : activeNodes > 0 ? 'good' : 'neutral',
@@ -205,7 +212,9 @@ function buildDashboardMetrics({
       value: formatTraffic(trafficGb),
     },
     {
-      detail: license ? `${activeSubscriptions} active subscriptions` : 'free mode or not synced',
+      detail: license
+        ? t('metric.active_subscriptions').replace('{count}', formatInteger(activeSubscriptions))
+        : 'free mode or not synced',
       icon: BadgeCheck,
       label: 'License seats',
       tone: license?.status === 'invalid' ? 'danger' : license?.status === 'expiring' ? 'watch' : 'good',
@@ -216,15 +225,19 @@ function buildDashboardMetrics({
 
 function buildActivityRows({
   apiKeys,
+  language,
   license,
   nodes,
   subscriptions,
+  t,
   users,
 }: {
   apiKeys: ApiKeyRecord[]
+  language: 'en' | 'ru'
   license: LicenseSummary | null
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
+  t: (value: string) => string
   users: AdminUserRecord[]
 }): ActivityRow[] {
   const rows: ActivityRow[] = []
@@ -236,32 +249,45 @@ function buildActivityRows({
 
   if (latestNode) {
     rows.push({
-      label: `${latestNode.name} reported ${latestNode.status}`,
-      meta: formatDateTime(latestNode.last_seen_at),
+      label: t('activity.node_reported')
+        .replace('{name}', latestNode.name)
+        .replace('{status}', t(latestNode.status)),
+      meta: formatDateTime(latestNode.last_seen_at, language),
     })
   }
   if (latestSubscription) {
     rows.push({
-      label: `Subscription ${latestSubscription.public_id} is ${latestSubscription.status}`,
-      meta: latestSubscription.expires_at ? `expires ${formatDateTime(latestSubscription.expires_at)}` : 'no expiry',
+      label: t('activity.subscription_status')
+        .replace('{id}', latestSubscription.public_id)
+        .replace('{status}', t(latestSubscription.status)),
+      meta: latestSubscription.expires_at
+        ? t('activity.expires_at').replace('{date}', formatDateTime(latestSubscription.expires_at, language))
+        : t('no expiry'),
     })
   }
   if (latestApiKey) {
     rows.push({
-      label: `API key ${latestApiKey.name} is ${latestApiKey.status}`,
-      meta: latestApiKey.lastUsedAt ? `last used ${formatDateTime(latestApiKey.lastUsedAt)}` : 'never used',
+      label: t('activity.api_key_status')
+        .replace('{name}', latestApiKey.name)
+        .replace('{status}', t(latestApiKey.status)),
+      meta: latestApiKey.lastUsedAt
+        ? t('activity.last_used_at').replace('{date}', formatDateTime(latestApiKey.lastUsedAt, language))
+        : t('never used'),
     })
   }
   if (license) {
     rows.push({
-      label: `License status is ${license.status}`,
-      meta: `expires ${formatDateTime(license.expiresAt)}`,
+      label: t('activity.license_status').replace('{status}', t(license.status)),
+      meta: t('activity.expires_at').replace('{date}', formatDateTime(license.expiresAt, language)),
     })
   }
   if (users.length > 0) {
     rows.push({
-      label: `${users.length} users loaded from API`,
-      meta: `${users.filter((user) => user.status === 'active').length} active`,
+      label: t('activity.users_loaded').replace('{count}', formatInteger(users.length)),
+      meta: t('activity.active_users').replace(
+        '{count}',
+        formatInteger(users.filter((user) => user.status === 'active').length),
+      ),
     })
   }
 
@@ -273,12 +299,14 @@ function buildRiskRows({
   license,
   nodes,
   subscriptions,
+  t,
   users,
 }: {
   apiKeys: ApiKeyRecord[]
   license: LicenseSummary | null
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
+  t: (value: string) => string
   users: AdminUserRecord[]
 }): RiskRow[] {
   const rows: RiskRow[] = []
@@ -288,19 +316,19 @@ function buildRiskRows({
   const expiringApiKeys = apiKeys.filter((apiKey) => apiKey.status === 'expiring')
 
   if (inactiveNodes.length > 0) {
-    rows.push({ label: 'Nodes not active', value: formatInteger(inactiveNodes.length) })
+    rows.push({ label: t('Nodes not active'), value: formatInteger(inactiveNodes.length) })
   }
   if (expiringUsers.length > 0) {
-    rows.push({ label: 'Users limited or in grace', value: formatInteger(expiringUsers.length) })
+    rows.push({ label: t('Users limited or in grace'), value: formatInteger(expiringUsers.length) })
   }
   if (revokedSubscriptions.length > 0) {
-    rows.push({ label: 'Revoked subscriptions', value: formatInteger(revokedSubscriptions.length) })
+    rows.push({ label: t('Revoked subscriptions'), value: formatInteger(revokedSubscriptions.length) })
   }
   if (expiringApiKeys.length > 0) {
-    rows.push({ label: 'API keys expiring', value: formatInteger(expiringApiKeys.length) })
+    rows.push({ label: t('API keys expiring'), value: formatInteger(expiringApiKeys.length) })
   }
   if (license?.status === 'invalid' || license?.status === 'expiring') {
-    rows.push({ label: 'License attention', value: license.status })
+    rows.push({ label: t('License attention'), value: t(license.status) })
   }
 
   return rows
@@ -324,7 +352,7 @@ function formatTraffic(gigabytes: number): string {
   return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(gigabytes)} GiB`
 }
 
-function formatDateTime(value: string | null): string {
+function formatDateTime(value: string | null, language: 'en' | 'ru' = 'en'): string {
   if (!value) {
     return 'never'
   }
@@ -332,7 +360,7 @@ function formatDateTime(value: string | null): string {
   if (Number.isNaN(date.getTime())) {
     return value
   }
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
