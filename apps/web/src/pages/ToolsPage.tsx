@@ -10,6 +10,7 @@ import {
   useSrhInspectorData,
   useToolSummaryData,
   useTorrentReportsData,
+  useTruncateTorrentReports,
 } from '../shared/api/resourceHooks'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
@@ -68,6 +69,7 @@ export function ToolsPage() {
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
   const revokeToolSession = useRevokeToolSession()
+  const truncateTorrentReports = useTruncateTorrentReports()
   const queries = [summaryQuery, hwidQuery, srhQuery, sessionsQuery, torrentQuery, happQuery]
   const isLoading = queries.some((query) => query.isLoading)
   const error = queries.find((query) => query.isError)?.error
@@ -212,6 +214,7 @@ export function ToolsPage() {
     revokeToolSession,
     sessionsQuery.data,
     srhQuery.data,
+    truncateTorrentReports,
     torrentQuery.data,
   ])
 
@@ -240,6 +243,19 @@ export function ToolsPage() {
               >
                 Refresh
               </button>
+              {activeTool === 'torrent' ? (
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  disabled={
+                    truncateTorrentReports.isPending ||
+                    (torrentQuery.data?.items.length ?? 0) === 0
+                  }
+                  onClick={() => void truncateTorrentReports.mutateAsync()}
+                >
+                  Truncate
+                </button>
+              ) : null}
             </div>
             <div className="toolbar">
               {tools.map((tool) => {

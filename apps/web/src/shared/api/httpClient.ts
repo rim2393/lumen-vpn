@@ -171,6 +171,8 @@ export function createHttpLumenApiClient({
     inspectSessions: () => request('/api/v1/tools/sessions'),
     inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),
     inspectHappRouting: () => request('/api/v1/tools/happ-routing'),
+    truncateTorrentReports: () =>
+      request('/api/v1/tools/torrent-blocker-reports', { method: 'DELETE' }),
     listUsers: () => request('/api/v1/users'),
     getSession: async () => {
       try {

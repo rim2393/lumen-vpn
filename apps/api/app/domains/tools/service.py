@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -194,6 +194,32 @@ async def inspect_torrent_reports(session: AsyncSession) -> TorrentReportRespons
             for event in result.scalars().all()
         ]
     )
+
+
+async def truncate_torrent_reports(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+) -> TorrentReportResponse:
+    existing = await inspect_torrent_reports(session)
+    if existing.items:
+        await session.execute(
+            delete(AuditEvent).where(
+                or_(
+                    AuditEvent.action.ilike("%torrent%"),
+                    AuditEvent.resource_type.ilike("%torrent%"),
+                )
+            )
+        )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="tool.reports.truncated",
+        resource_type="maintenance",
+        resource_id="torrent-blocker-reports",
+        metadata_json={"report_type": "torrent", "deleted": str(len(existing.items))},
+    )
+    return await inspect_torrent_reports(session)
 
 
 async def inspect_happ_routing(session: AsyncSession) -> HappRoutingResponse:

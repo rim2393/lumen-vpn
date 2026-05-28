@@ -671,6 +671,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       })),
     }),
     inspectTorrentReports: async (): Promise<TorrentReportResponse> => ({ items: [] }),
+    truncateTorrentReports: async (): Promise<TorrentReportResponse> => ({ items: [] }),
     revokeToolSession: async (sessionId: string): Promise<SessionInspectorResponse> => ({
       items: users.slice(0, 3).map((user) => ({
         created_at: generatedAt,

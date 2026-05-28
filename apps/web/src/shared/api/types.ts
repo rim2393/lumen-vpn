@@ -869,6 +869,7 @@ export type LumenApiClient = {
   inspectSessions: () => Promise<SessionInspectorResponse>
   inspectTorrentReports: () => Promise<TorrentReportResponse>
   inspectHappRouting: () => Promise<HappRoutingResponse>
+  truncateTorrentReports: () => Promise<TorrentReportResponse>
   listUsers: () => Promise<UserListResponse>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>

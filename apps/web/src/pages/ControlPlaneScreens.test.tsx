@@ -337,6 +337,33 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(revokeToolSession).toHaveBeenCalledWith('session-operator'))
   })
 
+  it('wires torrent report truncation to backend requests', async () => {
+    const user = userEvent.setup()
+    const truncateTorrentReports = vi.fn(async () => ({ items: [] }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      inspectTorrentReports: async () => ({
+        items: [
+          {
+            action: 'torrent.blocked',
+            actor_email: 'operator@lumen.local',
+            created_at: '2026-05-28T00:00:00.000Z',
+            id: 'torrent-event-1',
+            metadata_json: { host: 'example.test' },
+            resource_id: 'usr_operator',
+          },
+        ],
+      }),
+      truncateTorrentReports,
+    }
+
+    renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
+
+    await user.click(await screen.findByRole('button', { name: /torrent blocker reports/i }))
+    await user.click(screen.getByRole('button', { name: /^truncate$/i }))
+    await waitFor(() => expect(truncateTorrentReports).toHaveBeenCalledTimes(1))
+  })
+
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {
     const apiClient = createDevelopmentLumenApiClient()
 

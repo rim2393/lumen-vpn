@@ -1032,6 +1032,20 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
     assert torrent_response.status_code == 200
     assert torrent_response.json()["items"][0]["action"] == "torrent.blocked"
 
+    truncate_torrent_response = await foundation_app.client.delete(
+        "/api/v1/tools/torrent-blocker-reports"
+    )
+    assert truncate_torrent_response.status_code == 200
+    assert truncate_torrent_response.json()["items"] == []
+    async with foundation_app.sessionmaker() as session:
+        truncated_event = (
+            await session.execute(
+                select(AuditEvent).where(AuditEvent.action == "tool.reports.truncated")
+            )
+        ).scalar_one()
+        assert truncated_event.resource_id == "torrent-blocker-reports"
+        assert truncated_event.metadata_json["deleted"] == "1"
+
     routing_response = await foundation_app.client.get("/api/v1/tools/happ-routing")
     assert routing_response.status_code == 200
     routing_row = next(

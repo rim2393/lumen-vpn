@@ -23,6 +23,7 @@ from app.domains.tools.service import (
     inspect_torrent_reports,
     revoke_inspected_session,
     summarize_tools,
+    truncate_torrent_reports,
 )
 
 router = APIRouter()
@@ -73,6 +74,16 @@ async def revoke_session_from_inspector(
 @router.get("/torrent-blocker-reports", response_model=TorrentReportResponse)
 async def read_torrent_reports(_: ToolManager, session: DatabaseSession) -> TorrentReportResponse:
     return await inspect_torrent_reports(session)
+
+
+@router.delete("/torrent-blocker-reports", response_model=TorrentReportResponse)
+async def truncate_torrent_blocker_reports(
+    principal: SessionManager,
+    session: DatabaseSession,
+) -> TorrentReportResponse:
+    response = await truncate_torrent_reports(session, principal=principal)
+    await session.commit()
+    return response
 
 
 @router.get("/happ-routing", response_model=HappRoutingResponse)

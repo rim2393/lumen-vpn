@@ -595,6 +595,19 @@ export function useTorrentReportsData() {
   })
 }
 
+export function useTruncateTorrentReports() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: apiClient.truncateTorrentReports,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolTorrentReports })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolSummary })
+    },
+  })
+}
+
 export function useHappRoutingData() {
   const apiClient = useApiClient()
 
