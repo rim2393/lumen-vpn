@@ -147,6 +147,12 @@ export function createHttpLumenApiClient({
     listSubscriptions: () => request('/api/v1/subscriptions'),
     listSubscriptionTemplates: () => request('/api/v1/subscription-templates'),
     listResponseRules: () => request('/api/v1/response-rules'),
+    readToolSummary: () => request('/api/v1/tools/summary'),
+    inspectHwid: () => request('/api/v1/tools/hwid-inspector'),
+    inspectSrh: () => request('/api/v1/tools/srh-inspector'),
+    inspectSessions: () => request('/api/v1/tools/sessions'),
+    inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),
+    inspectHappRouting: () => request('/api/v1/tools/happ-routing'),
     listUsers: () => request('/api/v1/users'),
     getSession: async () => {
       try {

@@ -584,6 +584,86 @@ export type ResponseRuleTestResponse = {
   status_code: number
 }
 
+export type HwidInspectorRow = {
+  device_count: number
+  device_limit: number | null
+  devices: string[]
+  email: string
+  status: string
+  user_id: string
+  username: string | null
+}
+
+export type HwidInspectorResponse = {
+  items: HwidInspectorRow[]
+}
+
+export type SrhInspectorRow = {
+  config_hash: string | null
+  parser: string
+  public_id: string
+  response_headers: Record<string, string>
+  status: string
+  subscription_id: string
+  user_id: string
+}
+
+export type SrhInspectorResponse = {
+  items: SrhInspectorRow[]
+}
+
+export type SessionInspectorRow = {
+  created_at: string
+  email: string | null
+  expires_at: string
+  id: string
+  ip_fingerprint: string | null
+  status: string
+  updated_at: string
+  user_agent_fingerprint: string | null
+  user_id: string
+}
+
+export type SessionInspectorResponse = {
+  items: SessionInspectorRow[]
+}
+
+export type TorrentReportRow = {
+  action: string
+  actor_email: string | null
+  created_at: string
+  id: string
+  metadata_json: Record<string, string>
+  resource_id: string | null
+}
+
+export type TorrentReportResponse = {
+  items: TorrentReportRow[]
+}
+
+export type HappRoutingRow = {
+  delivery_profile: Record<string, string>
+  node_id: string | null
+  node_name: string | null
+  node_status: string | null
+  public_id: string
+  route_status: string
+  subscription_id: string
+  user_id: string
+  username: string | null
+}
+
+export type HappRoutingResponse = {
+  items: HappRoutingRow[]
+}
+
+export type ToolSummaryResponse = {
+  happ_routes: number
+  hwid_over_limit: number
+  sessions_active: number
+  torrent_events: number
+}
+
 export type SettingRecord = {
   id?: string
   key: string
@@ -693,6 +773,12 @@ export type LumenApiClient = {
   listSubscriptions: () => Promise<SubscriptionListResponse>
   listSubscriptionTemplates: () => Promise<SubscriptionTemplateListResponse>
   listResponseRules: () => Promise<ResponseRuleListResponse>
+  readToolSummary: () => Promise<ToolSummaryResponse>
+  inspectHwid: () => Promise<HwidInspectorResponse>
+  inspectSrh: () => Promise<SrhInspectorResponse>
+  inspectSessions: () => Promise<SessionInspectorResponse>
+  inspectTorrentReports: () => Promise<TorrentReportResponse>
+  inspectHappRouting: () => Promise<HappRoutingResponse>
   listUsers: () => Promise<UserListResponse>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>

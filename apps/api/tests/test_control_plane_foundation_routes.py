@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import UUID
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -14,12 +15,14 @@ from app.core.rbac import Permission, Principal, Role, get_current_principal
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
 from app.domains.audit.models import AuditEvent
+from app.domains.auth.models import UserSession
 from app.domains.auth.service import generate_totp_code
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
 from app.domains.nodes.service import hash_node_token
 from app.domains.protocols.schemas import WILDCARD_BIND_ADDRESS
+from app.domains.subscriptions.models import Subscription
 from app.domains.users.models import User
 from app.main import create_app
 
@@ -716,6 +719,101 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
     assert detail["devices"][0]["hwid"] == "AABBCC"
     assert detail["accessible_nodes"][0]["id"] == node_id
     assert [event["action"] for event in detail["request_history"]] == ["user.created"]
+
+
+async def test_tools_reports_are_real_database_views(foundation_app: FoundationRouteApp) -> None:
+    node_id = await seeded_node_id(foundation_app)
+
+    async with foundation_app.sessionmaker() as session:
+        user = User(
+            email="tools-user@example.com",
+            username="tools-user",
+            role=Role.USER.value,
+            status="active",
+            device_limit=1,
+            metadata_json={
+                "devices": [
+                    {"id": "phone", "hwid": "HWID-1"},
+                    {"id": "tablet", "hwid": "HWID-2"},
+                ]
+            },
+        )
+        license_record = License(
+            license_key_hash=hash_license_key("tools-license"),
+            customer_ref="tools",
+            status="active",
+            max_devices=1,
+            starts_at=datetime.now(UTC),
+            metadata_json={},
+        )
+        session.add_all([user, license_record])
+        await session.flush()
+        subscription = Subscription(
+            public_id="lumen_sub_tools",
+            user_id=user.id,
+            license_id=license_record.id,
+            node_id=UUID(node_id),
+            status="active",
+            delivery_profile={"client": "happ", "update_interval": "12"},
+            config_hash="abc123",
+        )
+        user_session = UserSession(
+            user_id=user.id,
+            token_hash="tools-session-token",  # noqa: S106 - deterministic test hash.
+            ip_hash="ip-hash-abcdef",
+            user_agent_hash="ua-hash-abcdef",
+            expires_at=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+        torrent_event = AuditEvent(
+            actor_subject=str(user.id),
+            actor_email=user.email,
+            action="torrent.blocked",
+            resource_type="torrent",
+            resource_id=str(user.id),
+            metadata_json={"host": "example.test"},
+        )
+        session.add_all([subscription, user_session, torrent_event])
+        await session.commit()
+
+    hwid_response = await foundation_app.client.get("/api/v1/tools/hwid-inspector")
+    assert hwid_response.status_code == 200
+    hwid_row = next(
+        item
+        for item in hwid_response.json()["items"]
+        if item["email"] == "tools-user@example.com"
+    )
+    assert hwid_row["status"] == "over_limit"
+    assert hwid_row["device_count"] == 2
+
+    srh_response = await foundation_app.client.get("/api/v1/tools/srh-inspector")
+    assert srh_response.status_code == 200
+    srh_row = next(
+        item
+        for item in srh_response.json()["items"]
+        if item["public_id"] == "lumen_sub_tools"
+    )
+    assert srh_row["parser"] == "happ"
+    assert srh_row["response_headers"]["Profile-Update-Interval"] == "12"
+
+    sessions_response = await foundation_app.client.get("/api/v1/tools/sessions")
+    assert sessions_response.status_code == 200
+    assert any(
+        item["email"] == "tools-user@example.com"
+        for item in sessions_response.json()["items"]
+    )
+
+    torrent_response = await foundation_app.client.get("/api/v1/tools/torrent-blocker-reports")
+    assert torrent_response.status_code == 200
+    assert torrent_response.json()["items"][0]["action"] == "torrent.blocked"
+
+    routing_response = await foundation_app.client.get("/api/v1/tools/happ-routing")
+    assert routing_response.status_code == 200
+    routing_row = next(
+        item
+        for item in routing_response.json()["items"]
+        if item["public_id"] == "lumen_sub_tools"
+    )
+    assert routing_row["route_status"] == "happ"
 
 
 async def test_protocol_profile_rejects_plaintext_credentials_ref(

@@ -39,6 +39,12 @@ export const resourceQueryKeys = {
   subscriptions: ['resource', 'subscriptions'] as const,
   subscriptionTemplates: ['resource', 'subscription-templates'] as const,
   responseRules: ['resource', 'response-rules'] as const,
+  toolSummary: ['resource', 'tools', 'summary'] as const,
+  toolHwid: ['resource', 'tools', 'hwid'] as const,
+  toolSrh: ['resource', 'tools', 'srh'] as const,
+  toolSessions: ['resource', 'tools', 'sessions'] as const,
+  toolTorrentReports: ['resource', 'tools', 'torrent-reports'] as const,
+  toolHappRouting: ['resource', 'tools', 'happ-routing'] as const,
   userDetail: (userId: string) => ['resource', 'users', userId, 'detail'] as const,
   users: ['resource', 'users'] as const,
 }
@@ -448,6 +454,60 @@ export function useTestResponseRule() {
 
   return useMutation({
     mutationFn: (request: ResponseRuleTestRequest) => apiClient.testResponseRule(request),
+  })
+}
+
+export function useToolSummaryData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.readToolSummary,
+    queryKey: resourceQueryKeys.toolSummary,
+  })
+}
+
+export function useHwidInspectorData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.inspectHwid,
+    queryKey: resourceQueryKeys.toolHwid,
+  })
+}
+
+export function useSrhInspectorData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.inspectSrh,
+    queryKey: resourceQueryKeys.toolSrh,
+  })
+}
+
+export function useSessionInspectorData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.inspectSessions,
+    queryKey: resourceQueryKeys.toolSessions,
+  })
+}
+
+export function useTorrentReportsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.inspectTorrentReports,
+    queryKey: resourceQueryKeys.toolTorrentReports,
+  })
+}
+
+export function useHappRoutingData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.inspectHappRouting,
+    queryKey: resourceQueryKeys.toolHappRouting,
   })
 }
 

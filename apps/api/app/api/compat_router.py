@@ -4,6 +4,7 @@ from app.domains.admin_compat.router import router as admin_compat_router
 from app.domains.api_keys.router import router as api_keys_router
 from app.domains.protocols.router import hosts_router, profiles_router, squads_router
 from app.domains.subscription_assets.router import response_rules_router, templates_router
+from app.domains.tools.router import router as tools_router
 from app.domains.users.router import router as users_router
 
 compat_router = APIRouter()
@@ -36,3 +37,4 @@ compat_router.include_router(
     prefix="/api/response-rules",
     tags=["remna-response-rules-compat"],
 )
+compat_router.include_router(tools_router, prefix="/api/tools", tags=["remna-tools-compat"])

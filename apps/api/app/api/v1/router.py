@@ -18,6 +18,7 @@ from app.domains.subscription_assets.router import (
     templates_router,
 )
 from app.domains.subscriptions.router import router as subscriptions_router
+from app.domains.tools.router import router as tools_router
 from app.domains.users.router import router as users_router
 
 api_v1_router = APIRouter()
@@ -40,6 +41,7 @@ api_v1_router.include_router(
     tags=["response-rules"],
 )
 api_v1_router.include_router(audit_router, prefix="/audit", tags=["audit"])
+api_v1_router.include_router(tools_router, prefix="/tools", tags=["tools"])
 api_v1_router.include_router(protocols_router, prefix="/protocols", tags=["protocols"])
 api_v1_router.include_router(profiles_router, prefix="/profiles", tags=["profiles"])
 api_v1_router.include_router(hosts_router, prefix="/hosts", tags=["hosts"])

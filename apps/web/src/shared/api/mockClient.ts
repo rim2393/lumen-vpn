@@ -14,8 +14,10 @@ import {
 import type {
   ApiKeyCreateRequest,
   ApiKeyCreateResponse,
+  HappRoutingResponse,
   HostBulkActionRequest,
   HostCreateRequest,
+  HwidInspectorResponse,
   HostListResponse,
   HostRecord,
   LumenApiClient,
@@ -34,6 +36,7 @@ import type {
   ResponseRuleRecord,
   ResponseRuleUpdateRequest,
   ResourceListResponse,
+  SessionInspectorResponse,
   SettingListResponse,
   SettingRecord,
   SettingUpdateRequest,
@@ -43,6 +46,7 @@ import type {
   SquadRecord,
   SquadUpdateRequest,
   SquadUserMutationRequest,
+  SrhInspectorResponse,
   SubscriptionCreateRequest,
   SubscriptionListResponse,
   SubscriptionRecord,
@@ -50,6 +54,8 @@ import type {
   SubscriptionTemplateRecord,
   SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
+  ToolSummaryResponse,
+  TorrentReportResponse,
   UserBulkActionRequest,
   UserCreateRequest,
   UserListResponse,
@@ -487,6 +493,86 @@ export function createMockLumenApiClient(): LumenApiClient {
     }),
     listSubscriptionTemplates: async () => ({ items: templates }),
     listResponseRules: async () => ({ items: responseRules }),
+    readToolSummary: async (): Promise<ToolSummaryResponse> => ({
+      happ_routes: subscriptions.length,
+      hwid_over_limit: users.filter((user) => {
+        const devices = Array.isArray(user.metadata_json.devices)
+          ? user.metadata_json.devices
+          : []
+        return user.device_limit !== null && devices.length > user.device_limit
+      }).length,
+      sessions_active: 1,
+      torrent_events: 0,
+    }),
+    inspectHwid: async (): Promise<HwidInspectorResponse> => ({
+      items: users.map((user) => {
+        const devices = Array.isArray(user.metadata_json.devices)
+          ? user.metadata_json.devices.map((device) => String(device))
+          : []
+        return {
+          device_count: devices.length,
+          device_limit: user.device_limit,
+          devices,
+          email: user.email,
+          status:
+            user.device_limit !== null && devices.length > user.device_limit
+              ? 'over_limit'
+              : 'ok',
+          user_id: user.id,
+          username: user.username,
+        }
+      }),
+    }),
+    inspectSrh: async (): Promise<SrhInspectorResponse> => ({
+      items: subscriptions.map((subscription) => {
+        const parser =
+          subscription.delivery_profile.client ?? subscription.delivery_profile.format ?? 'generic'
+        return {
+          config_hash: subscription.config_hash,
+          parser,
+          public_id: subscription.public_id,
+          response_headers: {
+            'Profile-Update-Interval': subscription.delivery_profile.update_interval ?? '24',
+            'X-Lumen-Parser': parser,
+            'X-Lumen-Subscription-Status': subscription.status,
+          },
+          status: subscription.status,
+          subscription_id: subscription.id,
+          user_id: subscription.user_id,
+        }
+      }),
+    }),
+    inspectSessions: async (): Promise<SessionInspectorResponse> => ({
+      items: users.slice(0, 3).map((user) => ({
+        created_at: generatedAt,
+        email: user.email,
+        expires_at: user.expires_at ?? generatedAt,
+        id: `session-${user.id}`,
+        ip_fingerprint: null,
+        status: 'active',
+        updated_at: user.updated_at,
+        user_agent_fingerprint: null,
+        user_id: user.id,
+      })),
+    }),
+    inspectTorrentReports: async (): Promise<TorrentReportResponse> => ({ items: [] }),
+    inspectHappRouting: async (): Promise<HappRoutingResponse> => ({
+      items: subscriptions.map((subscription) => {
+        const node = asNodeListResponse().items.find((item) => item.id === subscription.node_id)
+        const user = users.find((item) => item.id === subscription.user_id)
+        return {
+          delivery_profile: subscription.delivery_profile,
+          node_id: subscription.node_id,
+          node_name: node?.name ?? null,
+          node_status: node?.status ?? null,
+          public_id: subscription.public_id,
+          route_status: subscription.node_id ? 'happ' : 'unassigned',
+          subscription_id: subscription.id,
+          user_id: subscription.user_id,
+          username: user?.username ?? null,
+        }
+      }),
+    }),
     listUsers: async (): Promise<UserListResponse> => ({ items: users }),
     login: async () => ({
       challengeToken: 'mock-mfa-challenge',
