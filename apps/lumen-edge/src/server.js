@@ -100,7 +100,7 @@ async function proxySubscriptionRender(request, response, input) {
       response.end(manifestText);
       return true;
     }
-    const publicUrl = `${url.protocol}//${request.headers.host}${url.pathname.replace(/\/$/, "")}`;
+    const publicUrl = buildExternalRequestUrl(request, url);
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store"
@@ -152,6 +152,29 @@ function inferTargetFromUserAgent(userAgent = "") {
     return "mihomo";
   }
   return "v2ray";
+}
+
+export function buildExternalRequestUrl(request, url) {
+  const proto = firstHeaderValue(request.headers["x-forwarded-proto"])
+    || (request.headers["x-forwarded-ssl"] === "on" ? "https" : null)
+    || url.protocol.replace(":", "")
+    || "http";
+  const host = firstHeaderValue(request.headers["x-forwarded-host"])
+    || request.headers.host
+    || url.host
+    || "localhost";
+  return `${proto}://${host}${url.pathname.replace(/\/$/, "")}`;
+}
+
+function firstHeaderValue(value) {
+  if (Array.isArray(value)) {
+    return firstHeaderValue(value[0]);
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const first = value.split(",")[0]?.trim();
+  return first || null;
 }
 
 export function createLumenEdgeServer(input = {}) {
