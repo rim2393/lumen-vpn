@@ -197,7 +197,9 @@ const ru: Record<string, string> = {
     'Реальные VPN-аккаунты клиентов с трафиком, лимитом устройств, сроком, статусом и массовыми действиями.',
   'Refresh users': 'Обновить пользователей',
   'Reset traffic': 'Сбросить трафик',
+  Role: 'Роль',
   Select: 'Выбор',
+  'select.user': 'Выбрать {name}',
   'Select at least one user first.': 'Сначала выберите хотя бы одного пользователя.',
   Tags: 'Теги',
   Traffic: 'Трафик',
@@ -214,6 +216,8 @@ const ru: Record<string, string> = {
     'Создайте первый VPN-аккаунт клиента, чтобы выдавать подписки и назначать сквады.',
   'VPN account': 'VPN-аккаунт',
   'users.count': '{count} реальных пользователей',
+  'delete.user': 'Удалить {name}',
+  'toggle.user.status': 'Переключить статус {name}',
 }
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined)

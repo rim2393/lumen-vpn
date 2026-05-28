@@ -174,7 +174,7 @@ export function UsersPage() {
             rows={users.map((user) => ({
               cells: [
                 <input
-                  aria-label={`Select ${formatUserName(user)}`}
+                  aria-label={t('select.user', { name: formatUserName(user) })}
                   checked={selectedIds.has(user.id)}
                   type="checkbox"
                   onChange={() => toggleSelected(user.id)}
@@ -189,7 +189,7 @@ export function UsersPage() {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={`Toggle ${formatUserName(user)} status`}
+                    aria-label={t('toggle.user.status', { name: formatUserName(user) })}
                     onClick={() =>
                       void updateUser.mutateAsync({
                         id: user.id,
@@ -202,7 +202,7 @@ export function UsersPage() {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={`Delete ${formatUserName(user)}`}
+                    aria-label={t('delete.user', { name: formatUserName(user) })}
                     onClick={() => void deleteUser.mutateAsync(user.id)}
                   >
                     <Trash2 size={16} aria-hidden="true" />
