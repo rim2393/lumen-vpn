@@ -157,7 +157,7 @@ async def seed_compat_data(compat_app: CompatRouteApp) -> SeededCompatData:
         user_session = UserSession(
             user_id=owner.id,
             token_hash=SESSION_DIGEST,
-            expires_at=now + timedelta(hours=1),
+            expires_at=datetime(2026, 6, 1, 1, tzinfo=UTC),
             created_at=now - timedelta(hours=2),
             updated_at=now - timedelta(hours=2),
         )
@@ -191,11 +191,45 @@ async def test_compat_session_returns_web_auth_session_shape(
     assert response.status_code == 200
     body = response.json()
     assert body["email"] == "owner.admin@example.com"
-    assert body["expiresAt"].startswith("2026-05-27T01:00:00")
+    assert body["expiresAt"].startswith("2026-06-01T01:00:00")
     assert body["name"] == "Owner Admin"
     assert body["role"] == "owner"
     assert body["scopes"] == ["api_key:manage", "user:manage"]
     assert body["userId"] == seeded.owner_id
+
+
+async def test_compat_session_rejects_bootstrap_principal(
+    compat_app: CompatRouteApp,
+) -> None:
+    compat_app.principal_ref["principal"] = Principal(
+        subject="bootstrap-admin",
+        email="bootstrap-admin@example.com",
+        roles={Role.OWNER},
+        permissions=set(Permission),
+    )
+
+    response = await compat_app.client.get("/api/auth/session")
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "web_session_required"
+
+
+async def test_compat_session_rejects_api_key_principal(
+    compat_app: CompatRouteApp,
+) -> None:
+    seeded = await seed_compat_data(compat_app)
+    compat_app.principal_ref["principal"] = Principal(
+        subject=seeded.owner_id,
+        email=seeded.owner_email,
+        roles=set(),
+        permissions={Permission.USER_MANAGE, Permission.API_KEY_MANAGE},
+        api_key_id=seeded.api_key_id,
+    )
+
+    response = await compat_app.client.get("/api/auth/session")
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "web_session_required"
 
 
 async def test_compat_admin_users_returns_resource_list_shape(
@@ -282,6 +316,44 @@ async def test_compat_admin_license_returns_summary_without_key_hash(
     assert "licenseKey" not in body
     assert "license_key_hash" not in body
     assert "licenseKeyHash" not in body
+
+
+async def test_compat_admin_license_does_not_synthesize_missing_details(
+    compat_app: CompatRouteApp,
+) -> None:
+    now = datetime(2026, 5, 27, tzinfo=UTC)
+    async with compat_app.sessionmaker() as session:
+        license_record = License(
+            license_key_hash="pending-license-hash-for-compat-test",
+            customer_ref=None,
+            status="pending_sync",
+            max_devices=0,
+            starts_at=None,
+            expires_at=None,
+            metadata_json={},
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(license_record)
+        await session.commit()
+
+    compat_app.principal_ref["principal"] = Principal(
+        subject="bootstrap-admin",
+        email="bootstrap-admin@example.com",
+        roles={Role.OWNER},
+        permissions=set(Permission),
+    )
+
+    response = await compat_app.client.get("/api/admin/license")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["issuedTo"] is None
+    assert body["plan"] == "unknown"
+    assert body["features"] == []
+    assert body["expiresAt"] is None
+    assert body["seatsLimit"] == 0
+    assert body["status"] == "unlicensed"
 
 
 async def test_compat_admin_routes_require_admin_read_access(

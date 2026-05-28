@@ -69,7 +69,7 @@ export function UserDetailPage() {
       <PageHeader
         eyebrow={t('User detail')}
         title={displayName(user)}
-        description={`${user.email} · ${t('Real API user record with subscriptions, devices, access and history.')}`}
+        description={`${user.email} - ${t('Real API user record with subscriptions, access, and backend-derived status.')}`}
         actions={
           <div className="action-cluster">
             <button type="button" className="button button--secondary" onClick={() => void setStatus('active')}>
@@ -154,24 +154,29 @@ export function UserDetailPage() {
           <div className="panel__header">
             <div>
               <p className="eyebrow">{t('HWID')}</p>
-              <h2>{t('Registered devices')}</h2>
+              <h2>{detail.devices.length > 0 ? t('Backend-derived devices') : t('Device registry')}</h2>
             </div>
-            <StatusBadge>{String(detail.devices.length)}</StatusBadge>
+            <StatusBadge tone={detail.devices.length > 0 ? 'info' : 'watch'}>
+              {detail.devices.length > 0 ? String(detail.devices.length) : t('Backend unavailable')}
+            </StatusBadge>
           </div>
           {detail.devices.length === 0 ? (
-            <p className="empty-inline">{t('No devices are registered for this user yet.')}</p>
+            <p className="empty-inline">{t('Backend does not expose device registry for this user.')}</p>
           ) : (
-            <ul className="feature-list">
-              {detail.devices.map((device) => (
-                <li key={device.id}>
-                  <span aria-hidden="true">-</span>
-                  <div>
-                    <strong>{device.label ?? device.hwid ?? device.id}</strong>
-                    <small>{device.platform ?? t('unknown platform')} / {device.status}</small>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className="empty-inline">{t('Device rows are derived from backend metadata, not a full device-management feature.')}</p>
+              <ul className="feature-list">
+                {detail.devices.map((device) => (
+                  <li key={device.id}>
+                    <span aria-hidden="true">-</span>
+                    <div>
+                      <strong>{device.label ?? device.hwid ?? device.id}</strong>
+                      <small>{device.platform ?? t('unknown platform')} / {device.status}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </article>
 
@@ -179,15 +184,17 @@ export function UserDetailPage() {
           <div className="panel__header">
             <div>
               <p className="eyebrow">{t('History')}</p>
-              <h2>{t('Subscription request history')}</h2>
+              <h2>{detail.request_history.length > 0 ? t('Backend request audit') : t('Request history')}</h2>
             </div>
-            <StatusBadge>{String(detail.request_history.length)}</StatusBadge>
+            <StatusBadge tone={detail.request_history.length > 0 ? 'info' : 'watch'}>
+              {detail.request_history.length > 0 ? String(detail.request_history.length) : t('Backend unavailable')}
+            </StatusBadge>
           </div>
           {detail.request_history.length === 0 ? (
-            <p className="empty-inline">{t('No request history is recorded for this user yet.')}</p>
+            <p className="empty-inline">{t('Backend does not expose subscription request history for this user.')}</p>
           ) : (
             <DataTable
-              caption={t('Subscription request history')}
+              caption={t('Backend request audit')}
               columns={['Action', 'Actor', 'Created at', 'Metadata']}
               rows={detail.request_history.map((event) => ({
                 id: event.id,
@@ -229,19 +236,60 @@ function UserFact({
 function SubscriptionLinks({ subscription }: { subscription: SubscriptionRecord }) {
   const { t } = useI18n()
   const baseUrl = buildSubscriptionUrl(subscription.public_id)
+  const renderability = getSubscriptionRenderability(subscription)
+
+  if (!renderability.canOpenBasePage) {
+    return (
+      <div className="inline-actions">
+        <StatusBadge tone="watch">{t(renderability.reason)}</StatusBadge>
+        <Link className="text-link" to="/subscription">
+          {t('Manage')}
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="inline-actions">
       <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
         {t('Page')} <ExternalLink size={14} aria-hidden="true" />
       </a>
-      <a className="text-link" href={`${baseUrl}/happ`} target="_blank" rel="noreferrer">
-        Happ
-      </a>
+      {renderability.formats.includes('happ') ? (
+        <a className="text-link" href={`${baseUrl}/happ`} target="_blank" rel="noreferrer">
+          Happ
+        </a>
+      ) : null}
       <Link className="text-link" to="/subscription">
         {t('Manage')}
       </Link>
     </div>
   )
+}
+
+function getSubscriptionRenderability(subscription: SubscriptionRecord) {
+  if (subscription.revoked_at) {
+    return { canOpenBasePage: false, formats: [], reason: 'Subscription revoked' }
+  }
+  if (subscription.status !== 'active') {
+    return { canOpenBasePage: false, formats: [], reason: 'Subscription not active' }
+  }
+  return {
+    canOpenBasePage: true,
+    formats: readDeclaredFormats(subscription),
+    reason: 'Base endpoint inferred from active subscription',
+  }
+}
+
+function readDeclaredFormats(subscription: SubscriptionRecord): string[] {
+  const declared = [
+    subscription.delivery_profile.format,
+    subscription.delivery_profile.client,
+    subscription.delivery_profile.adapter,
+  ]
+    .flatMap((value) => String(value ?? '').split(/[,\s/]+/))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+  return Array.from(new Set(declared))
 }
 
 function buildSubscriptionUrl(publicId: string) {

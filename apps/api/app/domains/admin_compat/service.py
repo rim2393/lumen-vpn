@@ -67,15 +67,16 @@ async def read_auth_session(
     principal: Principal,
     settings: Settings,
 ) -> AuthSessionResponse:
-    expires_at = await _principal_expires_at(session, principal=principal, settings=settings)
-    email = principal.email or _fallback_email(principal)
+    del settings
+    user_session, user = await _real_web_session(session, principal=principal)
+    email = user.email
     return AuthSessionResponse(
         email=email,
-        expires_at=expires_at,
-        name=_display_name(email, fallback=principal.subject),
-        role=_session_role(principal),
+        expires_at=ensure_aware(user_session.expires_at),
+        name=user.display_name or _display_name(email, fallback=str(user.id)),
+        role=_session_role_from_user(user),
         scopes=sorted(permission.value for permission in principal.permissions),
-        user_id=principal.subject,
+        user_id=str(user.id),
     )
 
 
@@ -167,29 +168,41 @@ async def read_license_summary(
     return _license_summary(license_record, seats_used=seats_used, generated_at=generated_at)
 
 
-async def _principal_expires_at(
+async def _real_web_session(
     session: AsyncSession,
     *,
     principal: Principal,
-    settings: Settings,
-) -> datetime:
-    if principal.session_id is not None:
-        user_session = await session.get(UserSession, principal.session_id)
-        if user_session is not None:
-            return ensure_aware(user_session.expires_at)
+) -> tuple[UserSession, User]:
+    if principal.session_id is None:
+        raise APIError(
+            code="web_session_required",
+            message="A web session is required for this endpoint.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
-    if principal.api_key_id is not None:
-        api_key = await session.get(ApiKey, principal.api_key_id)
-        if api_key is not None and api_key.expires_at is not None:
-            return ensure_aware(api_key.expires_at)
+    user_session = await session.get(UserSession, principal.session_id)
+    generated_at = utc_now()
+    if user_session is None or user_session.revoked_at is not None:
+        raise APIError(
+            code="invalid_session",
+            message="Session is invalid or has been revoked.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    if ensure_aware(user_session.expires_at) <= generated_at:
+        raise APIError(
+            code="session_expired",
+            message="Session has expired.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
-    return utc_now() + timedelta(seconds=settings.access_token_ttl_seconds)
-
-
-def _fallback_email(principal: Principal) -> str:
-    if principal.subject == "bootstrap-admin":
-        return "bootstrap-admin@lumen.local"
-    return f"{principal.subject}@lumen.local"
+    user = await session.get(User, user_session.user_id)
+    if user is None or user.status != "active" or principal.subject != str(user.id):
+        raise APIError(
+            code="session_user_inactive",
+            message="Session user is not active.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    return user_session, user
 
 
 def _display_name(email: str, *, fallback: str) -> str:
@@ -204,14 +217,12 @@ def _display_name(email: str, *, fallback: str) -> str:
     return " ".join(word.capitalize() for word in words)
 
 
-def _session_role(principal: Principal) -> str:
-    if Role.OWNER in principal.roles:
+def _session_role_from_user(user: User) -> str:
+    if user.role == Role.OWNER.value:
         return "owner"
-    if Role.ADMIN in principal.roles:
+    if user.role == Role.ADMIN.value:
         return "admin"
-    if Role.SUPPORT in principal.roles:
-        return "operator"
-    if principal.permissions.intersection(ADMIN_COMPAT_PERMISSIONS):
+    if user.role == Role.SUPPORT.value:
         return "operator"
     return "auditor"
 
@@ -422,10 +433,10 @@ def _license_summary(
         expires_at=(
             ensure_aware(license_record.expires_at)
             if license_record.expires_at is not None
-            else NO_EXPIRY_SENTINEL
+            else None
         ),
         features=_license_features(license_record),
-        issued_to=license_record.customer_ref or "Lumen instance",
+        issued_to=license_record.customer_ref,
         plan=_license_plan(license_record),
         seats_limit=license_record.max_devices,
         seats_used=seats_used,
@@ -452,14 +463,14 @@ def _license_features(license_record: License) -> list[str]:
         features = [feature.strip() for feature in raw_features.split(",") if feature.strip()]
         if features:
             return features
-    return ["Node entitlement", "Subscription delivery"]
+    return []
 
 
 def _license_plan(license_record: License) -> str:
     return (
         license_record.metadata_json.get("plan")
         or license_record.metadata_json.get("tier")
-        or "Instance license"
+        or "unknown"
     )
 
 
@@ -471,7 +482,7 @@ def _license_status(license_record: License, *, generated_at: datetime) -> str:
         ensure_aware(license_record.expires_at) if license_record.expires_at is not None else None
     )
     if license_record.status != "active":
-        return "invalid"
+        return "unlicensed"
     if starts_at is not None and starts_at > generated_at:
         return "invalid"
     if expires_at is None:

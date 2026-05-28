@@ -3,12 +3,14 @@ from collections.abc import AsyncIterator
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.db.models  # noqa: F401
 from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
+from app.domains.users.models import User
 from app.main import create_app
 
 
@@ -54,5 +56,14 @@ def test_first_admin_bootstrap_creates_login_owner(tmp_path) -> None:
             assert me.status_code == 200
             assert me.json()["email"] == "owner@example.com"
             assert "user:manage" in me.json()["permissions"]
+
+        async def assert_bootstrap_user() -> None:
+            async with sessionmaker() as session:
+                user = (await session.execute(select(User))).scalar_one()
+                assert user.email == "owner@example.com"
+                assert user.username == "owner"
+                assert user.display_name == "owner"
+
+        asyncio.run(assert_bootstrap_user())
     finally:
         asyncio.run(engine.dispose())

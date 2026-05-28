@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
-import type { LumenApiClient, SettingUpdateRequest, SquadCreateRequest } from '../shared/api/types'
+import type { LumenApiClient, SettingUpdateRequest, SquadCreateRequest, UserRecord } from '../shared/api/types'
 import { developmentSession } from '../shared/data/lumenData'
 import { renderWithRouter } from '../test/renderWithRouter'
 
@@ -29,6 +29,7 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByRole('table', { name: /subscription inventory/i })).toBeInTheDocument()
     expect(screen.getAllByText('sub_pub_default').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /open subscription page/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^mihomo$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /users/i })).toHaveAttribute('href', '/users')
     subscription.unmount()
 
@@ -36,6 +37,8 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByRole('heading', { name: /mira volkova/i })).toBeInTheDocument()
     expect(screen.getByRole('table', { name: /issued subscriptions/i })).toBeInTheDocument()
     expect(screen.getAllByText('sub_pub_default').length).toBeGreaterThan(0)
+    expect(screen.getByText(/backend does not expose device registry/i)).toBeInTheDocument()
+    expect(screen.getByText(/backend does not expose subscription request history/i)).toBeInTheDocument()
     userDetail.unmount()
 
     renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
@@ -58,6 +61,38 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
     expect(await screen.findByRole('table', { name: /operational tools/i })).toBeInTheDocument()
     cleanup()
+  })
+
+  it('renders dashboard traffic and user risks from the real user API shape', async () => {
+    const users: UserRecord[] = [
+      {
+        created_at: '2026-05-27T00:00:00Z',
+        device_limit: null,
+        display_name: 'Real Shape',
+        email: 'real-shape@lumen.local',
+        expires_at: null,
+        id: 'usr_real_shape',
+        metadata_json: {},
+        role: 'user',
+        status: 'limited',
+        tags: ['grace'],
+        telegram_id: null,
+        traffic_limit_gb: 100,
+        traffic_used_gb: 12,
+        updated_at: '2026-05-27T00:00:00Z',
+        username: 'real-shape',
+      },
+    ]
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      listUsers: async () => ({ items: users }),
+    }
+
+    renderWithRouter('/dashboard', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('heading', { name: /command dashboard/i })).toBeInTheDocument()
+    expect(await screen.findByText('12 GiB')).toBeInTheDocument()
+    expect(screen.getByText(/users limited or in grace/i)).toBeInTheDocument()
   })
 
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {

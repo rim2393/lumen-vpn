@@ -37,7 +37,11 @@ export function SubscriptionPage() {
   const users = usersQuery.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
   const activeSubscription = subscriptions.find((subscription) => subscription.status === 'active') ?? subscriptions[0]
-  const subscriptionBaseUrl = activeSubscription ? buildSubscriptionUrl(activeSubscription.public_id) : null
+  const activeRenderability = activeSubscription ? getSubscriptionRenderability(activeSubscription) : null
+  const subscriptionBaseUrl =
+    activeSubscription && activeRenderability?.canOpenBasePage
+      ? buildSubscriptionUrl(activeSubscription.public_id)
+      : null
 
   return (
     <ResourceScreen
@@ -50,10 +54,12 @@ export function SubscriptionPage() {
                 <Rss size={18} aria-hidden="true" />
                 {t('Open subscription page')}
               </a>
-              <a className="button button--secondary" href={`${subscriptionBaseUrl}/happ`} target="_blank" rel="noreferrer">
-                <Smartphone size={18} aria-hidden="true" />
-                Happ
-              </a>
+              {activeRenderability?.formats.includes('happ') ? (
+                <a className="button button--secondary" href={`${subscriptionBaseUrl}/happ`} target="_blank" rel="noreferrer">
+                  <Smartphone size={18} aria-hidden="true" />
+                  Happ
+                </a>
+              ) : null}
             </>
           ) : null}
           <button
@@ -137,6 +143,7 @@ function SubscriptionActions({
 }) {
   const { t } = useI18n()
   const baseUrl = buildSubscriptionUrl(subscription.public_id)
+  const renderability = getSubscriptionRenderability(subscription)
 
   return (
     <div className="inline-actions" aria-label={t('Subscription actions')}>
@@ -148,15 +155,23 @@ function SubscriptionActions({
         <ShieldX size={14} aria-hidden="true" />
         {t('Revoke')}
       </button>
-      <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
-        {t('Page')}
-      </a>
-      <a className="text-link" href={`${baseUrl}/happ`} target="_blank" rel="noreferrer">
-        Happ
-      </a>
-      <a className="text-link" href={`${baseUrl}/mihomo`} target="_blank" rel="noreferrer">
-        Mihomo
-      </a>
+      {renderability.canOpenBasePage ? (
+        <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
+          {t('Page')}
+        </a>
+      ) : (
+        <StatusBadge tone="watch">{t(renderability.reason)}</StatusBadge>
+      )}
+      {renderability.formats.includes('happ') ? (
+        <a className="text-link" href={`${baseUrl}/happ`} target="_blank" rel="noreferrer">
+          Happ
+        </a>
+      ) : null}
+      {renderability.formats.includes('mihomo') ? (
+        <a className="text-link" href={`${baseUrl}/mihomo`} target="_blank" rel="noreferrer">
+          Mihomo
+        </a>
+      ) : null}
     </div>
   )
 }
@@ -344,7 +359,8 @@ function parseDeliveryProfile(value: string): Record<string, string> {
 
 function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord | undefined }) {
   const { t } = useI18n()
-  const baseUrl = subscription ? buildSubscriptionUrl(subscription.public_id) : null
+  const renderability = subscription ? getSubscriptionRenderability(subscription) : null
+  const baseUrl = subscription && renderability?.canOpenBasePage ? buildSubscriptionUrl(subscription.public_id) : null
 
   return (
     <div className="side-stack">
@@ -367,16 +383,10 @@ function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord 
           </div>
           <ExternalLink size={20} aria-hidden="true" />
         </div>
-        {baseUrl ? (
+        {baseUrl && renderability ? (
           <div className="client-link-grid">
-            {[
-              ['Page', baseUrl],
-              ['Happ', `${baseUrl}/happ`],
-              ['Hiddify', `${baseUrl}/hiddify`],
-              ['Mihomo', `${baseUrl}/mihomo`],
-              ['Sing-box', `${baseUrl}/sing-box`],
-              ['Amnezia', `${baseUrl}/amnezia`],
-            ].map(([label, href]) => (
+            <StatusBadge tone="watch">{t('Backend render status not exposed')}</StatusBadge>
+            {buildRenderableLinks(baseUrl, renderability.formats).map(([label, href]) => (
               <a key={href} className="client-link" href={href} target="_blank" rel="noreferrer">
                 <span>{t(label)}</span>
                 <ExternalLink size={15} aria-hidden="true" />
@@ -384,11 +394,59 @@ function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord 
             ))}
           </div>
         ) : (
-          <p className="empty-inline">{t('Create a subscription before sharing client links.')}</p>
+          <p className="empty-inline">
+            {subscription ? t(renderability?.reason ?? 'Subscription not active') : t('Create a subscription before sharing client links.')}
+          </p>
         )}
       </article>
     </div>
   )
+}
+
+function buildRenderableLinks(baseUrl: string, formats: string[]): Array<[string, string]> {
+  const links: Array<[string, string]> = [['Page', baseUrl]]
+  if (formats.includes('happ')) {
+    links.push(['Happ', `${baseUrl}/happ`])
+  }
+  if (formats.includes('hiddify')) {
+    links.push(['Hiddify', `${baseUrl}/hiddify`])
+  }
+  if (formats.includes('mihomo')) {
+    links.push(['Mihomo', `${baseUrl}/mihomo`])
+  }
+  if (formats.includes('sing-box')) {
+    links.push(['Sing-box', `${baseUrl}/sing-box`])
+  }
+  if (formats.includes('amnezia')) {
+    links.push(['Amnezia', `${baseUrl}/amnezia`])
+  }
+  return links
+}
+
+function getSubscriptionRenderability(subscription: SubscriptionRecord) {
+  if (subscription.revoked_at) {
+    return { canOpenBasePage: false, formats: [], reason: 'Subscription revoked' }
+  }
+  if (subscription.status !== 'active') {
+    return { canOpenBasePage: false, formats: [], reason: 'Subscription not active' }
+  }
+  return {
+    canOpenBasePage: true,
+    formats: readDeclaredFormats(subscription),
+    reason: 'Base endpoint inferred from active subscription',
+  }
+}
+
+function readDeclaredFormats(subscription: SubscriptionRecord): string[] {
+  const declared = [
+    subscription.delivery_profile.format,
+    subscription.delivery_profile.client,
+    subscription.delivery_profile.adapter,
+  ]
+    .flatMap((value) => String(value ?? '').split(/[,\s/]+/))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+  return Array.from(new Set(declared))
 }
 
 function buildSubscriptionUrl(publicId: string) {

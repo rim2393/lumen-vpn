@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def bootstrap_first_admin(session: AsyncSession, settings: Settings) -> bool:
     email = (settings.first_admin_email or "").strip().lower()
+    username = (settings.first_admin_username or "").strip() or None
     password = settings.first_admin_password
     if not email and password is None:
         return False
@@ -27,6 +28,8 @@ async def bootstrap_first_admin(session: AsyncSession, settings: Settings) -> bo
 
     user = User(
         email=email,
+        username=username,
+        display_name=username or email,
         password_hash=hash_password(password),
         role=Role.OWNER.value,
         status="active",

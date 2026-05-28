@@ -3,11 +3,11 @@ import { Activity, AlertTriangle, BadgeCheck, Network, RadioTower, UsersRound } 
 import { Link } from 'react-router-dom'
 import { useApiClient } from '../shared/api/apiClientContext'
 import type {
-  AdminUserRecord,
   ApiKeyRecord,
   LicenseSummary,
   NodeResponse,
   SubscriptionRecord,
+  UserRecord,
 } from '../shared/api/types'
 import { ErrorState, LoadingState } from '../shared/components/DataState'
 import { MetricCard } from '../shared/components/MetricCard'
@@ -63,7 +63,7 @@ export function DashboardPage() {
       },
     ],
   }) as [
-    DashboardQueryResult<{ items: AdminUserRecord[]; source?: string; total?: number }>,
+    DashboardQueryResult<{ items: UserRecord[]; source?: string; total?: number }>,
     DashboardQueryResult<{ items: NodeResponse[] }>,
     DashboardQueryResult<{ items: SubscriptionRecord[] }>,
     DashboardQueryResult<{ items: ApiKeyRecord[] }>,
@@ -176,12 +176,12 @@ function buildDashboardMetrics({
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
   t: (value: string) => string
-  users: AdminUserRecord[]
+  users: UserRecord[]
 }): DashboardMetric[] {
   const activeUsers = users.filter((user) => user.status === 'active').length
   const activeNodes = nodes.filter((node) => ACTIVE_NODE_STATUSES.has(node.status)).length
   const attentionNodes = nodes.filter((node) => ATTENTION_NODE_STATUSES.has(node.status)).length
-  const trafficGb = users.reduce((total, user) => total + safeNumber(user.trafficUsedGb), 0)
+  const trafficGb = users.reduce((total, user) => total + safeNumber(user.traffic_used_gb), 0)
   const activeSubscriptions = subscriptions.filter(
     (subscription) => subscription.status === 'active' && !subscription.revoked_at,
   ).length
@@ -238,7 +238,7 @@ function buildActivityRows({
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
   t: (value: string) => string
-  users: AdminUserRecord[]
+  users: UserRecord[]
 }): ActivityRow[] {
   const rows: ActivityRow[] = []
   const latestNode = [...nodes]
@@ -307,11 +307,13 @@ function buildRiskRows({
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
   t: (value: string) => string
-  users: AdminUserRecord[]
+  users: UserRecord[]
 }): RiskRow[] {
   const rows: RiskRow[] = []
   const inactiveNodes = nodes.filter((node) => !ACTIVE_NODE_STATUSES.has(node.status))
-  const expiringUsers = users.filter((user) => user.status === 'limited' || user.subscription === 'grace')
+  const expiringUsers = users.filter(
+    (user) => user.status === 'limited' || user.tags.includes('grace') || isExpired(user.expires_at),
+  )
   const revokedSubscriptions = subscriptions.filter((subscription) => subscription.revoked_at)
   const expiringApiKeys = apiKeys.filter((apiKey) => apiKey.status === 'expiring')
 
@@ -332,6 +334,14 @@ function buildRiskRows({
   }
 
   return rows
+}
+
+function isExpired(value: string | null): boolean {
+  if (!value) {
+    return false
+  }
+  const expiresAt = new Date(value)
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now()
 }
 
 function safeNumber(value: number): number {

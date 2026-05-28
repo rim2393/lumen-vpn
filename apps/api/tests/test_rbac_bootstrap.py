@@ -28,6 +28,17 @@ def test_bootstrap_api_key_allows_owner_routes() -> None:
     assert response.json()["subject"] == "bootstrap-admin"
 
 
+def test_bootstrap_api_key_does_not_create_web_session() -> None:
+    with auth_client() as client:
+        response = client.get(
+            "/api/auth/session",
+            headers={"X-Lumen-Api-Key": "lumen_sk_test_bootstrap"},
+        )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "web_session_required"
+
+
 def test_missing_bootstrap_api_key_is_rejected() -> None:
     with auth_client() as client:
         response = client.get("/api/v1/licenses")
