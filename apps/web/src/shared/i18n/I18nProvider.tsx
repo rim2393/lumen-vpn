@@ -248,6 +248,16 @@ const ru: Record<string, string> = {
   'User detail': 'Карточка пользователя',
   'User detail unavailable': 'Карточка пользователя недоступна',
   'User not found': 'Пользователь не найден',
+  'Client access': 'Клиентский доступ',
+  'Create subscription': 'Создать подписку',
+  'Creates a real backend subscription record for the selected user.':
+    'Создает реальную запись подписки в backend для выбранного пользователя.',
+  'Delivery profile must use key=value pairs.': 'Профиль доставки должен быть в формате key=value.',
+  'Delivery profile contains an empty key.': 'В профиле доставки есть пустой ключ.',
+  'License ID': 'ID лицензии',
+  'Select user': 'Выберите пользователя',
+  'Subscription could not be created.': 'Не удалось создать подписку.',
+  'User and license are required.': 'Пользователь и лицензия обязательны.',
 }
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined)

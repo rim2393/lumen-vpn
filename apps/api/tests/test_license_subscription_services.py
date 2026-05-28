@@ -22,11 +22,13 @@ from app.domains.licenses.service import (
 )
 from app.domains.nodes.models import Node
 from app.domains.subscriptions.models import Subscription
-from app.domains.subscriptions.schemas import SubscriptionCreateRequest
+from app.domains.subscriptions.schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest
 from app.domains.subscriptions.service import (
     create_subscription,
     get_subscription,
     list_subscriptions,
+    revoke_subscription,
+    update_subscription,
 )
 from app.domains.users.models import User
 
@@ -219,3 +221,94 @@ async def test_create_subscription_rejects_inline_secret_delivery_fields(
     assert secret_error.value.code == "inline_secret_rejected"
     assert secret_error.value.status_code == 422
     assert secret_error.value.details == ["delivery_profile.subscription_url"]
+
+
+async def test_update_subscription_patches_lifecycle_fields(
+    db_session: AsyncSession,
+) -> None:
+    user, license_record, node = await seed_user_license_node(db_session)
+    replacement_node = Node(
+        name="replacement-subscription-node",
+        region="us",
+        public_address="203.0.113.41",
+        status="active",
+        capabilities={},
+    )
+    db_session.add(replacement_node)
+    await db_session.flush()
+    subscription = await create_subscription(
+        db_session,
+        request=SubscriptionCreateRequest(
+            user_id=user.id,
+            license_id=license_record.id,
+            node_id=node.id,
+            delivery_profile={"protocol": "vless"},
+            config_hash="sha256:old-config",
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+        ),
+    )
+
+    updated = await update_subscription(
+        db_session,
+        subscription_id=subscription.id,
+        request=SubscriptionUpdateRequest(
+            status="limited",
+            node_id=replacement_node.id,
+            delivery_profile={"protocol": "tcp-smoke", "format": "lumen-json"},
+            config_hash=None,
+            expires_at=None,
+        ),
+    )
+
+    assert updated.status == "limited"
+    assert updated.node_id == replacement_node.id
+    assert updated.delivery_profile == {"protocol": "tcp-smoke", "format": "lumen-json"}
+    assert updated.config_hash is None
+    assert updated.expires_at is None
+
+
+async def test_update_subscription_validates_node_and_secret_delivery_fields(
+    db_session: AsyncSession,
+) -> None:
+    user, license_record, _ = await seed_user_license_node(db_session)
+    subscription = await create_subscription(
+        db_session,
+        request=SubscriptionCreateRequest(user_id=user.id, license_id=license_record.id),
+    )
+
+    with pytest.raises(APIError) as missing_node:
+        await update_subscription(
+            db_session,
+            subscription_id=subscription.id,
+            request=SubscriptionUpdateRequest(node_id=uuid4()),
+        )
+    assert missing_node.value.code == "subscription_node_not_found"
+    assert missing_node.value.status_code == 404
+
+    with pytest.raises(APIError) as secret_error:
+        await update_subscription(
+            db_session,
+            subscription_id=subscription.id,
+            request=SubscriptionUpdateRequest(delivery_profile={"token": "inline"}),
+        )
+    assert secret_error.value.code == "inline_secret_rejected"
+    assert secret_error.value.details == ["delivery_profile.token"]
+
+
+async def test_revoke_subscription_sets_status_and_revoked_at(
+    db_session: AsyncSession,
+) -> None:
+    user, license_record, node = await seed_user_license_node(db_session)
+    subscription = await create_subscription(
+        db_session,
+        request=SubscriptionCreateRequest(
+            user_id=user.id,
+            license_id=license_record.id,
+            node_id=node.id,
+        ),
+    )
+
+    revoked = await revoke_subscription(db_session, subscription_id=subscription.id)
+
+    assert revoked.status == "revoked"
+    assert revoked.revoked_at is not None

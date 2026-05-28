@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
+from app.domains.audit.service import record_audit_event
 from app.domains.subscriptions.renderers import (
     normalize_render_target,
     render_subscription_for_target,
@@ -15,11 +16,14 @@ from app.domains.subscriptions.schemas import (
     SubscriptionCreateRequest,
     SubscriptionListResponse,
     SubscriptionResponse,
+    SubscriptionUpdateRequest,
 )
 from app.domains.subscriptions.service import (
     build_public_subscription_manifest,
     build_subscription_manifest,
+    revoke_subscription,
     subscription_to_response,
+    update_subscription,
 )
 from app.domains.subscriptions.service import (
     create_subscription as create_subscription_record,
@@ -62,6 +66,47 @@ async def create_subscription(
     session: DatabaseSession,
 ) -> SubscriptionResponse:
     subscription = await create_subscription_record(session, request=request)
+    await session.commit()
+    return subscription_to_response(subscription)
+
+
+@router.patch("/{subscription_id}", response_model=SubscriptionResponse)
+async def patch_subscription(
+    subscription_id: UUID,
+    request: SubscriptionUpdateRequest,
+    principal: SubscriptionManager,
+    session: DatabaseSession,
+) -> SubscriptionResponse:
+    subscription = await update_subscription(
+        session,
+        subscription_id=subscription_id,
+        request=request,
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="subscription.updated",
+        resource_type="subscription",
+        resource_id=str(subscription.id),
+    )
+    await session.commit()
+    return subscription_to_response(subscription)
+
+
+@router.post("/{subscription_id}/revoke", response_model=SubscriptionResponse)
+async def revoke_subscription_route(
+    subscription_id: UUID,
+    principal: SubscriptionManager,
+    session: DatabaseSession,
+) -> SubscriptionResponse:
+    subscription = await revoke_subscription(session, subscription_id=subscription_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="subscription.revoked",
+        resource_type="subscription",
+        resource_id=str(subscription.id),
+    )
     await session.commit()
     return subscription_to_response(subscription)
 

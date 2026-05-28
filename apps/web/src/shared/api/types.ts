@@ -412,6 +412,23 @@ export type SubscriptionRecord = {
   user_id: string
 }
 
+export type SubscriptionCreateRequest = {
+  config_hash?: string | null
+  delivery_profile?: Record<string, string>
+  expires_at?: string | null
+  license_id: string
+  node_id?: string | null
+  user_id: string
+}
+
+export type SubscriptionUpdateRequest = Partial<{
+  config_hash: string | null
+  delivery_profile: Record<string, string>
+  expires_at: string | null
+  node_id: string | null
+  status: string
+}>
+
 export type SubscriptionListResponse = {
   items: SubscriptionRecord[]
 }
@@ -496,6 +513,7 @@ export type LumenApiClient = {
     request: ProvisioningJobCreateRequest,
   ) => Promise<ProvisioningJobResponse>
   createSquad: (request: SquadCreateRequest) => Promise<SquadRecord>
+  createSubscription: (request: SubscriptionCreateRequest) => Promise<SubscriptionRecord>
   createUser: (request: UserCreateRequest) => Promise<UserRecord>
   deleteHost: (hostId: string) => Promise<void>
   deleteProfile: (profileId: string) => Promise<void>
@@ -518,11 +536,16 @@ export type LumenApiClient = {
   readProvisioningJob: (jobId: string) => Promise<ProvisioningJobResponse>
   readLicense: () => Promise<LicenseSummary | null>
   revokeApiKey: (apiKeyId: string) => Promise<void>
+  revokeSubscription: (subscriptionId: string) => Promise<SubscriptionRecord>
   updateHost: (hostId: string, request: HostUpdateRequest) => Promise<HostRecord>
   updateProfile: (
     profileId: string,
     request: ProtocolProfileUpdateRequest,
   ) => Promise<ProtocolProfileRecord>
+  updateSubscription: (
+    subscriptionId: string,
+    request: SubscriptionUpdateRequest,
+  ) => Promise<SubscriptionRecord>
   verifyMfaChallenge: (request: MfaChallengeVerifyRequest) => Promise<AuthSession>
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
   updateUser: (userId: string, request: UserUpdateRequest) => Promise<UserRecord>

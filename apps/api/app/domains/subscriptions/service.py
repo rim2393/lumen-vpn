@@ -12,7 +12,11 @@ from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.subscriptions.models import Subscription
-from app.domains.subscriptions.schemas import SubscriptionCreateRequest, SubscriptionResponse
+from app.domains.subscriptions.schemas import (
+    SubscriptionCreateRequest,
+    SubscriptionResponse,
+    SubscriptionUpdateRequest,
+)
 from app.domains.users.models import User
 
 SUBSCRIPTION_PUBLIC_ID_PREFIX = "lumen_sub"
@@ -29,6 +33,10 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "runtime_config",
     }
 )
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def ensure_no_inline_secret_keys(values: dict[str, str], *, field_name: str) -> None:
@@ -251,6 +259,50 @@ async def create_subscription(
         expires_at=request.expires_at,
     )
     session.add(subscription)
+    await session.flush()
+    return subscription
+
+
+async def update_subscription(
+    session: AsyncSession,
+    *,
+    subscription_id: UUID,
+    request: SubscriptionUpdateRequest,
+) -> Subscription:
+    subscription = await get_subscription(session, subscription_id=subscription_id)
+    updated_fields = request.model_fields_set
+
+    if "node_id" in updated_fields and request.node_id is not None:
+        node = await session.get(Node, request.node_id)
+        if node is None:
+            raise APIError(
+                code="subscription_node_not_found",
+                message="Subscription node was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+    if "delivery_profile" in updated_fields:
+        delivery_profile = request.delivery_profile or {}
+        ensure_no_inline_secret_keys(delivery_profile, field_name="delivery_profile")
+        subscription.delivery_profile = delivery_profile
+    if "status" in updated_fields and request.status is not None:
+        subscription.status = request.status
+    if "node_id" in updated_fields:
+        subscription.node_id = request.node_id
+    if "config_hash" in updated_fields:
+        subscription.config_hash = request.config_hash
+    if "expires_at" in updated_fields:
+        subscription.expires_at = request.expires_at
+
+    await session.flush()
+    return subscription
+
+
+async def revoke_subscription(session: AsyncSession, *, subscription_id: UUID) -> Subscription:
+    subscription = await get_subscription(session, subscription_id=subscription_id)
+    subscription.status = "revoked"
+    if subscription.revoked_at is None:
+        subscription.revoked_at = utc_now()
     await session.flush()
     return subscription
 

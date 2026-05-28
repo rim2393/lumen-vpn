@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.db.models  # noqa: F401
@@ -11,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, Role, get_current_principal
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
+from app.domains.audit.models import AuditEvent
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
@@ -161,6 +163,72 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     get_response = await route_app.client.get(f"/api/v1/subscriptions/{created['id']}")
     assert get_response.status_code == 200
     assert get_response.json()["public_id"] == created["public_id"]
+
+
+async def test_subscription_routes_patch_revoke_and_record_audit(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        replacement_node = Node(
+            name="route-replacement-node",
+            region="us",
+            public_address="203.0.113.51",
+            status="active",
+            capabilities={},
+        )
+        session.add(replacement_node)
+        await session.commit()
+        replacement_node_id = str(replacement_node.id)
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {"protocol": "vless"},
+            "config_hash": "sha256:route-config",
+        },
+    )
+    assert create_response.status_code == 201
+    subscription_id = create_response.json()["id"]
+
+    patch_response = await route_app.client.patch(
+        f"/api/v1/subscriptions/{subscription_id}",
+        json={
+            "status": "limited",
+            "node_id": replacement_node_id,
+            "delivery_profile": {"protocol": "tcp-smoke", "format": "lumen-json"},
+            "config_hash": None,
+            "expires_at": None,
+        },
+    )
+    assert patch_response.status_code == 200
+    patched = patch_response.json()
+    assert patched["status"] == "limited"
+    assert patched["node_id"] == replacement_node_id
+    assert patched["delivery_profile"] == {"protocol": "tcp-smoke", "format": "lumen-json"}
+    assert patched["config_hash"] is None
+    assert patched["expires_at"] is None
+
+    revoke_response = await route_app.client.post(f"/api/v1/subscriptions/{subscription_id}/revoke")
+    assert revoke_response.status_code == 200
+    revoked = revoke_response.json()
+    assert revoked["status"] == "revoked"
+    assert revoked["revoked_at"] is not None
+
+    async with route_app.sessionmaker() as session:
+        events = (
+            await session.execute(select(AuditEvent).order_by(AuditEvent.created_at.asc()))
+        ).scalars().all()
+
+    assert [event.action for event in events] == [
+        "subscription.updated",
+        "subscription.revoked",
+    ]
+    assert {event.resource_id for event in events} == {subscription_id}
+    assert all(event.actor_email == "owner@example.com" for event in events)
 
 
 async def test_subscription_manifest_route_renders_live_smoke_protocol(
@@ -442,6 +510,30 @@ async def test_subscription_route_rejects_inline_secret_delivery_field(
             "license_id": str(license_record.id),
             "delivery_profile": {"runtime_config": "plain-json"},
         },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "inline_secret_rejected"
+
+
+async def test_subscription_patch_route_rejects_inline_secret_delivery_field(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {"protocol": "tcp-smoke"},
+        },
+    )
+    assert create_response.status_code == 201
+
+    response = await route_app.client.patch(
+        f"/api/v1/subscriptions/{create_response.json()['id']}",
+        json={"delivery_profile": {"runtime_config": "plain-json"}},
     )
 
     assert response.status_code == 422

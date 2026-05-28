@@ -9,6 +9,8 @@ import type {
   ProvisioningJobCreateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
+  SubscriptionCreateRequest,
+  SubscriptionUpdateRequest,
   UserBulkActionRequest,
   UserCreateRequest,
   UserUpdateRequest,
@@ -221,6 +223,46 @@ export function useSubscriptionsPageData() {
   return useQuery({
     queryFn: apiClient.listSubscriptions,
     queryKey: resourceQueryKeys.subscriptions,
+  })
+}
+
+export function useCreateSubscription() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: SubscriptionCreateRequest) => apiClient.createSubscription(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+    },
+  })
+}
+
+export function useUpdateSubscription() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: SubscriptionUpdateRequest }) =>
+      apiClient.updateSubscription(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+    },
+  })
+}
+
+export function useRevokeSubscription() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.revokeSubscription(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+    },
   })
 }
 

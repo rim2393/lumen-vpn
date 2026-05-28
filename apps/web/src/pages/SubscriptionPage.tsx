@@ -1,8 +1,21 @@
-import { ExternalLink, RefreshCw, Rss, Smartphone } from 'lucide-react'
-import { useSubscriptionsPageData, useUsersPageData, useNodesPageData } from '../shared/api/resourceHooks'
+import { useState, type FormEvent } from 'react'
+import { ExternalLink, RefreshCw, Rss, Save, ShieldX, Smartphone } from 'lucide-react'
+import {
+  useCreateSubscription,
+  useNodesPageData,
+  useRevokeSubscription,
+  useSubscriptionsPageData,
+  useUpdateSubscription,
+  useUsersPageData,
+} from '../shared/api/resourceHooks'
 import type { SubscriptionRecord } from '../shared/api/types'
 import { OperatorGuide } from '../shared/components/OperatorGuide'
-import { ResourceScreen } from '../shared/components/ResourceScreen'
+import {
+  FormError,
+  ResourceScreen,
+  ScreenForm,
+  SubmitButton,
+} from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { placeholderSpecs } from '../shared/data/lumenData'
 import { useI18n } from '../shared/i18n/I18nProvider'
@@ -13,6 +26,9 @@ export function SubscriptionPage() {
   const query = useSubscriptionsPageData()
   const usersQuery = useUsersPageData()
   const nodesQuery = useNodesPageData()
+  const createSubscription = useCreateSubscription()
+  const updateSubscription = useUpdateSubscription()
+  const revokeSubscription = useRevokeSubscription()
   const subscriptions = query.data?.items ?? []
   const users = usersQuery.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
@@ -69,12 +85,33 @@ export function SubscriptionPage() {
           subscription.expires_at ? formatDateTime(subscription.expires_at) : t('Not set'),
           subscription.config_hash ?? t('Not generated'),
           <StatusBadge tone={toneForStatus(subscription.status)}>{subscription.status}</StatusBadge>,
-          <SubscriptionActions subscription={subscription} />,
+          <SubscriptionActions
+            subscription={subscription}
+            onRevoke={() => void revokeSubscription.mutateAsync(subscription.id)}
+            onToggle={() =>
+              void updateSubscription.mutateAsync({
+                id: subscription.id,
+                request: { status: subscription.status === 'active' ? 'disabled' : 'active' },
+              })
+            }
+          />,
         ],
         id: subscription.id,
       })}
       rightPanel={
         <SubscriptionGuide subscription={activeSubscription} />
+      }
+      createForm={
+        <SubscriptionCreateForm
+          defaultLicenseId={subscriptions[0]?.license_id ?? ''}
+          nodes={nodes}
+          onCreate={async (request) => {
+            await createSubscription.mutateAsync(request)
+            await query.refetch()
+          }}
+          pending={createSubscription.isPending}
+          users={users}
+        />
       }
       spec={placeholderSpecs.subscription}
       tableEyebrow="Public config surface"
@@ -83,12 +120,28 @@ export function SubscriptionPage() {
   )
 }
 
-function SubscriptionActions({ subscription }: { subscription: SubscriptionRecord }) {
+function SubscriptionActions({
+  onRevoke,
+  onToggle,
+  subscription,
+}: {
+  onRevoke: () => void
+  onToggle: () => void
+  subscription: SubscriptionRecord
+}) {
   const { t } = useI18n()
   const baseUrl = buildSubscriptionUrl(subscription.public_id)
 
   return (
     <div className="inline-actions" aria-label={t('Subscription actions')}>
+      <button type="button" className="text-link text-link--button" onClick={onToggle}>
+        <Save size={14} aria-hidden="true" />
+        {subscription.status === 'active' ? t('Disable') : t('Enable')}
+      </button>
+      <button type="button" className="text-link text-link--button" onClick={onRevoke}>
+        <ShieldX size={14} aria-hidden="true" />
+        {t('Revoke')}
+      </button>
       <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
         {t('Page')}
       </a>
@@ -100,6 +153,119 @@ function SubscriptionActions({ subscription }: { subscription: SubscriptionRecor
       </a>
     </div>
   )
+}
+
+function SubscriptionCreateForm({
+  defaultLicenseId,
+  nodes,
+  onCreate,
+  pending,
+  users,
+}: {
+  defaultLicenseId: string
+  nodes: Array<{ id: string; name: string }>
+  onCreate: (request: {
+    delivery_profile: Record<string, string>
+    license_id: string
+    node_id: string | null
+    user_id: string
+  }) => Promise<void>
+  pending: boolean
+  users: Array<{ email: string; id: string; username: string | null }>
+}) {
+  const { t } = useI18n()
+  const [userId, setUserId] = useState(users[0]?.id ?? '')
+  const [licenseId, setLicenseId] = useState(defaultLicenseId)
+  const [nodeId, setNodeId] = useState('')
+  const [deliveryProfile, setDeliveryProfile] = useState('format=happ, profile_title=Lumen')
+  const [formError, setFormError] = useState<string | null>(null)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFormError(null)
+    try {
+      const parsedDeliveryProfile = parseDeliveryProfile(deliveryProfile)
+      if (!userId || !licenseId.trim()) {
+        setFormError(t('User and license are required.'))
+        return
+      }
+      await onCreate({
+        delivery_profile: parsedDeliveryProfile,
+        license_id: licenseId.trim(),
+        node_id: nodeId || null,
+        user_id: userId,
+      })
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('Subscription could not be created.'))
+    }
+  }
+
+  return (
+    <ScreenForm onSubmit={handleSubmit}>
+      <div>
+        <p className="eyebrow">{t('Create subscription')}</p>
+        <h2>{t('Client access')}</h2>
+        <p>{t('Creates a real backend subscription record for the selected user.')}</p>
+      </div>
+      <label htmlFor="subscription-user">
+        {t('User')}
+        <select id="subscription-user" required value={userId} onChange={(event) => setUserId(event.target.value)}>
+          <option value="">{t('Select user')}</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.username ?? user.email}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label htmlFor="subscription-license">
+        {t('License ID')}
+        <input id="subscription-license" required value={licenseId} onChange={(event) => setLicenseId(event.target.value)} />
+      </label>
+      <label htmlFor="subscription-node">
+        {t('Node')}
+        <select id="subscription-node" value={nodeId} onChange={(event) => setNodeId(event.target.value)}>
+          <option value="">{t('All nodes')}</option>
+          {nodes.map((node) => (
+            <option key={node.id} value={node.id}>
+              {node.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label htmlFor="subscription-delivery">
+        {t('Delivery profile')}
+        <textarea
+          id="subscription-delivery"
+          rows={4}
+          value={deliveryProfile}
+          onChange={(event) => setDeliveryProfile(event.target.value)}
+        />
+      </label>
+      <FormError message={formError} />
+      <SubmitButton pending={pending}>{t('Create subscription')}</SubmitButton>
+    </ScreenForm>
+  )
+}
+
+function parseDeliveryProfile(value: string): Record<string, string> {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((profile, entry) => {
+      const separator = entry.indexOf('=')
+      if (separator <= 0) {
+        throw new Error('Delivery profile must use key=value pairs.')
+      }
+      const key = entry.slice(0, separator).trim()
+      const parsedValue = entry.slice(separator + 1).trim()
+      if (!key) {
+        throw new Error('Delivery profile contains an empty key.')
+      }
+      profile[key] = parsedValue
+      return profile
+    }, {})
 }
 
 function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord | undefined }) {

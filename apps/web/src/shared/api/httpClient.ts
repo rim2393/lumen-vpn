@@ -13,6 +13,8 @@ import type {
   ProvisioningJobCreateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
+  SubscriptionCreateRequest,
+  SubscriptionUpdateRequest,
   TokenPairResponse,
   UserBulkActionRequest,
   UserCreateRequest,
@@ -103,6 +105,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/nodes/provisioning-jobs', { body: payload, method: 'POST' }),
     createSquad: (payload: SquadCreateRequest) =>
       request('/api/v1/squads', { body: payload, method: 'POST' }),
+    createSubscription: (payload: SubscriptionCreateRequest) =>
+      request('/api/v1/subscriptions', { body: payload, method: 'POST' }),
     createUser: (payload: UserCreateRequest) =>
       request('/api/v1/users', { body: payload, method: 'POST' }),
     deleteHost: (hostId: string) => request(`/api/v1/hosts/${hostId}`, { method: 'DELETE' }),
@@ -161,10 +165,14 @@ export function createHttpLumenApiClient({
     readLicense: () => request('/api/admin/license'),
     revokeApiKey: (apiKeyId: string) =>
       request(`/api/v1/api-keys/${apiKeyId}`, { method: 'DELETE' }),
+    revokeSubscription: (subscriptionId: string) =>
+      request(`/api/v1/subscriptions/${subscriptionId}/revoke`, { method: 'POST' }),
     updateHost: (hostId: string, payload: HostUpdateRequest) =>
       request(`/api/v1/hosts/${hostId}`, { body: payload, method: 'PATCH' }),
     updateProfile: (profileId: string, payload: ProtocolProfileUpdateRequest) =>
       request(`/api/v1/profiles/${profileId}`, { body: payload, method: 'PATCH' }),
+    updateSubscription: (subscriptionId: string, payload: SubscriptionUpdateRequest) =>
+      request(`/api/v1/subscriptions/${subscriptionId}`, { body: payload, method: 'PATCH' }),
     verifyMfaChallenge: async (payload: MfaChallengeVerifyRequest) => {
       const tokenPair = await request<TokenPairResponse>('/api/v1/auth/mfa/challenge/verify', {
         body: {

@@ -15,6 +15,16 @@ class SubscriptionCreateRequest(BaseModel):
     expires_at: datetime | None = None
 
 
+class SubscriptionUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str | None = Field(default=None, min_length=1, max_length=32)
+    node_id: UUID | None = None
+    delivery_profile: dict[str, str] | None = None
+    config_hash: str | None = Field(default=None, max_length=128)
+    expires_at: datetime | None = None
+
+
 class SubscriptionResponse(BaseModel):
     id: UUID
     public_id: str

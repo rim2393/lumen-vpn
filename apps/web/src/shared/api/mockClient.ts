@@ -36,7 +36,10 @@ import type {
   SquadCreateRequest,
   SquadListResponse,
   SquadRecord,
+  SubscriptionCreateRequest,
   SubscriptionListResponse,
+  SubscriptionRecord,
+  SubscriptionUpdateRequest,
   UserBulkActionRequest,
   UserCreateRequest,
   UserListResponse,
@@ -227,6 +230,22 @@ export function createMockLumenApiClient(): LumenApiClient {
       squads.unshift(squad)
       return squad
     },
+    createSubscription: async (request: SubscriptionCreateRequest): Promise<SubscriptionRecord> => {
+      const subscription: SubscriptionRecord = {
+        config_hash: request.config_hash ?? null,
+        delivery_profile: request.delivery_profile ?? {},
+        expires_at: request.expires_at ?? null,
+        id: `sub_${request.user_id}_${Date.now()}`,
+        license_id: request.license_id,
+        node_id: request.node_id ?? null,
+        public_id: `sub_pub_${request.user_id}`,
+        revoked_at: null,
+        status: 'active',
+        user_id: request.user_id,
+      }
+      subscriptions.unshift(subscription)
+      return subscription
+    },
     createUser: async (request: UserCreateRequest): Promise<UserRecord> => {
       const now = new Date().toISOString()
       const user: UserRecord = {
@@ -357,6 +376,15 @@ export function createMockLumenApiClient(): LumenApiClient {
         record.status = 'revoked'
       }
     },
+    revokeSubscription: async (subscriptionId: string) => {
+      const subscription = subscriptions.find((item) => item.id === subscriptionId)
+      if (!subscription) {
+        throw new Error('Subscription not found')
+      }
+      subscription.status = 'revoked'
+      subscription.revoked_at = new Date().toISOString()
+      return subscription
+    },
     bulkUsers: async (
       action: string,
       request: UserBulkActionRequest,
@@ -387,6 +415,14 @@ export function createMockLumenApiClient(): LumenApiClient {
       }
       Object.assign(profile, request)
       return profile
+    },
+    updateSubscription: async (subscriptionId: string, request: SubscriptionUpdateRequest) => {
+      const subscription = subscriptions.find((item) => item.id === subscriptionId)
+      if (!subscription) {
+        throw new Error('Subscription not found')
+      }
+      Object.assign(subscription, request)
+      return subscription
     },
     updateUser: async (userId: string, request: UserUpdateRequest) => {
       const user = users.find((item) => item.id === userId)
