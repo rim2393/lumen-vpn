@@ -21,6 +21,8 @@ import type {
   HostListResponse,
   HostRecord,
   LumenApiClient,
+  NodeCommandCreateRequest,
+  NodeCommandRecord,
   NodeListResponse,
   NodeRecord,
   NodeResponse,
@@ -134,6 +136,7 @@ export function createMockLumenApiClient(): LumenApiClient {
   const subscriptions = [...subscriptionRecords]
   const templates: SubscriptionTemplateRecord[] = []
   const responseRules: ResponseRuleRecord[] = []
+  const nodeCommands: NodeCommandRecord[] = []
   const users = [...userRecords]
 
   function updateSettingValue(key: string, request: SettingUpdateRequest): SettingRecord {
@@ -264,6 +267,25 @@ export function createMockLumenApiClient(): LumenApiClient {
       return profile
     },
     createProvisioningJob: async (request) => buildMockProvisioningJob(request),
+    createNodeCommand: async (nodeId: string, request: NodeCommandCreateRequest) => {
+      const now = new Date().toISOString()
+      const command: NodeCommandRecord = {
+        claimed_at: null,
+        command_type: request.command_type,
+        completed_at: null,
+        created_at: now,
+        error_code: null,
+        error_message: null,
+        id: `cmd_${nodeCommands.length + 1}`,
+        node_id: nodeId,
+        payload_json: request.payload_json ?? {},
+        result_json: null,
+        status: 'queued',
+        updated_at: now,
+      }
+      nodeCommands.unshift(command)
+      return command
+    },
     createSquad: async (request: SquadCreateRequest): Promise<SquadRecord> => {
       const squad: SquadRecord = {
         id: `squad_${request.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
@@ -482,6 +504,21 @@ export function createMockLumenApiClient(): LumenApiClient {
     listApiKeys: async () => asListResponse(apiKeys),
     listHosts: async (): Promise<HostListResponse> => ({ items: hosts }),
     listNodes: async () => asNodeListResponse(),
+    listNodeCommands: async (nodeId: string) => ({
+      items: nodeCommands.filter((command) => command.node_id === nodeId),
+    }),
+    listNodeMetrics: async (nodeId: string) => ({
+      items: [
+        {
+          created_at: generatedAt,
+          id: `metric_${nodeId}`,
+          metric_kind: 'runtime',
+          node_id: nodeId,
+          observed_at: generatedAt,
+          values_json: { event_loop_ms: 20.1, ram_mib: 256 },
+        },
+      ],
+    }),
     listProfiles: async (): Promise<ProtocolProfileListResponse> => ({ items: profiles }),
     listProtocolAdapters: async (): Promise<ProtocolAdapterListResponse> => ({
       items: protocolAdapters,
@@ -609,6 +646,12 @@ export function createMockLumenApiClient(): LumenApiClient {
         },
         jobId,
       ),
+    pauseNode: async (nodeId: string) =>
+      asNodeResponse({ ...nodeRecords[0], id: nodeId, status: 'degraded' }),
+    resumeNode: async (nodeId: string) =>
+      asNodeResponse({ ...nodeRecords[0], id: nodeId, status: 'healthy' }),
+    quarantineNode: async (nodeId: string) =>
+      asNodeResponse({ ...nodeRecords[0], id: nodeId, status: 'offline' }),
     readLicense: async () => licenseSummary,
     revokeApiKey: async (apiKeyId: string) => {
       const record = apiKeys.find((key) => key.id === apiKeyId)

@@ -237,6 +237,56 @@ export type NodeListResponse = {
   items: NodeResponse[]
 }
 
+export type NodeCommandCreateRequest = {
+  command_type: string
+  payload_json?: Record<string, unknown>
+}
+
+export type NodeCommandRecord = {
+  claimed_at: string | null
+  command_type: string
+  completed_at: string | null
+  created_at: string
+  error_code: string | null
+  error_message: string | null
+  id: string
+  node_id: string
+  payload_json: Record<string, unknown>
+  result_json: Record<string, unknown> | null
+  status: string
+  updated_at: string
+}
+
+export type NodeCommandListResponse = {
+  items: NodeCommandRecord[]
+}
+
+export type NodeMetricRecord = {
+  created_at: string
+  id: string
+  metric_kind: string
+  node_id: string
+  observed_at: string
+  values_json: Record<string, number>
+}
+
+export type NodeMetricListResponse = {
+  items: NodeMetricRecord[]
+}
+
+export type NodePauseRequest = {
+  license_enforced?: boolean
+  reason?: string | null
+}
+
+export type NodeResumeRequest = {
+  target_status?: NodeStatus
+}
+
+export type NodeQuarantineRequest = {
+  reason: string
+}
+
 export type ProvisioningJobKind = 'node.provision'
 
 export type ProvisioningJobStatus =
@@ -747,6 +797,10 @@ export type LumenApiClient = {
   createProvisioningJob: (
     request: ProvisioningJobCreateRequest,
   ) => Promise<ProvisioningJobResponse>
+  createNodeCommand: (
+    nodeId: string,
+    request: NodeCommandCreateRequest,
+  ) => Promise<NodeCommandRecord>
   createSquad: (request: SquadCreateRequest) => Promise<SquadRecord>
   createSubscription: (request: SubscriptionCreateRequest) => Promise<SubscriptionRecord>
   createSubscriptionTemplate: (
@@ -766,6 +820,8 @@ export type LumenApiClient = {
   listApiKeys: () => Promise<ResourceListResponse<ApiKeyRecord>>
   listHosts: () => Promise<HostListResponse>
   listNodes: () => Promise<NodeListResponse>
+  listNodeCommands: (nodeId: string) => Promise<NodeCommandListResponse>
+  listNodeMetrics: (nodeId: string) => Promise<NodeMetricListResponse>
   listProfiles: () => Promise<ProtocolProfileListResponse>
   listProtocolAdapters: () => Promise<ProtocolAdapterListResponse>
   listSettings: () => Promise<SettingListResponse>
@@ -783,6 +839,9 @@ export type LumenApiClient = {
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>
   readProvisioningJob: (jobId: string) => Promise<ProvisioningJobResponse>
+  pauseNode: (nodeId: string, request: NodePauseRequest) => Promise<NodeResponse>
+  resumeNode: (nodeId: string, request: NodeResumeRequest) => Promise<NodeResponse>
+  quarantineNode: (nodeId: string, request: NodeQuarantineRequest) => Promise<NodeResponse>
   readLicense: () => Promise<LicenseSummary | null>
   revokeApiKey: (apiKeyId: string) => Promise<void>
   revokeSubscription: (subscriptionId: string) => Promise<SubscriptionRecord>

@@ -8,6 +8,10 @@ import type {
   LoginApiResponse,
   MfaChallengeVerifyRequest,
   LumenApiClient,
+  NodeCommandCreateRequest,
+  NodePauseRequest,
+  NodeQuarantineRequest,
+  NodeResumeRequest,
   PortCheckRequest,
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
@@ -115,6 +119,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/profiles', { body: payload, method: 'POST' }),
     createProvisioningJob: (payload: ProvisioningJobCreateRequest) =>
       request('/api/v1/nodes/provisioning-jobs', { body: payload, method: 'POST' }),
+    createNodeCommand: (nodeId: string, payload: NodeCommandCreateRequest) =>
+      request(`/api/v1/nodes/${nodeId}/commands`, { body: payload, method: 'POST' }),
     createSquad: (payload: SquadCreateRequest) =>
       request('/api/v1/squads', { body: payload, method: 'POST' }),
     createSubscription: (payload: SubscriptionCreateRequest) =>
@@ -140,6 +146,8 @@ export function createHttpLumenApiClient({
     listApiKeys: () => request('/api/admin/api-keys'),
     listHosts: () => request('/api/v1/hosts'),
     listNodes: () => request('/api/v1/nodes'),
+    listNodeCommands: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/commands`),
+    listNodeMetrics: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/metrics`),
     listProfiles: () => request('/api/v1/profiles'),
     listProtocolAdapters: () => request('/api/v1/protocols/adapters'),
     listSettings: () => request('/api/v1/settings'),
@@ -191,6 +199,12 @@ export function createHttpLumenApiClient({
       }
     },
     readProvisioningJob: (jobId: string) => request(`/api/v1/nodes/provisioning-jobs/${jobId}`),
+    pauseNode: (nodeId: string, payload: NodePauseRequest) =>
+      request(`/api/v1/nodes/${nodeId}/pause`, { body: payload, method: 'POST' }),
+    resumeNode: (nodeId: string, payload: NodeResumeRequest) =>
+      request(`/api/v1/nodes/${nodeId}/resume`, { body: payload, method: 'POST' }),
+    quarantineNode: (nodeId: string, payload: NodeQuarantineRequest) =>
+      request(`/api/v1/nodes/${nodeId}/quarantine`, { body: payload, method: 'POST' }),
     readLicense: () => request('/api/admin/license'),
     revokeApiKey: (apiKeyId: string) =>
       request(`/api/v1/api-keys/${apiKeyId}`, { method: 'DELETE' }),

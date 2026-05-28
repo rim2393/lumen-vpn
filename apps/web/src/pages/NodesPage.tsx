@@ -1,6 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { CirclePause, HeartPulse, Plus, RefreshCw, ShieldAlert } from 'lucide-react'
-import { useCreateNodeProvisioningJob, useNodesPageData } from '../shared/api/resourceHooks'
+import {
+  useCreateNodeCommand,
+  useCreateNodeProvisioningJob,
+  useNodeCommandsData,
+  useNodeMetricsData,
+  useNodesPageData,
+  usePauseNode,
+  useQuarantineNode,
+  useResumeNode,
+} from '../shared/api/resourceHooks'
 import type { NodeResponse, ProvisioningJobResponse } from '../shared/api/types'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
@@ -180,6 +189,14 @@ function createIdempotencyKey() {
   return `web-node-${randomValue}`
 }
 
+function parseCommandPayload(value: string) {
+  const parsed: unknown = JSON.parse(value || '{}')
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('Command payload must be a JSON object.')
+  }
+  return parsed as Record<string, unknown>
+}
+
 function getHeartbeatLabel(node: NodeResponse) {
   if (node.last_seen_at) {
     return `Last heartbeat ${formatTimestamp(node.last_seen_at)}`
@@ -301,7 +318,19 @@ export function NodesPage() {
   const [form, setForm] = useState<ProvisioningFormState>(initialFormState)
   const [formError, setFormError] = useState<string | null>(null)
   const [latestJob, setLatestJob] = useState<ProvisioningJobResponse | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined)
+  const [commandType, setCommandType] = useState('node.restart')
+  const [commandPayload, setCommandPayload] = useState('{"reason":"operator requested"}')
+  const [commandError, setCommandError] = useState<string | null>(null)
+  const createCommand = useCreateNodeCommand()
+  const pauseNode = usePauseNode()
+  const resumeNode = useResumeNode()
+  const quarantineNode = useQuarantineNode()
   const nodes = useMemo(() => query.data?.items ?? [], [query.data?.items])
+  const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : undefined
+  const effectiveNodeId = selectedNode?.id
+  const commandsQuery = useNodeCommandsData(effectiveNodeId)
+  const metricsQuery = useNodeMetricsData(effectiveNodeId)
   const nodeStateSummary = useMemo(
     () => ({
       heartbeatMissing: nodes.filter(hasMissingHeartbeat).length,
@@ -352,6 +381,31 @@ export function NodesPage() {
     }
   }
 
+  async function handleCommandSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setCommandError(null)
+    if (!effectiveNodeId) {
+      setCommandError('Select a node first.')
+      return
+    }
+    let payload: Record<string, unknown>
+    try {
+      payload = parseCommandPayload(commandPayload)
+    } catch (error) {
+      setCommandError(getErrorMessage(error))
+      return
+    }
+    try {
+      await createCommand.mutateAsync({
+        id: effectiveNodeId,
+        request: { command_type: commandType.trim(), payload_json: payload },
+      })
+      await commandsQuery.refetch()
+    } catch {
+      // Mutation error is rendered below.
+    }
+  }
+
   return (
     <section className="page">
       <PageHeader
@@ -394,7 +448,15 @@ export function NodesPage() {
             </div>
             <DataTable
               caption="Node provisioning and heartbeat inventory"
-              columns={['Node', 'Region', 'Public address', 'Capabilities', 'Heartbeat', 'State']}
+              columns={[
+                'Node',
+                'Region',
+                'Public address',
+                'Capabilities',
+                'Heartbeat',
+                'State',
+                'Actions',
+              ]}
               rows={nodes.map((node) => {
                 const state = getNodeState(node.status)
 
@@ -410,10 +472,136 @@ export function NodesPage() {
                       <br />
                       <small>{state.detail}</small>
                     </>,
+                    <div className="inline-actions">
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() => setSelectedNodeId(node.id)}
+                      >
+                        Inspect
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() =>
+                          void pauseNode.mutateAsync({
+                            id: node.id,
+                            request: { reason: 'operator requested', license_enforced: false },
+                          })
+                        }
+                      >
+                        Pause
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() =>
+                          void resumeNode.mutateAsync({
+                            id: node.id,
+                            request: { target_status: 'offline' },
+                          })
+                        }
+                      >
+                        Resume
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() =>
+                          void quarantineNode.mutateAsync({
+                            id: node.id,
+                            request: { reason: 'operator quarantine' },
+                          })
+                        }
+                      >
+                        Quarantine
+                      </button>
+                    </div>,
                   ],
                   id: node.id,
                 }
               })}
+            />
+          </article>
+        ) : null}
+
+        {selectedNode ? (
+          <article className="panel panel--wide">
+            <div className="panel__header">
+              <div>
+                <p className="eyebrow">Node operations</p>
+                <h2>{selectedNode.name}</h2>
+              </div>
+              <StatusBadge tone={getNodeState(selectedNode.status).tone}>
+                {getNodeState(selectedNode.status).label}
+              </StatusBadge>
+            </div>
+            <form className="screen-form" onSubmit={handleCommandSubmit}>
+              <label htmlFor="node-command-type">
+                Command type
+                <select
+                  id="node-command-type"
+                  value={commandType}
+                  onChange={(event) => setCommandType(event.target.value)}
+                >
+                  <option value="node.restart">node.restart</option>
+                  <option value="node.reload">node.reload</option>
+                  <option value="xray.reload">xray.reload</option>
+                  <option value="firewall.sync">firewall.sync</option>
+                  <option value="protocol.apply">protocol.apply</option>
+                  <option value="telemetry.collect">telemetry.collect</option>
+                </select>
+              </label>
+              <label htmlFor="node-command-payload">
+                Payload JSON
+                <textarea
+                  id="node-command-payload"
+                  rows={4}
+                  value={commandPayload}
+                  onChange={(event) => setCommandPayload(event.target.value)}
+                />
+              </label>
+              {commandError ? <p className="auth-card__note">{commandError}</p> : null}
+              {createCommand.isError ? (
+                <p className="auth-card__note">{getErrorMessage(createCommand.error)}</p>
+              ) : null}
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={createCommand.isPending}
+              >
+                Queue command
+              </button>
+            </form>
+            <DataTable
+              caption="Node command queue"
+              columns={['Command', 'Status', 'Payload', 'Result', 'Created']}
+              rows={(commandsQuery.data?.items ?? []).map((command) => ({
+                cells: [
+                  command.command_type,
+                  <StatusBadge tone={getNodeState(command.status).tone}>
+                    {formatStatus(command.status)}
+                  </StatusBadge>,
+                  JSON.stringify(command.payload_json),
+                  command.result_json ? JSON.stringify(command.result_json) : '-',
+                  formatTimestamp(command.created_at),
+                ],
+                id: command.id,
+              }))}
+            />
+            <DataTable
+              caption="Node metrics"
+              columns={['Kind', 'Values', 'Observed']}
+              rows={(metricsQuery.data?.items ?? []).map((metric) => ({
+                cells: [
+                  metric.metric_kind,
+                  Object.entries(metric.values_json)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join(', '),
+                  formatTimestamp(metric.observed_at),
+                ],
+                id: metric.id,
+              }))}
             />
           </article>
         ) : null}
