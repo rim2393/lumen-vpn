@@ -461,7 +461,7 @@ function ProfileCard({
       <div className="profile-card__actions">
         <button type="button" className="button button--secondary" onClick={() => onEdit(profile)}>
           <Edit3 size={16} aria-hidden="true" />
-          {t('Config Xray')}
+          {t('Config')}
         </button>
         <button
           type="button"

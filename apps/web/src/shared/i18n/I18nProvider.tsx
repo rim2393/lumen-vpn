@@ -337,10 +337,12 @@ const ru: Record<string, string> = {
   'Xray computed config': 'Вычисленный Xray config',
   'Xray config wrapper': 'Обертка Xray config',
   'Bound hosts': 'Привязанные хосты',
+  Config: 'Конфиг',
   'Config Xray': 'Конфиг Xray',
   'Export {name}': 'Экспортировать {name}',
   'No profiles match the current search.': 'Профили не совпадают с текущим поиском.',
   'Search profiles': 'Поиск профилей',
+  'Refresh profiles': 'Обновить профили',
   'profile.hosts.count': '{count} хостов',
   'no ports': 'без портов',
 }
