@@ -6,6 +6,10 @@ test-only implementations from reaching the shipped product.
 
 ## Hard Rules
 
+- This is a project-wide rule for all repositories, installers, deployed
+  services, admin UI pages, public subscription pages, node agents, tests, and
+  documentation: production means live behavior only. Fake/demo/mock/scaffold
+  substitutions are not allowed as temporary production shortcuts.
 - Production behavior must be real. Every deployed page, button, metric,
   subscription link, node action, API response, installer step, and update path
   must reflect real panel, node, database, filesystem, network, or external

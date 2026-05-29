@@ -54,7 +54,6 @@ export function MfaPage() {
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]*"
-          placeholder="000000"
           required
         />
       </label>

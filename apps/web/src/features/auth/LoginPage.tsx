@@ -60,7 +60,7 @@ export function LoginPage() {
       </div>
       <label>
         Email
-        <input name="email" type="email" autoComplete="email" placeholder="admin@lumen.local" required />
+        <input name="email" type="email" autoComplete="email" required />
       </label>
       <label>
         Password
