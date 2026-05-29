@@ -102,6 +102,29 @@ function asNodeListResponse(): NodeListResponse {
   }
 }
 
+function buildDevelopmentProfileInbounds(
+  profile: ProtocolProfileRecord,
+  node: NodeResponse | undefined,
+) {
+  return profile.port_reservations.map((reservation, index) => ({
+    adapter: profile.adapter,
+    config_json: profile.config_json,
+    credentials_ref: profile.credentials_ref,
+    hosts: [],
+    listen: String(reservation.address ?? '0.0.0.0'),
+    node_id: node?.id ?? profile.node_id,
+    node_name: node?.name ?? profile.node_id,
+    port: Number(reservation.port),
+    profile_id: profile.id,
+    profile_name: profile.name,
+    protocol: profile.adapter,
+    security: String(profile.config_json.security ?? 'none'),
+    status: profile.status,
+    tag: String(profile.config_json.tag ?? `${profile.adapter}-${index + 1}`),
+    transport: String(profile.config_json.transport ?? profile.config_json.network ?? 'tcp'),
+  }))
+}
+
 function buildDevelopmentProvisioningJob(
   request: ProvisioningJobCreateRequest,
   jobId = `job_${request.idempotency_key}`,
@@ -484,6 +507,49 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         throw new Error('User not found')
       }
       return user
+    },
+    getProfile: async (profileId: string): Promise<ProtocolProfileRecord> => {
+      const profile = profiles.find((item) => item.id === profileId)
+      if (!profile) {
+        throw new Error('Profile not found')
+      }
+      return profile
+    },
+    getProfileComputedConfig: async (profileId: string) => {
+      const profile = profiles.find((item) => item.id === profileId)
+      if (!profile) {
+        throw new Error('Profile not found')
+      }
+      const nodeList = asNodeListResponse().items
+      const node = nodeList.find((item) => item.id === profile.node_id) ?? nodeList[0]
+      const inbounds = buildDevelopmentProfileInbounds(profile, node)
+      return {
+        computed_config: {
+          ...profile.config_json,
+          inbounds,
+          log: { loglevel: 'warning' },
+          routing: { rules: [] },
+        },
+        inbounds,
+        node: {
+          capabilities: node?.capabilities ?? {},
+          id: node?.id ?? profile.node_id,
+          name: node?.name ?? profile.node_id,
+          public_address: node?.public_address ?? '127.0.0.1',
+          region: node?.region ?? 'dev',
+          status: node?.status ?? 'unknown',
+        },
+        profile,
+      }
+    },
+    listProfileInbounds: async (profileId: string) => {
+      const profile = profiles.find((item) => item.id === profileId)
+      if (!profile) {
+        throw new Error('Profile not found')
+      }
+      const nodeList = asNodeListResponse().items
+      const node = nodeList.find((item) => item.id === profile.node_id) ?? nodeList[0]
+      return { items: buildDevelopmentProfileInbounds(profile, node) }
     },
     getUserDetail: async (userId: string) => {
       const user = users.find((item) => item.id === userId)

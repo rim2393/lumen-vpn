@@ -1,362 +1,685 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Ban, Save, Trash2 } from 'lucide-react'
+import {
+  Ban,
+  CheckCircle2,
+  Code2,
+  Copy,
+  Edit3,
+  Plus,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react'
 import {
   useCreateProfile,
   useDeleteProfile,
   useNodesPageData,
+  useProfileComputedConfig,
+  useProfileInbounds,
   useProfilesPageData,
   useProtocolAdaptersData,
   useSquadsPageData,
   useUpdateProfile,
 } from '../shared/api/resourceHooks'
-import type { ProtocolProfileRecord } from '../shared/api/types'
-import {
-  FormError,
-  ResourceScreen,
-  ScreenForm,
-  SubmitButton,
-} from '../shared/components/ResourceScreen'
-import { OperatorGuide } from '../shared/components/OperatorGuide'
+import type { PortReservation, ProtocolProfileRecord } from '../shared/api/types'
+import { useApiClient } from '../shared/api/apiClientContext'
+import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
+import { DataTable } from '../shared/components/DataTable'
+import { FormError, SubmitButton } from '../shared/components/ResourceScreen'
+import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { sectionSpecs } from '../shared/data/lumenData'
-import { formatRecord, parseKeyValueInput, toneForStatus } from '../shared/utils/resourceFormat'
+import { useI18n } from '../shared/i18n/I18nProvider'
+import { toneForStatus } from '../shared/utils/resourceFormat'
+
+type ProfileFormState = {
+  adapter: string
+  allowPortConflicts: boolean
+  credentialsRef: string
+  flow: string
+  name: string
+  nodeId: string
+  port: string
+  security: string
+  squadId: string
+  status: string
+  tag: string
+  transport: string
+}
+
+const defaultForm: ProfileFormState = {
+  adapter: 'vless-reality',
+  allowPortConflicts: false,
+  credentialsRef: 'vault://lumen/profiles/new-profile',
+  flow: 'xtls-rprx-vision',
+  name: '',
+  nodeId: '',
+  port: '443',
+  security: 'reality',
+  squadId: '',
+  status: 'active',
+  tag: '',
+  transport: 'tcp',
+}
 
 export function ProfilesPage() {
-  const query = useProfilesPageData()
+  const { t } = useI18n()
+  const apiClient = useApiClient()
+  const profilesQuery = useProfilesPageData()
   const adaptersQuery = useProtocolAdaptersData()
   const nodesQuery = useNodesPageData()
   const squadsQuery = useSquadsPageData()
   const createProfile = useCreateProfile()
-  const profiles = query.data?.items ?? []
-  const nodes = nodesQuery.data?.items ?? []
-  const squads = squadsQuery.data?.items ?? []
-  const adapters = adaptersQuery.data?.items ?? []
   const updateProfile = useUpdateProfile()
   const deleteProfile = useDeleteProfile()
-  const [name, setName] = useState('')
-  const [adapter, setAdapter] = useState('vless-reality')
-  const [nodeId, setNodeId] = useState('')
-  const [squadId, setSquadId] = useState('')
-  const [port, setPort] = useState('443')
-  const [credentialsRef, setCredentialsRef] = useState('vault://lumen/profiles/new-profile')
-  const [config, setConfig] = useState('transport=tcp, security=reality')
-  const [formError, setFormError] = useState<string | null>(null)
+  const profiles = profilesQuery.data?.items ?? []
+  const adapters = adaptersQuery.data?.items ?? []
+  const nodes = nodesQuery.data?.items ?? []
+  const squads = squadsQuery.data?.items ?? []
   const [selectedProfileId, setSelectedProfileId] = useState('')
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
+  const [form, setForm] = useState<ProfileFormState>(defaultForm)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [portCheckMessage, setPortCheckMessage] = useState<string | null>(null)
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedProfileId) ?? profiles[0],
     [profiles, selectedProfileId],
   )
+  const computedQuery = useProfileComputedConfig(selectedProfile?.id)
+  const inboundsQuery = useProfileInbounds(selectedProfile?.id)
 
   useEffect(() => {
-    if (adapters.length > 0 && !adapters.some((item) => item.protocol === adapter)) {
-      setAdapter(adapters[0].protocol)
+    if (!selectedProfileId && profiles[0]) {
+      setSelectedProfileId(profiles[0].id)
     }
-  }, [adapter, adapters])
+  }, [profiles, selectedProfileId])
+
+  useEffect(() => {
+    if (adapters.length > 0 && !adapters.some((item) => item.protocol === form.adapter)) {
+      setForm((current) => ({ ...current, adapter: adapters[0].protocol }))
+    }
+  }, [adapters, form.adapter])
+
+  useEffect(() => {
+    if (!form.nodeId && nodes[0]) {
+      setForm((current) => ({ ...current, nodeId: nodes[0].id }))
+    }
+  }, [form.nodeId, nodes])
+
+  const selectedAdapter = adapters.find((adapter) => adapter.protocol === form.adapter)
+  const selectedNode = nodes.find((node) => node.id === selectedProfile?.node_id)
+  const selectedSquad = squads.find((squad) => squad.id === selectedProfile?.squad_id)
+  const isLoading =
+    profilesQuery.isLoading || adaptersQuery.isLoading || nodesQuery.isLoading || squadsQuery.isLoading
+  const error = profilesQuery.error ?? adaptersQuery.error ?? nodesQuery.error ?? squadsQuery.error
+  const profileStats = {
+    active: profiles.filter((profile) => profile.status === 'active').length,
+    disabled: profiles.filter((profile) => profile.status !== 'active').length,
+    ports: profiles.reduce((total, profile) => total + profile.port_reservations.length, 0),
+  }
+
+  function startEdit(profile: ProtocolProfileRecord) {
+    setEditingProfileId(profile.id)
+    setSelectedProfileId(profile.id)
+    setForm(profileToForm(profile))
+    setFormError(null)
+    setPortCheckMessage(null)
+  }
+
+  function resetCreate() {
+    setEditingProfileId(null)
+    setForm({
+      ...defaultForm,
+      adapter: adapters[0]?.protocol ?? defaultForm.adapter,
+      nodeId: nodes[0]?.id ?? '',
+    })
+    setFormError(null)
+    setPortCheckMessage(null)
+  }
+
+  async function checkPorts(reservations: PortReservation[]) {
+    if (!form.nodeId) {
+      throw new Error('Node is required.')
+    }
+    const response = await apiClient.checkPortConflicts({
+      exclude_profile_id: editingProfileId,
+      node_id: form.nodeId,
+      reservations,
+    })
+    if (!response.allowed && !form.allowPortConflicts) {
+      const conflict = response.conflicts[0]
+      const suggestion = conflict?.suggested_port ? ` Suggested port: ${conflict.suggested_port}.` : ''
+      throw new Error(`${conflict?.message ?? 'Port conflict detected.'}${suggestion}`)
+    }
+    setPortCheckMessage(
+      response.allowed
+        ? 'Port check passed.'
+        : `Port conflict acknowledged: ${response.conflicts[0]?.message ?? 'conflict'}`,
+    )
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
-    const parsedPort = Number(port)
-    if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
-      setFormError('Port must be an integer between 1 and 65535.')
-      return
-    }
+    setPortCheckMessage(null)
     try {
-      await createProfile.mutateAsync({
-        adapter,
-        config_json: parseKeyValueInput(config),
-        credentials_ref: credentialsRef.trim() || null,
-        name: name.trim(),
-        node_id: nodeId || nodes[0]?.id || '',
-        port_reservations: [{ address: '0.0.0.0', exclusive: true, port: parsedPort, protocol: 'tcp' }],
-        squad_id: squadId || null,
-        status: 'active',
-      })
-      setName('')
+      const request = formToRequest(form)
+      await checkPorts(request.port_reservations)
+      if (editingProfileId) {
+        await updateProfile.mutateAsync({ id: editingProfileId, request })
+      } else {
+        const created = await createProfile.mutateAsync(request)
+        setSelectedProfileId(created.id)
+      }
+      resetCreate()
+      await profilesQuery.refetch()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Profile could not be created.')
+      setFormError(error instanceof Error ? error.message : 'Profile could not be saved.')
     }
   }
 
-  const selectedAdapter = adapters.find((item) => item.protocol === adapter)
+  async function copyComputedConfig() {
+    if (!computedQuery.data) {
+      return
+    }
+    await navigator.clipboard.writeText(JSON.stringify(computedQuery.data.computed_config, null, 2))
+  }
 
   return (
-    <ResourceScreen
-      caption="Protocol profile inventory"
-      columns={['Name', 'Adapter', 'Node', 'Squad', 'Ports', 'Config', 'Status', 'Actions']}
-      createForm={
-        <ScreenForm onSubmit={handleSubmit}>
-          <div>
-            <p className="eyebrow">Create profile</p>
-            <h2>Xray config wrapper</h2>
-            <p>Reserve ports and reference credentials by vault path only.</p>
-          </div>
-          <label htmlFor="profile-name">
-            Name
-            <input id="profile-name" required value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label htmlFor="profile-adapter">
-            Adapter
-            <select id="profile-adapter" value={adapter} onChange={(event) => setAdapter(event.target.value)}>
-              {adapters.map((item) => (
-                <option key={item.protocol} value={item.protocol}>
-                  {item.display_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label htmlFor="profile-node">
-            Node
-            <select id="profile-node" required value={nodeId} onChange={(event) => setNodeId(event.target.value)}>
-              <option value="">Select node</option>
-              {nodes.map((node) => (
-                <option key={node.id} value={node.id}>
-                  {node.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label htmlFor="profile-squad">
-            Squad
-            <select id="profile-squad" value={squadId} onChange={(event) => setSquadId(event.target.value)}>
-              <option value="">None</option>
-              {squads.map((squad) => (
-                <option key={squad.id} value={squad.id}>
-                  {squad.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label htmlFor="profile-port">
-            Port
-            <input id="profile-port" inputMode="numeric" required value={port} onChange={(event) => setPort(event.target.value)} />
-          </label>
-          <label htmlFor="profile-credentials-ref">
-            credentials_ref
-            <input id="profile-credentials-ref" value={credentialsRef} onChange={(event) => setCredentialsRef(event.target.value)} />
-          </label>
-          <label htmlFor="profile-config">
-            Config
-            <textarea id="profile-config" value={config} onChange={(event) => setConfig(event.target.value)} />
-          </label>
-          <FormError message={formError} />
-          <SubmitButton pending={createProfile.isPending}>Create profile</SubmitButton>
-        </ScreenForm>
-      }
-      emptyDescription="Create protocol profiles after registering at least one node."
-      emptyTitle="No profiles created"
-      error={query.error}
-      errorTitle="Profiles unavailable"
-      isError={query.isError}
-      isLoading={query.isLoading}
-      isSuccess={query.isSuccess}
-      items={profiles}
-      loadingLabel="Loading profiles..."
-      onRefresh={() => void query.refetch()}
-      renderRow={(profile) => ({
-        cells: [
-          profile.name,
-          profile.adapter,
-          nodes.find((node) => node.id === profile.node_id)?.name ?? profile.node_id,
-          squads.find((squad) => squad.id === profile.squad_id)?.name ?? 'None',
-          profile.port_reservations.map((reservation) => `${String(reservation.port)}/${String(reservation.protocol ?? 'tcp')}`).join(', ') || 'None',
-          formatRecord(profile.config_json),
-          <StatusBadge tone={toneForStatus(profile.status)}>{profile.status}</StatusBadge>,
+    <section className="page">
+      <PageHeader
+        eyebrow={sectionSpecs.profiles.eyebrow}
+        title={sectionSpecs.profiles.title}
+        description="Build Xray protocol profiles, reserve real node ports, inspect generated inbounds, and attach delivery squads."
+        actions={
           <div className="inline-actions">
             <button
               type="button"
-              className="icon-button"
-              aria-label={`Edit ${profile.name}`}
-              onClick={() => setSelectedProfileId(profile.id)}
+              className="button button--secondary"
+              aria-label={t('Refresh profiles')}
+              onClick={() => void profilesQuery.refetch()}
             >
-              <Save size={16} aria-hidden="true" />
+              <RefreshCw size={18} aria-hidden="true" />
+              {t('Refresh')}
             </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`${profile.status === 'active' ? 'Disable' : 'Enable'} ${profile.name}`}
-              onClick={() =>
+            <button type="button" className="button button--primary" onClick={resetCreate}>
+              <Plus size={18} aria-hidden="true" />
+              {t('Create profile')}
+            </button>
+          </div>
+        }
+      />
+
+      {isLoading ? <LoadingState label="Loading profiles..." /> : null}
+      {error ? <ErrorState title="Profiles unavailable" error={error} /> : null}
+      {!isLoading && !error ? (
+        <>
+          <section className="summary-grid" aria-label={t('Profile summary')}>
+            <div>
+              <span>{t('Total profiles')}</span>
+              <strong>{profiles.length}</strong>
+            </div>
+            <div>
+              <span>{t('Active')}</span>
+              <strong>{profileStats.active}</strong>
+            </div>
+            <div>
+              <span>{t('Reserved ports')}</span>
+              <strong>{profileStats.ports}</strong>
+            </div>
+            <div>
+              <span>{t('Disabled')}</span>
+              <strong>{profileStats.disabled}</strong>
+            </div>
+          </section>
+
+          <section className="profile-layout">
+            <article className="panel panel--wide">
+              <div className="panel__header">
+                <div>
+                  <p className="eyebrow">Client delivery</p>
+                  <h2>{t('Profiles')}</h2>
+                </div>
+                <StatusBadge>{t('real API')}</StatusBadge>
+              </div>
+              {profiles.length === 0 ? (
+                <EmptyState
+                  title="No profiles created"
+                  description="Create the first profile after registering a node."
+                />
+              ) : (
+                <div className="profile-card-grid">
+                  {profiles.map((profile) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      className={
+                        profile.id === selectedProfile?.id
+                          ? 'profile-card profile-card--selected'
+                          : 'profile-card'
+                      }
+                      onClick={() => setSelectedProfileId(profile.id)}
+                    >
+                      <span className="profile-card__icon">
+                        <ShieldCheck size={20} aria-hidden="true" />
+                      </span>
+                      <span className="profile-card__body">
+                        <strong>{profile.name}</strong>
+                        <small>
+                          {profile.adapter} · {portsLabel(profile)}
+                        </small>
+                      </span>
+                      <StatusBadge tone={toneForStatus(profile.status)}>{profile.status}</StatusBadge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <ProfileDetailPanel
+              computedConfig={computedQuery.data?.computed_config}
+              copyComputedConfig={copyComputedConfig}
+              inbounds={inboundsQuery.data?.items ?? []}
+              isComputedLoading={computedQuery.isLoading}
+              nodeName={selectedNode?.name ?? selectedProfile?.node_id}
+              onDelete={(profile) => void deleteProfile.mutateAsync(profile.id)}
+              onEdit={startEdit}
+              onToggle={(profile) =>
                 void updateProfile.mutateAsync({
                   id: profile.id,
                   request: { status: profile.status === 'active' ? 'disabled' : 'active' },
                 })
               }
-            >
-              <Ban size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`Delete ${profile.name}`}
-              onClick={() => void deleteProfile.mutateAsync(profile.id)}
-            >
-              <Trash2 size={16} aria-hidden="true" />
-            </button>
-          </div>,
-        ],
-        id: profile.id,
-      })}
-      rightPanel={
-        <div className="side-stack">
-          <OperatorGuide
-            title="Profile workflow"
-            steps={[
-              { detail: 'Pick the protocol adapter that matches the client app and transport.', label: 'Choose adapter' },
-              { detail: 'Reserve an available port and keep exclusive protocols isolated.', label: 'Reserve port' },
-              { detail: 'Attach the profile to a healthy node before sharing subscriptions.', label: 'Attach node', to: '/nodes' },
-              { detail: 'Bind a hostname so client links use the public endpoint.', label: 'Bind host', to: '/hosts' },
-            ]}
-          />
-          <article className="panel">
-            <div className="panel__header">
-              <div>
-                <p className="eyebrow">Adapter catalog</p>
-                <h2>{selectedAdapter?.display_name ?? 'Protocol adapters'}</h2>
-              </div>
-              <StatusBadge>{`${adapters.length} adapters`}</StatusBadge>
-            </div>
-            <ul className="feature-list">
-              {(selectedAdapter ? [selectedAdapter] : adapters).map((item) => (
-                <li key={item.protocol}>
-                  <span>{item.protocol}</span>
-                  <span>{item.capabilities.join(', ')}</span>
-                </li>
-              ))}
-            </ul>
-          </article>
-          <ProfileJsonEditor
-            onSave={async (profile, request) => {
-              await updateProfile.mutateAsync({ id: profile.id, request })
-              await query.refetch()
-            }}
-            pending={updateProfile.isPending}
-            profile={selectedProfile}
-          />
-        </div>
-      }
-      spec={sectionSpecs.profiles}
-      tableEyebrow="Client delivery"
-      tableTitle="Profile builder"
-    />
+              profile={selectedProfile}
+              squadName={selectedSquad?.name ?? null}
+            />
+
+            <ProfileEditor
+              adapters={adapters}
+              editing={Boolean(editingProfileId)}
+              error={formError}
+              form={form}
+              onCancel={resetCreate}
+              onChange={setForm}
+              onSubmit={handleSubmit}
+              pending={createProfile.isPending || updateProfile.isPending}
+              portCheckMessage={portCheckMessage}
+              selectedAdapterCapabilities={selectedAdapter?.capabilities ?? []}
+              nodes={nodes}
+              squads={squads}
+            />
+          </section>
+        </>
+      ) : null}
+    </section>
   )
 }
 
-function ProfileJsonEditor({
-  onSave,
-  pending,
+function ProfileDetailPanel({
+  computedConfig,
+  copyComputedConfig,
+  inbounds,
+  isComputedLoading,
+  nodeName,
+  onDelete,
+  onEdit,
+  onToggle,
   profile,
+  squadName,
 }: {
-  onSave: (
-    profile: ProtocolProfileRecord,
-    request: {
-      config_json: Record<string, unknown>
-      metadata_json: Record<string, unknown>
-      port_reservations: Array<{ address?: string; exclusive?: boolean; port: number; protocol?: 'tcp' | 'udp' }>
-      status: string
-    },
-  ) => Promise<void>
-  pending: boolean
+  computedConfig: Record<string, unknown> | undefined
+  copyComputedConfig: () => Promise<void>
+  inbounds: Array<{
+    hosts: Array<Record<string, unknown>>
+    listen: string
+    port: number
+    security: string
+    tag: string
+    transport: string
+  }>
+  isComputedLoading: boolean
+  nodeName: string | undefined
+  onDelete: (profile: ProtocolProfileRecord) => void
+  onEdit: (profile: ProtocolProfileRecord) => void
+  onToggle: (profile: ProtocolProfileRecord) => void
   profile: ProtocolProfileRecord | undefined
+  squadName: string | null
 }) {
-  const [configJson, setConfigJson] = useState('')
-  const [metadataJson, setMetadataJson] = useState('')
-  const [portsJson, setPortsJson] = useState('')
-  const [status, setStatus] = useState('active')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!profile) {
-      setConfigJson('')
-      setMetadataJson('')
-      setPortsJson('')
-      setStatus('active')
-      return
-    }
-    setConfigJson(JSON.stringify(profile.config_json, null, 2))
-    setMetadataJson(JSON.stringify(profile.metadata_json, null, 2))
-    setPortsJson(JSON.stringify(profile.port_reservations, null, 2))
-    setStatus(profile.status)
-  }, [profile])
-
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    if (!profile) {
-      return
-    }
-    try {
-      await onSave(profile, {
-        config_json: parseJsonObject(configJson, 'config_json'),
-        metadata_json: parseJsonObject(metadataJson, 'metadata_json'),
-        port_reservations: parsePortReservations(portsJson),
-        status,
-      })
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Profile could not be saved.')
-    }
+  if (!profile) {
+    return (
+      <article className="panel">
+        <EmptyState title="No profile selected" description="Create or select a profile to inspect it." />
+      </article>
+    )
   }
 
   return (
-    <ScreenForm onSubmit={handleSave}>
-      <div>
-        <p className="eyebrow">Xray JSON editor</p>
-        <h2>{profile?.name ?? 'Select profile'}</h2>
-        <p>Edit stored profile JSON and port reservations. Saved values go through the backend PATCH API.</p>
+    <article className="panel">
+      <div className="panel__header">
+        <div>
+          <p className="eyebrow">Selected profile</p>
+          <h2>{profile.name}</h2>
+        </div>
+        <StatusBadge tone={toneForStatus(profile.status)}>{profile.status}</StatusBadge>
       </div>
-      <label htmlFor="profile-editor-status">
-        Status
-        <select id="profile-editor-status" value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="active">active</option>
-          <option value="disabled">disabled</option>
-          <option value="installing">installing</option>
-        </select>
-      </label>
-      <label htmlFor="profile-editor-config">
-        config_json
-        <textarea id="profile-editor-config" rows={8} value={configJson} onChange={(event) => setConfigJson(event.target.value)} />
-      </label>
-      <label htmlFor="profile-editor-metadata">
-        metadata_json
-        <textarea id="profile-editor-metadata" rows={5} value={metadataJson} onChange={(event) => setMetadataJson(event.target.value)} />
-      </label>
-      <label htmlFor="profile-editor-ports">
-        port_reservations
-        <textarea id="profile-editor-ports" rows={5} value={portsJson} onChange={(event) => setPortsJson(event.target.value)} />
-      </label>
-      <FormError message={error} />
-      <SubmitButton pending={pending || !profile}>Save profile</SubmitButton>
-    </ScreenForm>
+      <div className="inline-actions">
+        <button type="button" className="button button--secondary" onClick={() => onEdit(profile)}>
+          <Edit3 size={16} aria-hidden="true" />
+          Edit
+        </button>
+        <button type="button" className="button button--secondary" onClick={() => onToggle(profile)}>
+          <Ban size={16} aria-hidden="true" />
+          {profile.status === 'active' ? 'Disable' : 'Enable'}
+        </button>
+        <button type="button" className="icon-button" aria-label={`Delete ${profile.name}`} onClick={() => onDelete(profile)}>
+          <Trash2 size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      <dl className="profile-facts">
+        <div>
+          <dt>Adapter</dt>
+          <dd>{profile.adapter}</dd>
+        </div>
+        <div>
+          <dt>Node</dt>
+          <dd>{nodeName ?? profile.node_id}</dd>
+        </div>
+        <div>
+          <dt>Squad</dt>
+          <dd>{squadName ?? 'None'}</dd>
+        </div>
+        <div>
+          <dt>Vault ref</dt>
+          <dd>{profile.credentials_ref ?? 'None'}</dd>
+        </div>
+      </dl>
+
+      <DataTable
+        caption="Profile inbounds"
+        columns={['Tag', 'Listen', 'Port', 'Transport', 'Security', 'Hosts']}
+        rows={inbounds.map((inbound) => ({
+          cells: [
+            inbound.tag,
+            inbound.listen,
+            String(inbound.port),
+            inbound.transport,
+            inbound.security,
+            String(inbound.hosts.length),
+          ],
+          id: inbound.tag,
+        }))}
+      />
+      {inbounds.length === 0 ? (
+        <p className="auth-card__note">No generated inbounds for this profile yet.</p>
+      ) : null}
+
+      <details className="details-card">
+        <summary>
+          <Code2 size={16} aria-hidden="true" />
+          Xray computed config
+        </summary>
+        <div className="inline-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!computedConfig || isComputedLoading}
+            onClick={() => void copyComputedConfig()}
+          >
+            <Copy size={16} aria-hidden="true" />
+            Copy JSON
+          </button>
+        </div>
+        <pre className="code-block">
+          {computedConfig ? JSON.stringify(computedConfig, null, 2) : 'Computed config unavailable.'}
+        </pre>
+      </details>
+    </article>
   )
 }
 
-function parseJsonObject(value: string, fieldName: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(value || '{}')
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-    throw new Error(`${fieldName} must be a JSON object.`)
-  }
-  return parsed as Record<string, unknown>
+function ProfileEditor({
+  adapters,
+  editing,
+  error,
+  form,
+  nodes,
+  onCancel,
+  onChange,
+  onSubmit,
+  pending,
+  portCheckMessage,
+  selectedAdapterCapabilities,
+  squads,
+}: {
+  adapters: Array<{ capabilities: string[]; display_name: string; protocol: string; status: string }>
+  editing: boolean
+  error: string | null
+  form: ProfileFormState
+  nodes: Array<{ id: string; name: string; status: string }>
+  onCancel: () => void
+  onChange: (state: ProfileFormState) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  pending: boolean
+  portCheckMessage: string | null
+  selectedAdapterCapabilities: string[]
+  squads: Array<{ id: string; name: string }>
+}) {
+  const patch = (partial: Partial<ProfileFormState>) => onChange({ ...form, ...partial })
+
+  return (
+    <form className="auth-card auth-card--wide" onSubmit={onSubmit}>
+      <div>
+        <p className="eyebrow">{editing ? 'Edit profile' : 'Create profile'}</p>
+        <h2>Xray config wrapper</h2>
+        <p>All fields are persisted through the profile API and validated before save.</p>
+      </div>
+      <div className="profile-form-grid">
+        <label htmlFor="profile-name">
+          Name
+          <input
+            id="profile-name"
+            required
+            value={form.name}
+            onChange={(event) => patch({ name: event.target.value })}
+          />
+        </label>
+        <label htmlFor="profile-adapter">
+          Adapter
+          <select
+            id="profile-adapter"
+            value={form.adapter}
+            onChange={(event) => patch({ adapter: event.target.value })}
+          >
+            {adapters.map((adapter) => (
+              <option key={adapter.protocol} value={adapter.protocol}>
+                {adapter.display_name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="profile-node">
+          Node
+          <select
+            id="profile-node"
+            required
+            value={form.nodeId}
+            onChange={(event) => patch({ nodeId: event.target.value })}
+          >
+            <option value="">Select node</option>
+            {nodes.map((node) => (
+              <option key={node.id} value={node.id}>
+                {node.name} · {node.status}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="profile-squad">
+          Squad
+          <select
+            id="profile-squad"
+            value={form.squadId}
+            onChange={(event) => patch({ squadId: event.target.value })}
+          >
+            <option value="">None</option>
+            {squads.map((squad) => (
+              <option key={squad.id} value={squad.id}>
+                {squad.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="profile-port">
+          Port
+          <input
+            id="profile-port"
+            inputMode="numeric"
+            required
+            value={form.port}
+            onChange={(event) => patch({ port: event.target.value })}
+          />
+        </label>
+        <label htmlFor="profile-transport">
+          Transport
+          <select
+            id="profile-transport"
+            value={form.transport}
+            onChange={(event) => patch({ transport: event.target.value })}
+          >
+            {['tcp', 'grpc', 'ws', 'xhttp', 'httpupgrade', 'splithttp'].map((transport) => (
+              <option key={transport} value={transport}>
+                {transport}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="profile-security">
+          Security
+          <select
+            id="profile-security"
+            value={form.security}
+            onChange={(event) => patch({ security: event.target.value })}
+          >
+            {['reality', 'tls', 'none'].map((security) => (
+              <option key={security} value={security}>
+                {security}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="profile-flow">
+          Flow
+          <input id="profile-flow" value={form.flow} onChange={(event) => patch({ flow: event.target.value })} />
+        </label>
+        <label htmlFor="profile-tag">
+          Inbound tag
+          <input id="profile-tag" value={form.tag} onChange={(event) => patch({ tag: event.target.value })} />
+        </label>
+        <label htmlFor="profile-credentials-ref" className="profile-form-grid__wide">
+          Credentials ref
+          <input
+            id="profile-credentials-ref"
+            value={form.credentialsRef}
+            onChange={(event) => patch({ credentialsRef: event.target.value })}
+          />
+        </label>
+        <label className="toggle-row profile-form-grid__wide" htmlFor="profile-allow-conflicts">
+          <input
+            id="profile-allow-conflicts"
+            type="checkbox"
+            checked={form.allowPortConflicts}
+            onChange={(event) => patch({ allowPortConflicts: event.target.checked })}
+          />
+          Allow saving with acknowledged port conflicts
+        </label>
+      </div>
+      <div className="resource-list">
+        <div className="resource-list__item">
+          <span>
+            <Server size={16} aria-hidden="true" /> Adapter capabilities
+          </span>
+          <small>{selectedAdapterCapabilities.join(', ') || 'No capabilities reported'}</small>
+        </div>
+        {portCheckMessage ? (
+          <div className="resource-list__item">
+            <span>
+              <CheckCircle2 size={16} aria-hidden="true" /> Port validation
+            </span>
+            <small>{portCheckMessage}</small>
+          </div>
+        ) : null}
+      </div>
+      <FormError message={error} />
+      <div className="inline-actions">
+        <SubmitButton pending={pending}>{editing ? 'Save profile' : 'Create profile'}</SubmitButton>
+        {editing ? (
+          <button type="button" className="button button--secondary" onClick={onCancel}>
+            Cancel edit
+          </button>
+        ) : null}
+      </div>
+    </form>
+  )
 }
 
-function parsePortReservations(
-  value: string,
-): Array<{ address?: string; exclusive?: boolean; port: number; protocol?: 'tcp' | 'udp' }> {
-  const parsed: unknown = JSON.parse(value || '[]')
-  if (!Array.isArray(parsed)) {
-    throw new Error('port_reservations must be a JSON array.')
+function profileToForm(profile: ProtocolProfileRecord): ProfileFormState {
+  const reservation = profile.port_reservations[0] ?? {}
+  return {
+    adapter: profile.adapter,
+    allowPortConflicts: false,
+    credentialsRef: profile.credentials_ref ?? '',
+    flow: String(profile.config_json.flow ?? ''),
+    name: profile.name,
+    nodeId: profile.node_id,
+    port: String(reservation.port ?? ''),
+    security: String(profile.config_json.security ?? 'reality'),
+    squadId: profile.squad_id ?? '',
+    status: profile.status,
+    tag: String(profile.config_json.tag ?? ''),
+    transport: String(profile.config_json.transport ?? profile.config_json.network ?? 'tcp'),
   }
-  return parsed.map((entry) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new Error('Each port reservation must be a JSON object.')
-    }
-    const reservation = entry as Record<string, unknown>
-    if (typeof reservation.port !== 'number' || !Number.isInteger(reservation.port)) {
-      throw new Error('Each port reservation needs an integer port.')
-    }
-    return {
-      address: typeof reservation.address === 'string' ? reservation.address : '0.0.0.0',
-      exclusive: typeof reservation.exclusive === 'boolean' ? reservation.exclusive : true,
-      port: reservation.port,
-      protocol: reservation.protocol === 'udp' ? 'udp' : 'tcp',
-    }
-  })
+}
+
+function formToRequest(form: ProfileFormState) {
+  const port = Number(form.port)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('Port must be an integer between 1 and 65535.')
+  }
+  if (!form.nodeId) {
+    throw new Error('Node is required.')
+  }
+  if (!form.name.trim()) {
+    throw new Error('Name is required.')
+  }
+  const config_json: Record<string, unknown> = {
+    security: form.security,
+    transport: form.transport,
+  }
+  if (form.flow.trim()) {
+    config_json.flow = form.flow.trim()
+  }
+  if (form.tag.trim()) {
+    config_json.tag = form.tag.trim()
+  }
+  return {
+    adapter: form.adapter,
+    allow_port_conflicts: form.allowPortConflicts,
+    config_json,
+    credentials_ref: form.credentialsRef.trim() || null,
+    name: form.name.trim(),
+    node_id: form.nodeId,
+    port_reservations: [{ address: '0.0.0.0', exclusive: true, port, protocol: 'tcp' as const }],
+    squad_id: form.squadId || null,
+    status: form.status,
+  }
+}
+
+function portsLabel(profile: ProtocolProfileRecord): string {
+  if (profile.port_reservations.length === 0) {
+    return 'no ports'
+  }
+  return profile.port_reservations
+    .map((reservation) => `${String(reservation.port)}/${String(reservation.protocol ?? 'tcp')}`)
+    .join(', ')
 }

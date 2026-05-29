@@ -482,6 +482,26 @@ export type ProtocolProfileListResponse = {
   items: ProtocolProfileRecord[]
 }
 
+export type ProfileComputedNodeRecord = {
+  capabilities: Record<string, string>
+  id: string
+  name: string
+  public_address: string
+  region: string
+  status: string
+}
+
+export type ProfileComputedConfigResponse = {
+  computed_config: Record<string, unknown>
+  inbounds: ProfileInboundRecord[]
+  node: ProfileComputedNodeRecord
+  profile: ProtocolProfileRecord
+}
+
+export type ProfileInboundListResponse = {
+  items: ProfileInboundRecord[]
+}
+
 export type HostRecord = {
   address: string | null
   hostname: string
@@ -888,6 +908,9 @@ export type LumenApiClient = {
   getSession: () => Promise<AuthSession | null>
   getUser: (userId: string) => Promise<UserRecord>
   getUserDetail: (userId: string) => Promise<UserDetailResponse>
+  getProfile: (profileId: string) => Promise<ProtocolProfileRecord>
+  getProfileComputedConfig: (profileId: string) => Promise<ProfileComputedConfigResponse>
+  listProfileInbounds: (profileId: string) => Promise<ProfileInboundListResponse>
   listApiKeys: () => Promise<ResourceListResponse<ApiKeyRecord>>
   listHosts: () => Promise<HostListResponse>
   listNodes: () => Promise<NodeListResponse>

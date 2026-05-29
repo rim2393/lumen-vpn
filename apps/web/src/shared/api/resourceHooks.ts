@@ -39,6 +39,9 @@ export const resourceQueryKeys = {
   nodeCommands: (nodeId: string) => ['resource', 'nodes', nodeId, 'commands'] as const,
   nodeMetrics: (nodeId: string) => ['resource', 'nodes', nodeId, 'metrics'] as const,
   profiles: ['resource', 'profiles'] as const,
+  profileComputedConfig: (profileId: string) =>
+    ['resource', 'profiles', profileId, 'computed-config'] as const,
+  profileInbounds: (profileId: string) => ['resource', 'profiles', profileId, 'inbounds'] as const,
   protocolAdapters: ['resource', 'protocol-adapters'] as const,
   provisioningJob: (jobId: string) => ['resource', 'nodes', 'provisioning-job', jobId] as const,
   session: ['auth', 'session'] as const,
@@ -201,6 +204,26 @@ export function useProtocolAdaptersData() {
   })
 }
 
+export function useProfileComputedConfig(profileId: string | undefined) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    enabled: Boolean(profileId),
+    queryFn: () => apiClient.getProfileComputedConfig(profileId ?? ''),
+    queryKey: resourceQueryKeys.profileComputedConfig(profileId ?? ''),
+  })
+}
+
+export function useProfileInbounds(profileId: string | undefined) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    enabled: Boolean(profileId),
+    queryFn: () => apiClient.listProfileInbounds(profileId ?? ''),
+    queryKey: resourceQueryKeys.profileInbounds(profileId ?? ''),
+  })
+}
+
 export function useCreateProfile() {
   const apiClient = useApiClient()
   const queryClient = useQueryClient()
@@ -220,8 +243,12 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: ({ id, request }: { id: string; request: ProtocolProfileUpdateRequest }) =>
       apiClient.updateProfile(id, request),
-    onSuccess: () => {
+    onSuccess: (_response, variables) => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({
+        queryKey: resourceQueryKeys.profileComputedConfig(variables.id),
+      })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileInbounds(variables.id) })
     },
   })
 }

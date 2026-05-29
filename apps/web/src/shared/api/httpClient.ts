@@ -153,6 +153,10 @@ export function createHttpLumenApiClient({
       request(`/api/v1/tools/sessions/${sessionId}`, { method: 'DELETE' }),
     getUser: (userId: string) => request(`/api/v1/users/${userId}`),
     getUserDetail: (userId: string) => request(`/api/v1/users/${userId}/detail`),
+    getProfile: (profileId: string) => request(`/api/v1/profiles/${profileId}`),
+    getProfileComputedConfig: (profileId: string) =>
+      request(`/api/v1/profiles/${profileId}/computed-config`),
+    listProfileInbounds: (profileId: string) => request(`/api/v1/profiles/${profileId}/inbounds`),
     getSquadDetail: (squadId: string) => request(`/api/v1/squads/${squadId}/detail`),
     listApiKeys: () => request('/api/admin/api-keys'),
     listHosts: () => request('/api/v1/hosts'),
