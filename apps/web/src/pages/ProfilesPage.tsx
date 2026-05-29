@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Code2,
   Copy,
+  Download,
   Edit3,
   Plus,
   RefreshCw,
@@ -140,7 +141,7 @@ export function ProfilesPage() {
 
   async function checkPorts(reservations: PortReservation[]) {
     if (!form.nodeId) {
-      throw new Error('Node is required.')
+      throw new Error(t('Node is required.'))
     }
     const response = await apiClient.checkPortConflicts({
       exclude_profile_id: editingProfileId,
@@ -149,13 +150,13 @@ export function ProfilesPage() {
     })
     if (!response.allowed && !form.allowPortConflicts) {
       const conflict = response.conflicts[0]
-      const suggestion = conflict?.suggested_port ? ` Suggested port: ${conflict.suggested_port}.` : ''
-      throw new Error(`${conflict?.message ?? 'Port conflict detected.'}${suggestion}`)
+      const suggestion = conflict?.suggested_port ? ` ${t('Suggested port')}: ${conflict.suggested_port}.` : ''
+      throw new Error(`${conflict?.message ?? t('Port conflict detected.')}${suggestion}`)
     }
     setPortCheckMessage(
       response.allowed
-        ? 'Port check passed.'
-        : `Port conflict acknowledged: ${response.conflicts[0]?.message ?? 'conflict'}`,
+        ? t('Port check passed.')
+        : `${t('Port conflict acknowledged')}: ${response.conflicts[0]?.message ?? t('conflict')}`,
     )
   }
 
@@ -164,7 +165,7 @@ export function ProfilesPage() {
     setFormError(null)
     setPortCheckMessage(null)
     try {
-      const request = formToRequest(form)
+      const request = formToRequest(form, t)
       await checkPorts(request.port_reservations)
       if (editingProfileId) {
         await updateProfile.mutateAsync({ id: editingProfileId, request })
@@ -175,15 +176,28 @@ export function ProfilesPage() {
       resetCreate()
       await profilesQuery.refetch()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Profile could not be saved.')
+      setFormError(error instanceof Error ? error.message : t('Profile could not be saved.'))
     }
   }
 
-  async function copyComputedConfig() {
-    if (!computedQuery.data) {
-      return
+  async function copyJson(value: unknown) {
+    await navigator.clipboard.writeText(JSON.stringify(value, null, 2))
+  }
+
+  function downloadJson(filename: string, value: unknown) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' })
+    const href = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = href
+    anchor.download = filename
+    anchor.click()
+    URL.revokeObjectURL(href)
+  }
+
+  function handleDelete(profile: ProtocolProfileRecord) {
+    if (window.confirm(t('Delete profile confirmation', { name: profile.name }))) {
+      void deleteProfile.mutateAsync(profile.id)
     }
-    await navigator.clipboard.writeText(JSON.stringify(computedQuery.data.computed_config, null, 2))
   }
 
   return (
@@ -191,7 +205,7 @@ export function ProfilesPage() {
       <PageHeader
         eyebrow={sectionSpecs.profiles.eyebrow}
         title={sectionSpecs.profiles.title}
-        description="Build Xray protocol profiles, reserve real node ports, inspect generated inbounds, and attach delivery squads."
+        description={t('Build Xray protocol profiles, reserve real node ports, inspect generated inbounds, and attach delivery squads.')}
         actions={
           <div className="inline-actions">
             <button
@@ -211,8 +225,8 @@ export function ProfilesPage() {
         }
       />
 
-      {isLoading ? <LoadingState label="Loading profiles..." /> : null}
-      {error ? <ErrorState title="Profiles unavailable" error={error} /> : null}
+      {isLoading ? <LoadingState label={t('Loading profiles...')} /> : null}
+      {error ? <ErrorState title={t('Profiles unavailable')} error={error} /> : null}
       {!isLoading && !error ? (
         <>
           <section className="summary-grid" aria-label={t('Profile summary')}>
@@ -238,15 +252,15 @@ export function ProfilesPage() {
             <article className="panel panel--wide">
               <div className="panel__header">
                 <div>
-                  <p className="eyebrow">Client delivery</p>
+                  <p className="eyebrow">{t('Client delivery')}</p>
                   <h2>{t('Profiles')}</h2>
                 </div>
                 <StatusBadge>{t('real API')}</StatusBadge>
               </div>
               {profiles.length === 0 ? (
                 <EmptyState
-                  title="No profiles created"
-                  description="Create the first profile after registering a node."
+                  title={t('No profiles created')}
+                  description={t('Create the first profile after registering a node.')}
                 />
               ) : (
                 <div className="profile-card-grid">
@@ -267,10 +281,10 @@ export function ProfilesPage() {
                       <span className="profile-card__body">
                         <strong>{profile.name}</strong>
                         <small>
-                          {profile.adapter} · {portsLabel(profile)}
+                          {profile.adapter} · {portsLabel(profile, t)}
                         </small>
                       </span>
-                      <StatusBadge tone={toneForStatus(profile.status)}>{profile.status}</StatusBadge>
+                      <StatusBadge tone={toneForStatus(profile.status)}>{t(profile.status)}</StatusBadge>
                     </button>
                   ))}
                 </div>
@@ -279,11 +293,12 @@ export function ProfilesPage() {
 
             <ProfileDetailPanel
               computedConfig={computedQuery.data?.computed_config}
-              copyComputedConfig={copyComputedConfig}
+              copyJson={copyJson}
+              downloadJson={downloadJson}
               inbounds={inboundsQuery.data?.items ?? []}
               isComputedLoading={computedQuery.isLoading}
               nodeName={selectedNode?.name ?? selectedProfile?.node_id}
-              onDelete={(profile) => void deleteProfile.mutateAsync(profile.id)}
+              onDelete={handleDelete}
               onEdit={startEdit}
               onToggle={(profile) =>
                 void updateProfile.mutateAsync({
@@ -293,6 +308,7 @@ export function ProfilesPage() {
               }
               profile={selectedProfile}
               squadName={selectedSquad?.name ?? null}
+              t={t}
             />
 
             <ProfileEditor
@@ -308,6 +324,7 @@ export function ProfilesPage() {
               selectedAdapterCapabilities={selectedAdapter?.capabilities ?? []}
               nodes={nodes}
               squads={squads}
+              t={t}
             />
           </section>
         </>
@@ -318,7 +335,8 @@ export function ProfilesPage() {
 
 function ProfileDetailPanel({
   computedConfig,
-  copyComputedConfig,
+  copyJson,
+  downloadJson,
   inbounds,
   isComputedLoading,
   nodeName,
@@ -327,9 +345,11 @@ function ProfileDetailPanel({
   onToggle,
   profile,
   squadName,
+  t,
 }: {
   computedConfig: Record<string, unknown> | undefined
-  copyComputedConfig: () => Promise<void>
+  copyJson: (value: unknown) => Promise<void>
+  downloadJson: (filename: string, value: unknown) => void
   inbounds: Array<{
     hosts: Array<Record<string, unknown>>
     listen: string
@@ -345,60 +365,82 @@ function ProfileDetailPanel({
   onToggle: (profile: ProtocolProfileRecord) => void
   profile: ProtocolProfileRecord | undefined
   squadName: string | null
+  t: (value: string, params?: Record<string, string | number>) => string
 }) {
   if (!profile) {
     return (
       <article className="panel">
-        <EmptyState title="No profile selected" description="Create or select a profile to inspect it." />
+        <EmptyState title={t('No profile selected')} description={t('Create or select a profile to inspect it.')} />
       </article>
     )
+  }
+
+  const rawProfileExport = {
+    adapter: profile.adapter,
+    config_json: profile.config_json,
+    credentials_ref: profile.credentials_ref,
+    id: profile.id,
+    name: profile.name,
+    node_id: profile.node_id,
+    port_reservations: profile.port_reservations,
+    squad_id: profile.squad_id,
+    status: profile.status,
   }
 
   return (
     <article className="panel">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">Selected profile</p>
+          <p className="eyebrow">{t('Selected profile')}</p>
           <h2>{profile.name}</h2>
         </div>
-        <StatusBadge tone={toneForStatus(profile.status)}>{profile.status}</StatusBadge>
+        <StatusBadge tone={toneForStatus(profile.status)}>{t(profile.status)}</StatusBadge>
       </div>
       <div className="inline-actions">
         <button type="button" className="button button--secondary" onClick={() => onEdit(profile)}>
           <Edit3 size={16} aria-hidden="true" />
-          Edit
+          {t('Edit')}
         </button>
         <button type="button" className="button button--secondary" onClick={() => onToggle(profile)}>
           <Ban size={16} aria-hidden="true" />
-          {profile.status === 'active' ? 'Disable' : 'Enable'}
+          {profile.status === 'active' ? t('Disable') : t('Enable')}
         </button>
-        <button type="button" className="icon-button" aria-label={`Delete ${profile.name}`} onClick={() => onDelete(profile)}>
+        <button
+          type="button"
+          className="button button--secondary"
+          disabled={!computedConfig || isComputedLoading}
+          onClick={() => computedConfig && downloadJson(`${profile.name}-computed.json`, computedConfig)}
+        >
+          <Download size={16} aria-hidden="true" />
+          {t('Export computed')}
+        </button>
+        <button type="button" className="icon-button" aria-label={t('Delete {name}', { name: profile.name })} onClick={() => onDelete(profile)}>
           <Trash2 size={16} aria-hidden="true" />
         </button>
       </div>
 
       <dl className="profile-facts">
         <div>
-          <dt>Adapter</dt>
+          <dt>{t('Adapter')}</dt>
           <dd>{profile.adapter}</dd>
         </div>
         <div>
-          <dt>Node</dt>
+          <dt>{t('Node')}</dt>
           <dd>{nodeName ?? profile.node_id}</dd>
         </div>
         <div>
-          <dt>Squad</dt>
-          <dd>{squadName ?? 'None'}</dd>
+          <dt>{t('Squad')}</dt>
+          <dd>{squadName ?? t('None')}</dd>
         </div>
         <div>
-          <dt>Vault ref</dt>
-          <dd>{profile.credentials_ref ?? 'None'}</dd>
+          <dt>{t('Vault ref')}</dt>
+          <dd>{profile.credentials_ref ?? t('None')}</dd>
         </div>
       </dl>
 
       <DataTable
-        caption="Profile inbounds"
-        columns={['Tag', 'Listen', 'Port', 'Transport', 'Security', 'Hosts']}
+        caption={t('Profile inbounds')}
+        columns={[t('Tag'), t('Listen'), t('Port'), t('Transport'), t('Security'), t('Hosts')]}
         rows={inbounds.map((inbound) => ({
           cells: [
             inbound.tag,
@@ -412,27 +454,45 @@ function ProfileDetailPanel({
         }))}
       />
       {inbounds.length === 0 ? (
-        <p className="auth-card__note">No generated inbounds for this profile yet.</p>
+        <p className="auth-card__note">{t('No generated inbounds for this profile yet.')}</p>
       ) : null}
 
       <details className="details-card">
         <summary>
           <Code2 size={16} aria-hidden="true" />
-          Xray computed config
+          {t('Raw profile JSON')}
+        </summary>
+        <div className="inline-actions">
+          <button type="button" className="button button--secondary" onClick={() => void copyJson(rawProfileExport)}>
+            <Copy size={16} aria-hidden="true" />
+            {t('Copy JSON')}
+          </button>
+          <button type="button" className="button button--secondary" onClick={() => downloadJson(`${profile.name}-profile.json`, rawProfileExport)}>
+            <Download size={16} aria-hidden="true" />
+            {t('Download JSON')}
+          </button>
+        </div>
+        <pre className="code-block">{JSON.stringify(rawProfileExport, null, 2)}</pre>
+      </details>
+
+      <details className="details-card">
+        <summary>
+          <Code2 size={16} aria-hidden="true" />
+          {t('Xray computed config')}
         </summary>
         <div className="inline-actions">
           <button
             type="button"
             className="button button--secondary"
             disabled={!computedConfig || isComputedLoading}
-            onClick={() => void copyComputedConfig()}
+            onClick={() => computedConfig && void copyJson(computedConfig)}
           >
             <Copy size={16} aria-hidden="true" />
-            Copy JSON
+            {t('Copy JSON')}
           </button>
         </div>
         <pre className="code-block">
-          {computedConfig ? JSON.stringify(computedConfig, null, 2) : 'Computed config unavailable.'}
+          {computedConfig ? JSON.stringify(computedConfig, null, 2) : t('Computed config unavailable.')}
         </pre>
       </details>
     </article>
@@ -452,6 +512,7 @@ function ProfileEditor({
   portCheckMessage,
   selectedAdapterCapabilities,
   squads,
+  t,
 }: {
   adapters: Array<{ capabilities: string[]; display_name: string; protocol: string; status: string }>
   editing: boolean
@@ -465,19 +526,20 @@ function ProfileEditor({
   portCheckMessage: string | null
   selectedAdapterCapabilities: string[]
   squads: Array<{ id: string; name: string }>
+  t: (value: string) => string
 }) {
   const patch = (partial: Partial<ProfileFormState>) => onChange({ ...form, ...partial })
 
   return (
     <form className="auth-card auth-card--wide" onSubmit={onSubmit}>
       <div>
-        <p className="eyebrow">{editing ? 'Edit profile' : 'Create profile'}</p>
-        <h2>Xray config wrapper</h2>
-        <p>All fields are persisted through the profile API and validated before save.</p>
+        <p className="eyebrow">{editing ? t('Edit profile') : t('Create profile')}</p>
+        <h2>{t('Xray config wrapper')}</h2>
+        <p>{t('All fields are persisted through the profile API and validated before save.')}</p>
       </div>
       <div className="profile-form-grid">
         <label htmlFor="profile-name">
-          Name
+          {t('Name')}
           <input
             id="profile-name"
             required
@@ -486,7 +548,7 @@ function ProfileEditor({
           />
         </label>
         <label htmlFor="profile-adapter">
-          Adapter
+          {t('Adapter')}
           <select
             id="profile-adapter"
             value={form.adapter}
@@ -500,29 +562,29 @@ function ProfileEditor({
           </select>
         </label>
         <label htmlFor="profile-node">
-          Node
+          {t('Node')}
           <select
             id="profile-node"
             required
             value={form.nodeId}
             onChange={(event) => patch({ nodeId: event.target.value })}
           >
-            <option value="">Select node</option>
+            <option value="">{t('Select node')}</option>
             {nodes.map((node) => (
               <option key={node.id} value={node.id}>
-                {node.name} · {node.status}
+                {node.name} · {t(node.status)}
               </option>
             ))}
           </select>
         </label>
         <label htmlFor="profile-squad">
-          Squad
+          {t('Squad')}
           <select
             id="profile-squad"
             value={form.squadId}
             onChange={(event) => patch({ squadId: event.target.value })}
           >
-            <option value="">None</option>
+            <option value="">{t('None')}</option>
             {squads.map((squad) => (
               <option key={squad.id} value={squad.id}>
                 {squad.name}
@@ -531,7 +593,7 @@ function ProfileEditor({
           </select>
         </label>
         <label htmlFor="profile-port">
-          Port
+          {t('Port')}
           <input
             id="profile-port"
             inputMode="numeric"
@@ -541,7 +603,7 @@ function ProfileEditor({
           />
         </label>
         <label htmlFor="profile-transport">
-          Transport
+          {t('Transport')}
           <select
             id="profile-transport"
             value={form.transport}
@@ -555,7 +617,7 @@ function ProfileEditor({
           </select>
         </label>
         <label htmlFor="profile-security">
-          Security
+          {t('Security')}
           <select
             id="profile-security"
             value={form.security}
@@ -569,15 +631,15 @@ function ProfileEditor({
           </select>
         </label>
         <label htmlFor="profile-flow">
-          Flow
+          {t('Flow')}
           <input id="profile-flow" value={form.flow} onChange={(event) => patch({ flow: event.target.value })} />
         </label>
         <label htmlFor="profile-tag">
-          Inbound tag
+          {t('Inbound tag')}
           <input id="profile-tag" value={form.tag} onChange={(event) => patch({ tag: event.target.value })} />
         </label>
         <label htmlFor="profile-credentials-ref" className="profile-form-grid__wide">
-          Credentials ref
+          {t('Credentials ref')}
           <input
             id="profile-credentials-ref"
             value={form.credentialsRef}
@@ -591,20 +653,20 @@ function ProfileEditor({
             checked={form.allowPortConflicts}
             onChange={(event) => patch({ allowPortConflicts: event.target.checked })}
           />
-          Allow saving with acknowledged port conflicts
+          {t('Allow saving with acknowledged port conflicts')}
         </label>
       </div>
       <div className="resource-list">
         <div className="resource-list__item">
           <span>
-            <Server size={16} aria-hidden="true" /> Adapter capabilities
+            <Server size={16} aria-hidden="true" /> {t('Adapter capabilities')}
           </span>
-          <small>{selectedAdapterCapabilities.join(', ') || 'No capabilities reported'}</small>
+          <small>{selectedAdapterCapabilities.join(', ') || t('No capabilities reported')}</small>
         </div>
         {portCheckMessage ? (
           <div className="resource-list__item">
             <span>
-              <CheckCircle2 size={16} aria-hidden="true" /> Port validation
+              <CheckCircle2 size={16} aria-hidden="true" /> {t('Port validation')}
             </span>
             <small>{portCheckMessage}</small>
           </div>
@@ -612,10 +674,10 @@ function ProfileEditor({
       </div>
       <FormError message={error} />
       <div className="inline-actions">
-        <SubmitButton pending={pending}>{editing ? 'Save profile' : 'Create profile'}</SubmitButton>
+        <SubmitButton pending={pending}>{editing ? t('Save profile') : t('Create profile')}</SubmitButton>
         {editing ? (
           <button type="button" className="button button--secondary" onClick={onCancel}>
-            Cancel edit
+            {t('Cancel edit')}
           </button>
         ) : null}
       </div>
@@ -641,16 +703,16 @@ function profileToForm(profile: ProtocolProfileRecord): ProfileFormState {
   }
 }
 
-function formToRequest(form: ProfileFormState) {
+function formToRequest(form: ProfileFormState, t: (value: string) => string) {
   const port = Number(form.port)
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('Port must be an integer between 1 and 65535.')
+    throw new Error(t('Port must be an integer between 1 and 65535.'))
   }
   if (!form.nodeId) {
-    throw new Error('Node is required.')
+    throw new Error(t('Node is required.'))
   }
   if (!form.name.trim()) {
-    throw new Error('Name is required.')
+    throw new Error(t('Name is required.'))
   }
   const config_json: Record<string, unknown> = {
     security: form.security,
@@ -675,9 +737,9 @@ function formToRequest(form: ProfileFormState) {
   }
 }
 
-function portsLabel(profile: ProtocolProfileRecord): string {
+function portsLabel(profile: ProtocolProfileRecord, t: (value: string) => string): string {
   if (profile.port_reservations.length === 0) {
-    return 'no ports'
+    return t('no ports')
   }
   return profile.port_reservations
     .map((reservation) => `${String(reservation.port)}/${String(reservation.protocol ?? 'tcp')}`)
