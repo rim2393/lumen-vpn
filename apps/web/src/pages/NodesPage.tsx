@@ -220,6 +220,18 @@ function isQuarantined(node: NodeResponse) {
   return status === 'quarantine' || status === 'quarantined'
 }
 
+function canPauseNode(node: NodeResponse) {
+  return !isLicensePaused(node) && !isQuarantined(node)
+}
+
+function canResumeNode(node: NodeResponse) {
+  return isLicensePaused(node) || isQuarantined(node)
+}
+
+function canQuarantineNode(node: NodeResponse) {
+  return !isQuarantined(node)
+}
+
 function hasMissingHeartbeat(node: NodeResponse) {
   const status = normalizeStatus(node.status)
   return !node.last_seen_at && status !== 'provisioning' && status !== 'installing'
@@ -529,6 +541,7 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
+                        disabled={!canPauseNode(node) || pauseNode.isPending}
                         onClick={() =>
                           void pauseNode.mutateAsync({
                             id: node.id,
@@ -541,10 +554,14 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
+                        disabled={!canResumeNode(node) || resumeNode.isPending}
                         onClick={() =>
                           void resumeNode.mutateAsync({
                             id: node.id,
-                            request: { target_status: 'offline' },
+                            request: {
+                              clear_quarantine: isQuarantined(node),
+                              target_status: 'offline',
+                            },
                           })
                         }
                       >
@@ -553,6 +570,7 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
+                        disabled={!canQuarantineNode(node) || quarantineNode.isPending}
                         onClick={() =>
                           void quarantineNode.mutateAsync({
                             id: node.id,

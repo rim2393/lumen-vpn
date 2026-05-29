@@ -127,6 +127,7 @@ class NodeResumeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     target_status: NodeStatus = NodeStatus.OFFLINE
+    clear_quarantine: bool = False
 
 
 class NodeQuarantineRequest(BaseModel):

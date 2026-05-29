@@ -280,6 +280,7 @@ export type NodePauseRequest = {
 }
 
 export type NodeResumeRequest = {
+  clear_quarantine?: boolean
   target_status?: NodeStatus
 }
 

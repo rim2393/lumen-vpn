@@ -565,7 +565,10 @@ async def resume_node(
         node_id=node_id,
         request=NodeCommandCreateRequest(
             command_type="node.resume",
-            payload_json={"target_status": request.target_status.value},
+            payload_json={
+                "target_status": request.target_status.value,
+                "clearQuarantine": request.clear_quarantine,
+            },
         ),
     )
     _set_pending_control_action(node, command)

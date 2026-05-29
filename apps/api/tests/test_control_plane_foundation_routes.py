@@ -1351,6 +1351,24 @@ async def test_node_pause_resume_and_quarantine_enqueue_commands(
     assert resume_response.status_code == 200
     assert resume_response.json()["status"] == "active"
     assert resume_response.json()["capabilities"]["pending_control_target_status"] == "offline"
+    resume_commands_response = await foundation_app.client.get(f"/api/v1/nodes/{node_id}/commands")
+    assert resume_commands_response.status_code == 200
+    resume_command = resume_commands_response.json()["items"][0]
+    assert resume_command["command_type"] == "node.resume"
+    assert resume_command["payload_json"]["clearQuarantine"] is False
+
+    quarantine_resume_response = await foundation_app.client.post(
+        f"/api/v1/nodes/{node_id}/resume",
+        json={"target_status": "offline", "clear_quarantine": True},
+    )
+    assert quarantine_resume_response.status_code == 200
+    quarantine_resume_commands_response = await foundation_app.client.get(
+        f"/api/v1/nodes/{node_id}/commands"
+    )
+    assert quarantine_resume_commands_response.status_code == 200
+    quarantine_resume_command = quarantine_resume_commands_response.json()["items"][0]
+    assert quarantine_resume_command["command_type"] == "node.resume"
+    assert quarantine_resume_command["payload_json"]["clearQuarantine"] is True
 
     quarantine_response = await foundation_app.client.post(
         f"/api/v1/nodes/{node_id}/quarantine",

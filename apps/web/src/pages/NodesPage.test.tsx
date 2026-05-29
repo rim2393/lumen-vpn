@@ -5,6 +5,7 @@ import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient
 import type {
   LumenApiClient,
   NodeResponse,
+  NodeResumeRequest,
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
 } from '../shared/api/types'
@@ -66,6 +67,15 @@ function buildProvisioningJob(
 
 describe('NodesPage backend wiring', () => {
   it('renders backend node records with policy and heartbeat states', async () => {
+    const resumeNode = vi.fn(async (_nodeId: string, _request: NodeResumeRequest) => ({
+      capabilities: {},
+      id: 'node-quarantined',
+      last_seen_at: '2026-05-27T09:15:00Z',
+      name: 'edge-quarantined',
+      public_address: '203.0.113.12',
+      region: 'ap',
+      status: 'offline' as const,
+    }))
     const nodes: NodeResponse[] = [
       {
         capabilities: { service_manager: 'systemd', tun: 'available' },
@@ -99,7 +109,9 @@ describe('NodesPage backend wiring', () => {
       listNodes: async () => ({
         items: nodes,
       }),
+      resumeNode,
     })
+    const user = userEvent.setup()
 
     renderWithRouter('/nodes', { apiClient, initialSession: developmentSession })
 
@@ -116,6 +128,18 @@ describe('NodesPage backend wiring', () => {
       screen.getByText(/2 of 3 nodes reported heartbeat; 1 node missing heartbeat data/i),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
+    const resumeButtons = screen.getAllByRole('button', { name: 'Resume' })
+    expect(resumeButtons[0]).toBeDisabled()
+    expect(resumeButtons[1]).toBeEnabled()
+    expect(resumeButtons[2]).toBeEnabled()
+
+    await user.click(resumeButtons[2])
+
+    await waitFor(() => expect(resumeNode).toHaveBeenCalledTimes(1))
+    expect(resumeNode).toHaveBeenCalledWith('node-quarantined', {
+      clear_quarantine: true,
+      target_status: 'offline',
+    })
   })
 
   it('does not present node telemetry as healthy before any real heartbeat exists', async () => {
