@@ -38,6 +38,7 @@ type ProfileFormState = {
   adapter: string
   allowPortConflicts: boolean
   credentialsRef: string
+  configJson: string
   flow: string
   name: string
   nodeId: string
@@ -53,6 +54,15 @@ const defaultForm: ProfileFormState = {
   adapter: 'vless-reality',
   allowPortConflicts: false,
   credentialsRef: 'vault://lumen/profiles/new-profile',
+  configJson: JSON.stringify(
+    {
+      flow: 'xtls-rprx-vision',
+      security: 'reality',
+      transport: 'tcp',
+    },
+    null,
+    2,
+  ),
   flow: 'xtls-rprx-vision',
   name: '',
   nodeId: '',
@@ -646,6 +656,15 @@ function ProfileEditor({
             onChange={(event) => patch({ credentialsRef: event.target.value })}
           />
         </label>
+        <label htmlFor="profile-config-json" className="profile-form-grid__wide">
+          {t('Profile config JSON')}
+          <textarea
+            id="profile-config-json"
+            spellCheck={false}
+            value={form.configJson}
+            onChange={(event) => patch({ configJson: event.target.value })}
+          />
+        </label>
         <label className="toggle-row profile-form-grid__wide" htmlFor="profile-allow-conflicts">
           <input
             id="profile-allow-conflicts"
@@ -690,6 +709,7 @@ function profileToForm(profile: ProtocolProfileRecord): ProfileFormState {
   return {
     adapter: profile.adapter,
     allowPortConflicts: false,
+    configJson: JSON.stringify(profile.config_json, null, 2),
     credentialsRef: profile.credentials_ref ?? '',
     flow: String(profile.config_json.flow ?? ''),
     name: profile.name,
@@ -714,15 +734,18 @@ function formToRequest(form: ProfileFormState, t: (value: string) => string) {
   if (!form.name.trim()) {
     throw new Error(t('Name is required.'))
   }
-  const config_json: Record<string, unknown> = {
-    security: form.security,
-    transport: form.transport,
-  }
+  const config_json = parseProfileConfigJson(form.configJson, t)
+  config_json.security = form.security
+  config_json.transport = form.transport
   if (form.flow.trim()) {
     config_json.flow = form.flow.trim()
+  } else {
+    delete config_json.flow
   }
   if (form.tag.trim()) {
     config_json.tag = form.tag.trim()
+  } else {
+    delete config_json.tag
   }
   return {
     adapter: form.adapter,
@@ -735,6 +758,19 @@ function formToRequest(form: ProfileFormState, t: (value: string) => string) {
     squad_id: form.squadId || null,
     status: form.status,
   }
+}
+
+function parseProfileConfigJson(value: string, t: (value: string) => string): Record<string, unknown> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    throw new Error(t('Profile config JSON must be valid JSON.'))
+  }
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error(t('Profile config JSON must be an object.'))
+  }
+  return { ...(parsed as Record<string, unknown>) }
 }
 
 function portsLabel(profile: ProtocolProfileRecord, t: (value: string) => string): string {

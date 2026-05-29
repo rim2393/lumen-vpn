@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
@@ -100,6 +100,51 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByRole('heading', { name: /command dashboard/i })).toBeInTheDocument()
     expect(await screen.findByText('12 GiB')).toBeInTheDocument()
     expect(screen.getByText(/users limited or in grace/i)).toBeInTheDocument()
+  })
+
+  it('saves profile config JSON through the real profile update contract', async () => {
+    const user = userEvent.setup()
+    const developmentClient = createDevelopmentLumenApiClient()
+    const checkPortConflicts = vi.fn(async () => ({ allowed: true, conflicts: [] }))
+    const updateProfile = vi.fn(developmentClient.updateProfile)
+    const apiClient: LumenApiClient = {
+      ...developmentClient,
+      checkPortConflicts,
+      updateProfile,
+    }
+
+    renderWithRouter('/profiles', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('heading', { name: /^profiles$/i })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }))
+    const saveButton = await screen.findByRole('button', { name: /save profile/i })
+    const form = saveButton.closest('form')
+    expect(form).not.toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/profile config json/i), { target: { value: '{' } })
+    fireEvent.submit(form as HTMLFormElement)
+    expect(await screen.findByText(/profile config json must be valid json/i)).toBeInTheDocument()
+    expect(updateProfile).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(/profile config json/i), {
+      target: {
+        value: JSON.stringify(
+          {
+            routing: { domainStrategy: 'AsIs' },
+            security: 'reality',
+            transport: 'tcp',
+          },
+          null,
+          2,
+        ),
+      },
+    })
+    fireEvent.submit(form as HTMLFormElement)
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalled())
+    expect(updateProfile.mock.calls[0][1].config_json).toMatchObject({
+      routing: { domainStrategy: 'AsIs' },
+    })
   })
 
   it('wires per-user lifecycle controls to real update requests', async () => {

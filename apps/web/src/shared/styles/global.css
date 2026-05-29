@@ -1133,6 +1133,12 @@ h2 {
   resize: vertical;
 }
 
+#profile-config-json {
+  min-height: 240px;
+  font-family: var(--font-mono);
+  line-height: 1.55;
+}
+
 .auth-card--wide {
   width: min(100%, 640px);
 }
