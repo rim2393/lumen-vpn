@@ -1,6 +1,13 @@
 from app.domains.api_keys.models import ApiKey
 from app.domains.audit.models import AuditEvent
-from app.domains.auth.models import UserMfaMethod, UserSession
+from app.domains.auth.models import (
+    OAuthLoginState,
+    UserIdentity,
+    UserMfaMethod,
+    UserSession,
+    WebAuthnChallenge,
+    WebAuthnCredential,
+)
 from app.domains.licenses.models import License
 from app.domains.nodes.models import (
     Node,
@@ -24,11 +31,15 @@ __all__ = [
     "NodeInstallToken",
     "NodeMetric",
     "NodeProvisioningJob",
+    "OAuthLoginState",
     "PanelSetting",
     "ProtocolProfile",
     "Squad",
     "Subscription",
     "User",
+    "UserIdentity",
     "UserMfaMethod",
     "UserSession",
+    "WebAuthnChallenge",
+    "WebAuthnCredential",
 ]

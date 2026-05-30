@@ -18,9 +18,13 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-test/
 dist/
 build/
 *.egg-info/
+
+# Local test/debug databases
+tmp-*.db
 
 # Node
 node_modules/

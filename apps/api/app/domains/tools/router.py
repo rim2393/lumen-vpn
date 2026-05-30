@@ -39,7 +39,7 @@ from app.domains.tools.service import (
 )
 
 router = APIRouter()
-ToolManager = Annotated[Principal, Depends(require_permission(Permission.SUBSCRIPTION_READ))]
+ToolManager = Annotated[Principal, Depends(require_permission(Permission.USER_MANAGE))]
 SessionManager = Annotated[Principal, Depends(require_permission(Permission.USER_MANAGE))]
 UtilityManager = Annotated[Principal, Depends(require_permission(Permission.NODE_MANAGE))]
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]

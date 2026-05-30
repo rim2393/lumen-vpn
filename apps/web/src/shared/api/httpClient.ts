@@ -7,13 +7,18 @@ import type {
   HostUpdateRequest,
   LoginRequest,
   LoginApiResponse,
+  LoginMethodsResponse,
   MfaChallengeVerifyRequest,
   LumenApiClient,
+  OAuthStartResponse,
+  TelegramLoginPayload,
+  WebAuthnOptionsApiResponse,
   NodeCommandCreateRequest,
   NodePauseRequest,
   NodeQuarantineRequest,
   NodeResumeRequest,
   PortCheckRequest,
+  ProfileBulkActionRequest,
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
   ProvisioningJobCreateRequest,
@@ -107,6 +112,14 @@ export function createHttpLumenApiClient({
         body: payload,
         method: 'POST',
       }),
+    bulkProfiles: (action: string, payload: ProfileBulkActionRequest) =>
+      request(
+        `/api/v1/profiles/bulk/${action === 'delete' ? 'delete' : action === 'status' ? 'status' : encodeURIComponent(action)}`,
+        {
+          body: payload,
+          method: 'POST',
+        },
+      ),
     bulkUsers: (action: string, payload: UserBulkActionRequest) =>
       request(`/api/v1/users/bulk/${encodeURIComponent(action)}`, {
         body: payload,
@@ -215,6 +228,49 @@ export function createHttpLumenApiClient({
         }
       }
       return readSessionAfterTokenIssue(loginResponse)
+    },
+    listLoginMethods: () => request<LoginMethodsResponse>('/api/v1/auth/providers'),
+    startOAuth: (provider: string, redirect?: string) => {
+      const query = redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''
+      return request<OAuthStartResponse>(
+        `/api/v1/auth/oauth/${encodeURIComponent(provider)}/start${query}`,
+      )
+    },
+    webauthnAuthenticateOptions: (email?: string) =>
+      request<WebAuthnOptionsApiResponse>('/api/v1/auth/webauthn/authenticate/options', {
+        body: { email: email ?? null },
+        method: 'POST',
+      }),
+    webauthnAuthenticateVerify: async (
+      challengeId: string,
+      credential: Record<string, unknown>,
+    ) => {
+      const result = await request<LoginApiResponse>(
+        '/api/v1/auth/webauthn/authenticate/verify',
+        { body: { challenge_id: challengeId, credential }, method: 'POST' },
+      )
+      if ('mfa_required' in result && result.mfa_required) {
+        return {
+          challengeToken: result.challenge_token,
+          expiresAt: result.expires_at,
+          methods: result.methods,
+        }
+      }
+      return readSessionAfterTokenIssue(result)
+    },
+    telegramLogin: async (payload: TelegramLoginPayload) => {
+      const result = await request<LoginApiResponse>('/api/v1/auth/oauth/telegram/callback', {
+        body: payload,
+        method: 'POST',
+      })
+      if ('mfa_required' in result && result.mfa_required) {
+        return {
+          challengeToken: result.challenge_token,
+          expiresAt: result.expires_at,
+          methods: result.methods,
+        }
+      }
+      return readSessionAfterTokenIssue(result)
     },
     readProvisioningJob: (jobId: string) => request(`/api/v1/nodes/provisioning-jobs/${jobId}`),
     pauseNode: (nodeId: string, payload: NodePauseRequest) =>

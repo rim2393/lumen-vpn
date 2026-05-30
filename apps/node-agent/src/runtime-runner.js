@@ -26,12 +26,36 @@ import { createNodeAgentRuntimeConfig, loadNodeAgentConfigFromEnv } from "./runt
 import { readSecretFromEnv } from "./secret-input.js";
 import { createTcpDiagnosticListenerPlan, startTcpDiagnosticListener, stopLiveListener } from "./live-listeners.js";
 import { applyXrayConfig, createXrayApplyPlan } from "./xray-runtime.js";
+import { applyHysteria2Config, createHysteria2ApplyPlan } from "./hysteria2-runtime.js";
+import { applyTuicConfig, createTuicApplyPlan } from "./tuic-runtime.js";
+import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
 const NODE_ID_FILE = "node-id";
 const HEARTBEAT_PATH_FILE = "heartbeat-path";
 const PROVISIONING_STATE_FILE = "provisioning-state.json";
+
+const APPLY_FAILURE_CODES = Object.freeze({
+  "xray.apply": "xray_apply_failed",
+  "hysteria2.apply": "hysteria2_apply_failed",
+  "tuic.apply": "tuic_apply_failed",
+  "wireguard.apply": "wireguard_apply_failed"
+});
+
+const APPLY_DRY_RUN_STATUS = Object.freeze({
+  "xray.apply": "xray-dry-run",
+  "hysteria2.apply": "hysteria2-dry-run",
+  "tuic.apply": "tuic-dry-run",
+  "wireguard.apply": "wireguard-dry-run"
+});
+
+const APPLY_PENDING_STATUS = Object.freeze({
+  "xray.apply": "xray-apply-pending",
+  "hysteria2.apply": "hysteria2-apply-pending",
+  "tuic.apply": "tuic-apply-pending",
+  "wireguard.apply": "wireguard-apply-pending"
+});
 
 function readOptionalTrimmed(path) {
   try {
@@ -194,6 +218,42 @@ function xrayApplyPlanFromEnvelope(envelope) {
   });
 }
 
+function hysteria2ApplyPlanFromEnvelope(envelope) {
+  if (!envelope.payload.hysteria2Config) {
+    return null;
+  }
+  return createHysteria2ApplyPlan({
+    id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
+    hysteria2Config: envelope.payload.hysteria2Config,
+    configPath: envelope.payload.hysteria2ConfigPath,
+    reloadArgv: envelope.payload.hysteria2ReloadArgv
+  });
+}
+
+function tuicApplyPlanFromEnvelope(envelope) {
+  if (!envelope.payload.tuicConfig) {
+    return null;
+  }
+  return createTuicApplyPlan({
+    id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
+    tuicConfig: envelope.payload.tuicConfig,
+    configPath: envelope.payload.tuicConfigPath,
+    reloadArgv: envelope.payload.tuicReloadArgv
+  });
+}
+
+function wireguardApplyPlanFromEnvelope(envelope) {
+  if (!envelope.payload.wireguardConfig) {
+    return null;
+  }
+  return createWireguardApplyPlan({
+    id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
+    wireguardConfig: envelope.payload.wireguardConfig,
+    configPath: envelope.payload.wireguardConfigPath,
+    reloadArgv: envelope.payload.wireguardReloadArgv
+  });
+}
+
 function withResultOutputs(commandResult, outputs) {
   return Object.freeze({
     ...commandResult,
@@ -213,9 +273,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
   }
   if (input.dryRun !== false) {
     return withResultOutputs(commandResult, {
-      implementationStatus: commandResult.runtimeAction.type === "xray.apply"
-        ? "xray-dry-run"
-        : "live-listener-dry-run"
+      implementationStatus:
+        APPLY_DRY_RUN_STATUS[commandResult.runtimeAction.type] ?? "live-listener-dry-run"
     });
   }
 
@@ -245,10 +304,32 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
       });
       return withResultOutputs(commandResult, xray);
     }
+    if (commandResult.runtimeAction.type === "hysteria2.apply") {
+      const hysteria2 = await applyHysteria2Config(commandResult.runtimeAction.plan, {
+        dryRun: input.dryRun,
+        env: input.env,
+        execFileImpl: input.execFileImpl
+      });
+      return withResultOutputs(commandResult, hysteria2);
+    }
+    if (commandResult.runtimeAction.type === "tuic.apply") {
+      const tuic = await applyTuicConfig(commandResult.runtimeAction.plan, {
+        dryRun: input.dryRun,
+        env: input.env,
+        execFileImpl: input.execFileImpl
+      });
+      return withResultOutputs(commandResult, tuic);
+    }
+    if (commandResult.runtimeAction.type === "wireguard.apply") {
+      const wireguard = await applyWireguardConfig(commandResult.runtimeAction.plan, {
+        dryRun: input.dryRun,
+        env: input.env,
+        execFileImpl: input.execFileImpl
+      });
+      return withResultOutputs(commandResult, wireguard);
+    }
   } catch (error) {
-    const code = commandResult.runtimeAction.type === "xray.apply"
-      ? "xray_apply_failed"
-      : "live_listener_failed";
+    const code = APPLY_FAILURE_CODES[commandResult.runtimeAction.type] ?? "live_listener_failed";
     return failedCommandResult(command, error, code);
   }
 
@@ -371,6 +452,33 @@ export function applyNodeCommand(command, currentState, input = {}) {
               plan: xrayPlan
             });
           }
+          if (!runtimeAction) {
+            const hysteria2Plan = hysteria2ApplyPlanFromEnvelope(envelope);
+            if (hysteria2Plan) {
+              runtimeAction = Object.freeze({
+                type: "hysteria2.apply",
+                plan: hysteria2Plan
+              });
+            }
+          }
+          if (!runtimeAction) {
+            const tuicPlan = tuicApplyPlanFromEnvelope(envelope);
+            if (tuicPlan) {
+              runtimeAction = Object.freeze({
+                type: "tuic.apply",
+                plan: tuicPlan
+              });
+            }
+          }
+          if (!runtimeAction) {
+            const wireguardPlan = wireguardApplyPlanFromEnvelope(envelope);
+            if (wireguardPlan) {
+              runtimeAction = Object.freeze({
+                type: "wireguard.apply",
+                plan: wireguardPlan
+              });
+            }
+          }
           const liveListener = envelope.command === COMMAND_TYPES.OUTBOUND_APPLY
             ? liveListenerPlanFromEnvelope(envelope)
             : null;
@@ -389,9 +497,8 @@ export function applyNodeCommand(command, currentState, input = {}) {
           appliedRevision: nextState.appliedRevision,
           command: envelope.command,
           dryRun: input.dryRun ?? true,
-          implementationStatus: runtimeAction.type === "xray.apply"
-            ? "xray-apply-pending"
-            : "live-listener-pending"
+          implementationStatus:
+            APPLY_PENDING_STATUS[runtimeAction.type] ?? "live-listener-pending"
         };
         break;
       case COMMAND_TYPES.OUTBOUND_REMOVE:

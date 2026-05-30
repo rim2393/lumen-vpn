@@ -164,6 +164,18 @@ h2 {
   flex-wrap: nowrap;
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  color: var(--color-muted);
+  background: rgb(255 255 255 / 5%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
 .table-link-button {
   max-width: 220px;
   padding: 0;
@@ -974,11 +986,42 @@ h2 {
   margin-top: var(--space-5);
 }
 
+.profile-inventory-view {
+  margin-top: var(--space-5);
+}
+
+.profile-toolbar {
+  display: grid;
+  gap: var(--space-3);
+  width: min(100%, 1180px);
+}
+
+.profile-toolbar > .inline-actions {
+  width: 100%;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.profile-toolbar select,
+.profile-toolbar input {
+  min-height: 38px;
+}
+
 .profile-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-5);
+}
+
+.is-hidden {
+  display: none;
+}
+
+.profile-toolbar-meta {
+  margin-top: var(--space-3);
+  color: var(--color-muted);
 }
 
 .profile-card {
@@ -1057,13 +1100,18 @@ h2 {
   gap: var(--space-2);
 }
 
-.profile-card__actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, 40px);
-}
-
 .profile-card__actions .button {
   min-width: 0;
+}
+
+.profile-toolbar .status-chip {
+  margin-left: auto;
+}
+
+.profile-card__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
 }
 
 .profile-facts {
@@ -1092,6 +1140,14 @@ h2 {
   margin: var(--space-1) 0 0;
   color: var(--color-ink-strong);
   overflow-wrap: anywhere;
+}
+
+.mono-value {
+  display: inline-flex;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: 'SFMono-Regular', Menlo, Consolas, Monaco, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.8rem;
 }
 
 .profile-form-grid {

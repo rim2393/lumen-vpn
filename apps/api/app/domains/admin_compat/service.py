@@ -23,12 +23,11 @@ from app.domains.licenses.models import License
 from app.domains.subscriptions.models import Subscription
 from app.domains.users.models import User
 
-ADMIN_COMPAT_ROLES = frozenset({Role.OWNER, Role.ADMIN, Role.SUPPORT})
+ADMIN_COMPAT_ROLES = frozenset({Role.OWNER, Role.ADMIN})
 ADMIN_COMPAT_PERMISSIONS = frozenset(
     {
         Permission.API_KEY_MANAGE,
         Permission.LICENSE_MANAGE,
-        Permission.SUBSCRIPTION_READ,
         Permission.SUBSCRIPTION_MANAGE,
         Permission.USER_MANAGE,
     }

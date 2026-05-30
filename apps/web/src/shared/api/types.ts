@@ -462,6 +462,7 @@ export type ProtocolProfileRecord = {
   port_reservations: Array<Record<string, unknown>>
   squad_id: string | null
   status: string
+  created_at?: string | null
 }
 
 export type ProtocolProfileCreateRequest = {
@@ -549,6 +550,11 @@ export type HostBulkActionRequest = {
 
 export type ResourceBulkActionResponse = {
   updated: number
+}
+
+export type ProfileBulkActionRequest = {
+  ids: string[]
+  status?: string | null
 }
 
 export type SubscriptionRecord = {
@@ -875,6 +881,10 @@ export type LumenApiClient = {
     action: string,
     request: UserBulkActionRequest,
   ) => Promise<UserBulkActionResponse>
+  bulkProfiles: (
+    action: string,
+    request: ProfileBulkActionRequest,
+  ) => Promise<ResourceBulkActionResponse>
   bulkHosts: (
     action: string,
     request: HostBulkActionRequest,
@@ -944,6 +954,14 @@ export type LumenApiClient = {
   deleteToolSnippet: (snippetId: string) => Promise<ToolSnippetListResponse>
   listUsers: () => Promise<UserListResponse>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
+  listLoginMethods: () => Promise<LoginMethodsResponse>
+  startOAuth: (provider: string, redirect?: string) => Promise<OAuthStartResponse>
+  webauthnAuthenticateOptions: (email?: string) => Promise<WebAuthnOptionsApiResponse>
+  webauthnAuthenticateVerify: (
+    challengeId: string,
+    credential: Record<string, unknown>,
+  ) => Promise<AuthSession | MfaChallenge>
+  telegramLogin: (payload: TelegramLoginPayload) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>
   readProvisioningJob: (jobId: string) => Promise<ProvisioningJobResponse>
   pauseNode: (nodeId: string, request: NodePauseRequest) => Promise<NodeResponse>
@@ -991,4 +1009,37 @@ export type LumenApiClient = {
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
   updateSquad: (squadId: string, request: SquadUpdateRequest) => Promise<SquadRecord>
   updateUser: (userId: string, request: UserUpdateRequest) => Promise<UserRecord>
+}
+
+export type LoginMethod = {
+  provider: string
+  display_name: string
+  kind: string
+  enabled: boolean
+  bot_username?: string | null
+}
+
+export type LoginMethodsResponse = {
+  items: LoginMethod[]
+}
+
+export type OAuthStartResponse = {
+  provider: string
+  authorization_url: string
+  state: string
+}
+
+export type WebAuthnOptionsApiResponse = {
+  options: Record<string, unknown>
+  challenge_id: string
+}
+
+export type TelegramLoginPayload = {
+  id: number
+  auth_date: number
+  hash: string
+  first_name?: string
+  last_name?: string
+  username?: string
+  photo_url?: string
 }

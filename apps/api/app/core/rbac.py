@@ -29,6 +29,15 @@ class Permission(StrEnum):
     USER_MANAGE = "user:manage"
 
 
+ROLE_HIERARCHY: dict[Role, int] = {
+    Role.USER: 0,
+    Role.NODE: 1,
+    Role.SUPPORT: 2,
+    Role.ADMIN: 3,
+    Role.OWNER: 4,
+}
+
+
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.OWNER: frozenset(Permission),
     Role.ADMIN: frozenset(
@@ -44,7 +53,6 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.SUPPORT: frozenset(
         {
             Permission.SUBSCRIPTION_READ,
-            Permission.USER_MANAGE,
         }
     ),
     Role.NODE: frozenset({Permission.SUBSCRIPTION_READ}),
@@ -59,6 +67,20 @@ class Principal(BaseModel):
     permissions: set[Permission]
     session_id: UUID | None = None
     api_key_id: UUID | None = None
+
+
+def role_level(role: Role) -> int:
+    return ROLE_HIERARCHY[role]
+
+
+def max_role_level(roles: set[Role]) -> int:
+    if not roles:
+        return ROLE_HIERARCHY[Role.USER]
+    return max(role_level(role) for role in roles)
+
+
+def can_manage_role(principal: Principal, role: Role) -> bool:
+    return max_role_level(principal.roles) >= role_level(role)
 
 
 async def get_current_principal(
@@ -101,6 +123,15 @@ def has_permission(principal: Principal, permission: Permission) -> bool:
     if permission in principal.permissions:
         return True
     return any(permission in ROLE_PERMISSIONS[role] for role in principal.roles)
+
+
+def grantable_permissions(principal: Principal) -> set[Permission]:
+    """Permissions the caller is allowed to delegate to an API key it creates.
+
+    An API key must never carry more authority than the principal minting it.
+    """
+
+    return {permission for permission in Permission if has_permission(principal, permission)}
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:

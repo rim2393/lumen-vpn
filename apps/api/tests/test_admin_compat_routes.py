@@ -371,3 +371,20 @@ async def test_compat_admin_routes_require_admin_read_access(
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "permission_denied"
+
+
+async def test_compat_admin_read_access_does_not_accept_subscription_read_permission_only(
+    compat_app: CompatRouteApp,
+) -> None:
+    seeded = await seed_compat_data(compat_app)
+    compat_app.principal_ref["principal"] = Principal(
+        subject=seeded.owner_id,
+        email=seeded.owner_email,
+        roles=set(),
+        permissions={Permission.SUBSCRIPTION_READ},
+    )
+
+    response = await compat_app.client.get("/api/admin/users")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"

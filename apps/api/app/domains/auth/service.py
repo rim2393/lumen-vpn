@@ -63,17 +63,34 @@ async def login_user(
     require_secret(settings.session_hash_pepper, name="session_hash_pepper")
     result = await session.execute(select(User).where(User.email == request.email.lower()))
     user = result.scalar_one_or_none()
-    if (
-        user is None
-        or user.password_hash is None
-        or user.status != "active"
-        or not verify_password(request.password, user.password_hash)
-    ):
+    now = utc_now()
+
+    if user is not None and user.locked_until is not None and ensure_aware(user.locked_until) > now:
+        raise APIError(
+            code="account_locked",
+            message="Account is temporarily locked after repeated failed sign-ins.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    password_ok = (
+        user is not None
+        and user.password_hash is not None
+        and user.status == "active"
+        and verify_password(request.password, user.password_hash)
+    )
+    if not password_ok:
+        if user is not None:
+            await _register_failed_login(session, user=user, settings=settings, now=now)
         raise APIError(
             code="invalid_credentials",
             message="Email or password is incorrect.",
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
+
+    if user.failed_login_count or user.locked_until is not None:
+        user.failed_login_count = 0
+        user.locked_until = None
+        await session.flush()
 
     active_methods = await list_mfa_methods(session, user_id=user.id, status_filter="active")
     if active_methods:
@@ -113,6 +130,26 @@ async def login_user(
         refresh_token=refresh_token,
         expires_at=access_expires_at,
     )
+
+
+async def _register_failed_login(
+    session: AsyncSession,
+    *,
+    user: User,
+    settings: Settings,
+    now: datetime,
+) -> None:
+    """Count a failed sign-in and lock the account once the threshold is reached.
+
+    The increment is committed immediately so it survives the rejected request.
+    """
+
+    user.failed_login_count = (user.failed_login_count or 0) + 1
+    if user.failed_login_count >= settings.login_max_failed_attempts:
+        user.locked_until = now + timedelta(seconds=settings.login_lockout_seconds)
+        user.failed_login_count = 0
+    await session.flush()
+    await session.commit()
 
 
 async def refresh_session(

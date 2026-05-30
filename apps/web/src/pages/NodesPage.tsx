@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CirclePause, HeartPulse, Plus, RefreshCw, ShieldAlert } from 'lucide-react'
 import {
   useCreateNodeCommand,
@@ -18,6 +18,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { MetricTone } from '../shared/data/resourceMeta'
 import { sectionSpecs } from '../shared/data/resourceMeta'
+import { useSearchParams } from 'react-router-dom'
 
 type ProvisioningFormState = {
   capabilities: string
@@ -330,6 +331,7 @@ function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) 
 export function NodesPage() {
   const spec = sectionSpecs.nodes
   const query = useNodesPageData()
+  const [searchParams, setSearchParams] = useSearchParams()
   const createJob = useCreateNodeProvisioningJob()
   const [form, setForm] = useState<ProvisioningFormState>(initialFormState)
   const [formError, setFormError] = useState<string | null>(null)
@@ -357,6 +359,30 @@ export function NodesPage() {
     }),
     [nodes],
   )
+
+  useEffect(() => {
+    const focusNodeId = searchParams.get('focus')
+    if (!focusNodeId) {
+      return
+    }
+    const exists = nodes.some((node) => node.id === focusNodeId)
+    if (exists) {
+      setSelectedNodeId(focusNodeId)
+    }
+  }, [nodes, searchParams])
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return
+    }
+    if (searchParams.get('focus') === selectedNodeId) {
+      return
+    }
+    const nextSearch = new URLSearchParams(searchParams)
+    nextSearch.set('focus', selectedNodeId)
+    setSearchParams(nextSearch, { replace: true })
+  }, [searchParams, selectedNodeId, setSearchParams])
+
   const heartbeatStatus = useMemo(() => {
     if (!query.isSuccess) {
       return {
@@ -534,7 +560,9 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
-                        onClick={() => setSelectedNodeId(node.id)}
+                        onClick={() => {
+                          setSelectedNodeId(node.id)
+                        }}
                       >
                         Inspect
                       </button>

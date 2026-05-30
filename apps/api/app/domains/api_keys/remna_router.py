@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.errors import APIError
-from app.core.rbac import Permission, Principal, Role, require_permission
+from app.core.rbac import ROLE_PERMISSIONS, Permission, Principal, Role, require_permission
 from app.db.session import get_db_session
 from app.domains.api_keys.models import ApiKey
 from app.domains.api_keys.schemas import ApiKeyCreateRequest
@@ -91,12 +91,13 @@ async def create_api_token(
     settings: AppSettings,
 ) -> CreateApiTokenResponseDto:
     _ensure_web_admin_session(principal)
+    effective_permissions = _effective_permissions(principal=principal)
     api_key, plaintext = await create_api_key_record(
         session,
         owner_user_id=UUID(principal.subject),
         request=ApiKeyCreateRequest(
             name=request.token_name,
-            scopes=[permission.value for permission in Permission],
+            scopes=[permission.value for permission in effective_permissions],
         ),
         settings=settings,
     )
@@ -135,6 +136,15 @@ def _ensure_web_admin_session(principal: Principal) -> None:
 
 def _can_manage_all_keys(principal: Principal) -> bool:
     return bool(principal.roles.intersection({Role.OWNER, Role.ADMIN}))
+
+
+def _effective_permissions(principal: Principal) -> list[Permission]:
+    if principal.permissions:
+        return sorted(set(principal.permissions), key=lambda permission: permission.value)
+    permissions: set[Permission] = set()
+    for role in principal.roles:
+        permissions.update(ROLE_PERMISSIONS[role])
+    return sorted(permissions, key=lambda permission: permission.value)
 
 
 def _api_token_dto(api_key: ApiKey) -> ApiTokenDto:

@@ -34,6 +34,7 @@ import type {
   ProtocolProfileCreateRequest,
   ProtocolProfileListResponse,
   ProtocolProfileRecord,
+  ProfileBulkActionRequest,
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
   ResponseRuleCreateRequest,
@@ -290,6 +291,24 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         }
         if (action === 'set-port') {
           host.port = request.port ?? null
+        }
+      }
+      return { updated: selected.length }
+    },
+    bulkProfiles: async (action: string, request: ProfileBulkActionRequest) => {
+      const selected = profiles.filter((profile) => request.ids.includes(profile.id))
+      if (action === 'delete') {
+        for (const profile of selected) {
+          const index = profiles.findIndex((item) => item.id === profile.id)
+          if (index >= 0) {
+            profiles.splice(index, 1)
+          }
+        }
+        return { updated: selected.length }
+      }
+      if (action === 'status') {
+        for (const profile of selected) {
+          profile.status = request.status || profile.status
         }
       }
       return { updated: selected.length }
@@ -839,6 +858,19 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         },
       ],
     }),
+    listLoginMethods: async () => ({ items: [] }),
+    startOAuth: async () => {
+      throw new Error('OAuth sign-in is not available in the development client.')
+    },
+    webauthnAuthenticateOptions: async () => {
+      throw new Error('Passkey sign-in is not available in the development client.')
+    },
+    webauthnAuthenticateVerify: async () => {
+      throw new Error('Passkey sign-in is not available in the development client.')
+    },
+    telegramLogin: async () => {
+      throw new Error('Telegram sign-in is not available in the development client.')
+    },
     logout: async () => undefined,
     readProvisioningJob: async (jobId) =>
       buildDevelopmentProvisioningJob(

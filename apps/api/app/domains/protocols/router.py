@@ -36,6 +36,7 @@ from app.domains.protocols.schemas import (
 )
 from app.domains.protocols.service import (
     add_squad_users,
+    apply_profile_to_node,
     bulk_set_status,
     bulk_update_hosts,
     check_port_conflicts,
@@ -44,6 +45,7 @@ from app.domains.protocols.service import (
     create_squad,
     delete_host,
     delete_profile,
+    delete_profiles,
     delete_squad,
     get_host,
     get_profile,
@@ -146,6 +148,35 @@ async def read_profile_computed_config(
     return await get_profile_computed_config(session, profile_id=profile_id)
 
 
+@profiles_router.post(
+    "/{profile_id}/apply-to-node",
+    response_model=None,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def apply_profile_to_node_route(
+    profile_id: UUID,
+    principal: Manager,
+    session: DatabaseSession,
+) -> dict[str, object]:
+    command = await apply_profile_to_node(session, profile_id=profile_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="protocol_profile.applied_to_node",
+        resource_type="protocol_profile",
+        resource_id=str(profile_id),
+        metadata_json={"node_id": str(command.node_id), "command_id": str(command.id)},
+    )
+    await session.commit()
+    return {
+        "command_id": str(command.id),
+        "node_id": str(command.node_id),
+        "command_type": command.command_type,
+        "status": command.status,
+        "adapter": command.payload_json.get("adapter"),
+    }
+
+
 @profiles_router.get("/{profile_id}/inbounds", response_model=ProfileInboundListResponse)
 async def read_profile_inbounds(
     profile_id: UUID,
@@ -209,6 +240,25 @@ async def bulk_profile_status(
         principal=principal,
         action="protocol_profile.bulk.status",
         resource_type="protocol_profile",
+        metadata_json={"profile_ids": [str(profile_id) for profile_id in request.ids]},
+    )
+    await session.commit()
+    return ResourceBulkActionResponse(updated=updated)
+
+
+@profiles_router.post("/bulk/delete", response_model=ResourceBulkActionResponse)
+async def bulk_profile_delete(
+    request: ResourceBulkActionRequest,
+    principal: Manager,
+    session: DatabaseSession,
+) -> ResourceBulkActionResponse:
+    updated = await delete_profiles(session, ids=request.ids)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="protocol_profile.bulk.delete",
+        resource_type="protocol_profile",
+        metadata_json={"profile_ids": [str(profile_id) for profile_id in request.ids]},
     )
     await session.commit()
     return ResourceBulkActionResponse(updated=updated)

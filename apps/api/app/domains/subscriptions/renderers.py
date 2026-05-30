@@ -10,6 +10,8 @@ from typing import Any
 from urllib.parse import quote, urlencode
 from uuid import UUID
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import x25519
 from fastapi import status
 
 from app.core.config import Settings
@@ -63,6 +65,8 @@ class ClientCredential:
     password: str
     shadowsocks_password: str
     hysteria_password: str
+    wireguard_private_key: str
+    wireguard_public_key: str
 
 
 def render_subscription_for_target(
@@ -221,6 +225,28 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
             query["spx"] = str(security["spiderX"])
         return build_uri("vless", credentials.uuid, protocol, query, label)
 
+    if protocol_type == "vmess":
+        security = protocol.get("security", {})
+        payload = {
+            "v": "2",
+            "ps": label,
+            "add": protocol["endpoint"]["host"],
+            "port": str(protocol["endpoint"]["port"]),
+            "id": credentials.uuid,
+            "aid": "0",
+            "scy": "auto",
+            "net": network_type(protocol),
+            "type": "none",
+            "host": str(security.get("serverName") or ""),
+            "path": str(protocol.get("path") or ""),
+            "tls": "tls" if security_name(protocol) != "none" else "",
+            "sni": str(security.get("serverName") or ""),
+        }
+        encoded = base64.b64encode(
+            json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        ).decode("ascii")
+        return f"vmess://{encoded}"
+
     if protocol_type == "trojan":
         security = protocol.get("security", {})
         query = {"type": network_type(protocol), "security": security_name(protocol)}
@@ -242,6 +268,20 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
             query["sni"] = str(security["serverName"])
         return build_uri("hysteria2", credentials.hysteria_password, protocol, query, label)
 
+    if protocol_type == "tuic":
+        security = protocol.get("security", {})
+        endpoint = protocol["endpoint"]
+        query = {"congestion_control": "bbr", "alpn": "h3"}
+        if security.get("serverName"):
+            query["sni"] = str(security["serverName"])
+        userinfo = f"{quote(credentials.uuid, safe='')}:{quote(credentials.password, safe='')}"
+        return (
+            f"tuic://{userinfo}@{endpoint['host']}:{endpoint['port']}"
+            f"?{urlencode(query)}#{quote(label)}"
+        )
+
+    # WireGuard/AmneziaWG have no universal single-line share URI; they are only
+    # emitted in the structured client formats (sing-box / mihomo / xray-json).
     return None
 
 
@@ -324,6 +364,19 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
         add_mihomo_tls_fields(base, security)
         return base
 
+    if protocol_type == "vmess":
+        base.update(
+            {
+                "uuid": credentials.uuid,
+                "alterId": 0,
+                "cipher": "auto",
+                "udp": True,
+                "tls": security_name(protocol) != "none",
+            }
+        )
+        add_mihomo_tls_fields(base, security)
+        return base
+
     if protocol_type == "trojan":
         base.update({"password": credentials.password, "udp": True, "tls": True})
         add_mihomo_tls_fields(base, security)
@@ -332,6 +385,7 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
     if protocol_type == "shadowsocks":
         base.update(
             {
+                "type": "ss",
                 "cipher": protocol.get("rendererHints", {}).get("method")
                 or "2022-blake3-aes-128-gcm",
                 "password": credentials.shadowsocks_password,
@@ -344,6 +398,37 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
         base.update({"password": credentials.hysteria_password, "udp": True})
         if security.get("serverName"):
             base["sni"] = security["serverName"]
+        return base
+
+    if protocol_type == "tuic":
+        base.update(
+            {
+                "uuid": credentials.uuid,
+                "password": credentials.password,
+                "udp": True,
+                "congestion-controller": "bbr",
+                "alpn": ["h3"],
+            }
+        )
+        if security.get("serverName"):
+            base["sni"] = security["serverName"]
+        return base
+
+    if protocol_type == "wireguard":
+        hints = protocol.get("rendererHints", {})
+        client_address = hints.get("address")
+        if not client_address or not security.get("publicKey"):
+            return None
+        base.update(
+            {
+                "private-key": credentials.wireguard_private_key,
+                "public-key": security["publicKey"],
+                "ip": str(client_address).split(",")[0].split("/")[0].strip(),
+                "udp": True,
+            }
+        )
+        if hints.get("mtu"):
+            base["mtu"] = hints["mtu"]
         return base
 
     return None
@@ -408,6 +493,16 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
             }
         )
         return compact_object(base)
+    if protocol_type == "vmess":
+        base.update(
+            {
+                "uuid": credentials.uuid,
+                "security": "auto",
+                "alter_id": 0,
+                "tls": sing_box_tls(protocol),
+            }
+        )
+        return compact_object(base)
     if protocol_type == "trojan":
         base.update({"password": credentials.password, "tls": sing_box_tls(protocol)})
         return compact_object(base)
@@ -422,6 +517,35 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
         return compact_object(base)
     if protocol_type == "hysteria2":
         base.update({"password": credentials.hysteria_password, "tls": sing_box_tls(protocol)})
+        return compact_object(base)
+    if protocol_type == "tuic":
+        base.update(
+            {
+                "uuid": credentials.uuid,
+                "password": credentials.password,
+                "congestion_control": "bbr",
+                "tls": sing_box_tls(protocol),
+            }
+        )
+        return compact_object(base)
+    if protocol_type == "wireguard":
+        security = protocol.get("security", {})
+        hints = protocol.get("rendererHints", {})
+        client_address = hints.get("address")
+        if not client_address or not security.get("publicKey"):
+            return None
+        base.update(
+            {
+                "local_address": [
+                    str(addr).strip()
+                    for addr in str(client_address).split(",")
+                    if str(addr).strip()
+                ],
+                "private_key": credentials.wireguard_private_key,
+                "peer_public_key": security["publicKey"],
+                "mtu": hints.get("mtu"),
+            }
+        )
         return compact_object(base)
     return None
 
@@ -499,6 +623,30 @@ def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any
             }
         )
 
+    if protocol_type == "vmess":
+        return compact_object(
+            {
+                "tag": node_label(entry),
+                "protocol": "vmess",
+                "settings": {
+                    "vnext": [
+                        {
+                            "address": protocol["endpoint"]["host"],
+                            "port": protocol["endpoint"]["port"],
+                            "users": [
+                                {
+                                    "id": credentials.uuid,
+                                    "alterId": 0,
+                                    "security": "auto",
+                                }
+                            ],
+                        }
+                    ]
+                },
+                "streamSettings": stream_settings,
+            }
+        )
+
     if protocol_type == "trojan":
         return {
             "tag": node_label(entry),
@@ -514,6 +662,60 @@ def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any
             },
             "streamSettings": stream_settings,
         }
+
+    if protocol_type == "shadowsocks":
+        return {
+            "tag": node_label(entry),
+            "protocol": "shadowsocks",
+            "settings": {
+                "servers": [
+                    {
+                        "address": protocol["endpoint"]["host"],
+                        "port": protocol["endpoint"]["port"],
+                        "method": protocol.get("rendererHints", {}).get("method")
+                        or "2022-blake3-aes-128-gcm",
+                        "password": credentials.shadowsocks_password,
+                    }
+                ]
+            },
+        }
+
+    if protocol_type == "wireguard":
+        security = protocol.get("security", {})
+        hints = protocol.get("rendererHints", {})
+        client_address = hints.get("address")
+        if not client_address or not security.get("publicKey"):
+            return None
+        allowed_ips = [
+            value.strip()
+            for value in str(hints.get("allowedIps") or "0.0.0.0/0").split(",")
+            if value.strip()
+        ]
+        return compact_object(
+            {
+                "tag": node_label(entry),
+                "protocol": "wireguard",
+                "settings": {
+                    "secretKey": credentials.wireguard_private_key,
+                    "address": [
+                        addr.strip()
+                        for addr in str(client_address).split(",")
+                        if addr.strip()
+                    ],
+                    "peers": [
+                        {
+                            "publicKey": security["publicKey"],
+                            "endpoint": (
+                                f"{protocol['endpoint']['host']}:"
+                                f"{protocol['endpoint']['port']}"
+                            ),
+                            "allowedIPs": allowed_ips,
+                        }
+                    ],
+                    "mtu": hints.get("mtu"),
+                },
+            }
+        )
 
     return None
 
@@ -544,22 +746,65 @@ def derive_credentials(
     manifest: dict[str, Any],
     protocol: dict[str, Any],
 ) -> ClientCredential:
-    seed = _credential_seed(settings)
-    base = (
-        f"{manifest.get('subscription', {}).get('id')}|"
-        f"{protocol.get('credentialsRef')}|{protocol.get('id')}|{protocol.get('type')}"
+    return derive_client_credentials(
+        settings=settings,
+        subscription_id=manifest.get("subscription", {}).get("id"),
+        credentials_ref=protocol.get("credentialsRef"),
+        protocol_id=protocol.get("id"),
+        protocol_type=protocol.get("type"),
     )
+
+
+def derive_client_credentials(
+    *,
+    settings: Settings,
+    subscription_id: object,
+    credentials_ref: object,
+    protocol_id: object,
+    protocol_type: object,
+) -> ClientCredential:
+    """Deterministically derive a user's per-protocol credentials.
+
+    Both the client subscription renderer and the node-side config resolver call
+    this with the same inputs, so the credentials embedded in the client config
+    and the node config are guaranteed to match.
+    """
+
+    seed = _credential_seed(settings)
+    base = f"{subscription_id}|{credentials_ref}|{protocol_id}|{protocol_type}"
     uuid_bytes = hmac.new(seed, f"{base}|uuid".encode(), hashlib.sha256).digest()[:16]
     mutable = bytearray(uuid_bytes)
     mutable[6] = (mutable[6] & 0x0F) | 0x40
     mutable[8] = (mutable[8] & 0x3F) | 0x80
     password = _secret_text(seed, f"{base}|password", 24)
+    wireguard_private_key, wireguard_public_key = _derive_wireguard_keypair(seed, base)
     return ClientCredential(
         uuid=str(UUID(bytes=bytes(mutable))),
         password=password,
         shadowsocks_password=_secret_text(seed, f"{base}|ss", 32),
         hysteria_password=_secret_text(seed, f"{base}|hy2", 24),
+        wireguard_private_key=wireguard_private_key,
+        wireguard_public_key=wireguard_public_key,
     )
+
+
+def _derive_wireguard_keypair(seed: bytes, base: str) -> tuple[str, str]:
+    raw = hmac.new(seed, f"{base}|wg".encode(), hashlib.sha256).digest()
+    private = x25519.X25519PrivateKey.from_private_bytes(raw)
+    private_b64 = base64.b64encode(
+        private.private_bytes(
+            serialization.Encoding.Raw,
+            serialization.PrivateFormat.Raw,
+            serialization.NoEncryption(),
+        )
+    ).decode("ascii")
+    public_b64 = base64.b64encode(
+        private.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+    ).decode("ascii")
+    return private_b64, public_b64
 
 
 def _credential_seed(settings: Settings) -> bytes:
@@ -607,8 +852,14 @@ def normalize_protocol_type(value: object) -> str:
         return "vless"
     if raw.startswith("trojan"):
         return "trojan"
+    if raw.startswith("vmess"):
+        return "vmess"
     if raw.startswith("shadowsocks"):
         return "shadowsocks"
+    if raw.startswith("tuic"):
+        return "tuic"
+    if raw.startswith("wireguard"):
+        return "wireguard"
     return raw
 
 

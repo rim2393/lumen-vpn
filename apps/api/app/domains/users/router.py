@@ -18,8 +18,8 @@ from app.domains.users.schemas import (
     UserUpdateRequest,
 )
 from app.domains.users.service import apply_bulk_user_action, user_to_response
-from app.domains.users.service import create_user as create_user_record
 from app.domains.users.service import clear_user_devices as clear_user_device_records
+from app.domains.users.service import create_user as create_user_record
 from app.domains.users.service import delete_user as delete_user_record
 from app.domains.users.service import delete_user_device as delete_user_device_record
 from app.domains.users.service import get_user as get_user_record
@@ -55,7 +55,7 @@ async def create_user(
     principal: UserManager,
     session: DbSession,
 ) -> UserResponse:
-    user = await create_user_record(session, request=request)
+    user = await create_user_record(session, request=request, principal=principal)
     await record_audit_event(
         session,
         principal=principal,
@@ -170,7 +170,11 @@ async def clear_user_devices(
     principal: UserManager,
     session: DbSession,
 ) -> UserDetailResponse:
-    user = await clear_user_device_records(session, user_id=user_id)
+    user = await clear_user_device_records(
+        session,
+        user_id=user_id,
+        principal=principal,
+    )
     await record_audit_event(
         session,
         principal=principal,
@@ -189,7 +193,12 @@ async def delete_user_device(
     principal: UserManager,
     session: DbSession,
 ) -> UserDetailResponse:
-    user = await delete_user_device_record(session, user_id=user_id, device_id=device_id)
+    user = await delete_user_device_record(
+        session,
+        user_id=user_id,
+        device_id=device_id,
+        principal=principal,
+    )
     await record_audit_event(
         session,
         principal=principal,
@@ -209,7 +218,12 @@ async def update_user(
     principal: UserManager,
     session: DbSession,
 ) -> UserResponse:
-    user = await update_user_record(session, user_id=user_id, request=request)
+    user = await update_user_record(
+        session,
+        user_id=user_id,
+        principal=principal,
+        request=request,
+    )
     await record_audit_event(
         session,
         principal=principal,
@@ -227,7 +241,7 @@ async def delete_user(
     principal: UserManager,
     session: DbSession,
 ) -> None:
-    await delete_user_record(session, user_id=user_id)
+    await delete_user_record(session, user_id=user_id, principal=principal)
     await record_audit_event(
         session,
         principal=principal,
@@ -245,7 +259,9 @@ async def bulk_user_action(
     principal: UserManager,
     session: DbSession,
 ) -> UserBulkActionResponse:
-    users = await apply_bulk_user_action(session, request=request, action=action)
+    users = await apply_bulk_user_action(
+        session, request=request, action=action, principal=principal
+    )
     await record_audit_event(
         session,
         principal=principal,

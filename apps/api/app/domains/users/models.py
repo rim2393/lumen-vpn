@@ -29,3 +29,5 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     metadata_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

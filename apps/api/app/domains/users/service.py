@@ -1,11 +1,11 @@
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import or_
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError
+from app.core.rbac import Principal, Role, can_manage_role
 from app.core.security import hash_password
 from app.domains.audit.models import AuditEvent
 from app.domains.audit.service import audit_event_response
@@ -166,13 +166,23 @@ async def get_user_detail(session: AsyncSession, user_id: UUID) -> UserDetailRes
     )
 
 
-async def create_user(session: AsyncSession, *, request: UserCreateRequest) -> User:
+async def create_user(
+    session: AsyncSession,
+    *,
+    request: UserCreateRequest,
+    principal: Principal,
+) -> User:
     email = request.email.lower()
+    requested_role = _requested_role_for_user_create(request)
+    _ensure_actor_can_create_role(
+        principal=principal,
+        requested_role=requested_role,
+    )
     await _ensure_unique_identity(session, email=email, username=request.username)
     user = User(
         email=email,
         password_hash=hash_password(request.password) if request.password is not None else None,
-        role=request.role.value,
+        role=requested_role.value,
         status=request.status,
         username=request.username,
         display_name=request.display_name,
@@ -193,9 +203,11 @@ async def update_user(
     session: AsyncSession,
     *,
     user_id: UUID,
+    principal: Principal,
     request: UserUpdateRequest,
 ) -> User:
     user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
     data = request.model_dump(exclude_unset=True)
     if "email" in data and data["email"] is not None:
         email = str(data.pop("email")).lower()
@@ -214,24 +226,40 @@ async def update_user(
         data.pop("username")
     if "password" in data:
         password = data.pop("password")
+        _ensure_not_self_privilege_edit(principal=principal, target_user=user)
         if password is not None:
             user.password_hash = hash_password(password)
     if "role" in data and data["role"] is not None:
-        user.role = data.pop("role").value
+        requested_role = data["role"]
+        data.pop("role")
+        _ensure_actor_can_assign_role(
+            principal=principal,
+            actor_target=user,
+            requested_role=requested_role,
+        )
+        user.role = requested_role.value
     for field, value in data.items():
         setattr(user, field, value)
     await session.flush()
     return user
 
 
-async def delete_user(session: AsyncSession, *, user_id: UUID) -> None:
+async def delete_user(session: AsyncSession, *, user_id: UUID, principal: Principal) -> None:
     user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
     await session.delete(user)
     await session.flush()
 
 
-async def delete_user_device(session: AsyncSession, *, user_id: UUID, device_id: str) -> User:
+async def delete_user_device(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    device_id: str,
+    principal: Principal,
+) -> User:
     user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
     metadata = dict(user.metadata_json)
     devices = metadata.get("devices")
     if not isinstance(devices, list):
@@ -264,8 +292,9 @@ async def delete_user_device(session: AsyncSession, *, user_id: UUID, device_id:
     return user
 
 
-async def clear_user_devices(session: AsyncSession, *, user_id: UUID) -> User:
+async def clear_user_devices(session: AsyncSession, *, user_id: UUID, principal: Principal) -> User:
     user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
     metadata = dict(user.metadata_json)
     metadata["devices"] = []
     user.metadata_json = metadata
@@ -278,8 +307,11 @@ async def apply_bulk_user_action(
     *,
     request: UserBulkActionRequest,
     action: str,
+    principal: Principal,
 ) -> list[User]:
     users = await _get_users_by_ids(session, request.user_ids)
+    for user in users:
+        _ensure_actor_can_manage_user(principal=principal, user=user)
     for user in users:
         if action == "status":
             if request.status is None:
@@ -403,7 +435,11 @@ async def _list_accessible_nodes(
     *,
     subscriptions,
 ) -> list[Node]:
-    node_ids = {subscription.node_id for subscription in subscriptions if subscription.node_id is not None}
+    node_ids = {
+        subscription.node_id
+        for subscription in subscriptions
+        if subscription.node_id is not None
+    }
     if not node_ids:
         return []
     result = await session.execute(
@@ -457,3 +493,56 @@ def _optional_str(value: object) -> str | None:
 def _device_matches(device: dict[object, object], device_id: str) -> bool:
     candidates = [device.get("id"), device.get("hwid")]
     return any(str(candidate) == device_id for candidate in candidates if candidate is not None)
+
+
+def _requested_role_for_user_create(request: UserCreateRequest) -> Role:
+    if "role" in request.model_fields_set:
+        return request.role
+    return Role.USER
+
+
+def _ensure_actor_can_assign_role(
+    *,
+    principal: Principal,
+    actor_target: User,
+    requested_role: Role,
+) -> None:
+    _ensure_not_self_privilege_edit(principal=principal, target_user=actor_target)
+    if not can_manage_role(principal=principal, role=requested_role):
+        raise APIError(
+            code="user_role_escalation_forbidden",
+            message="Cannot assign a role above the caller's permission level.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
+def _ensure_actor_can_create_role(
+    *,
+    principal: Principal,
+    requested_role: Role,
+) -> None:
+    if not can_manage_role(principal=principal, role=requested_role):
+        raise APIError(
+            code="user_role_escalation_forbidden",
+            message="Cannot assign a role above the caller's permission level.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
+def _ensure_actor_can_manage_user(*, principal: Principal, user: User) -> None:
+    current_role = Role(user.role)
+    if not can_manage_role(principal=principal, role=current_role):
+        raise APIError(
+            code="user_modify_forbidden",
+            message="The caller is not allowed to modify this user.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
+def _ensure_not_self_privilege_edit(*, principal: Principal, target_user: User) -> None:
+    if principal.subject == str(target_user.id):
+        raise APIError(
+            code="user_self_management_forbidden",
+            message="Updating own privileged account state is not allowed.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )

@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.errors import APIError
-from app.core.rbac import Permission, Principal, Role, require_permission
+from app.core.rbac import (
+    Permission,
+    Principal,
+    Role,
+    grantable_permissions,
+    require_permission,
+)
 from app.db.session import get_db_session
 from app.domains.api_keys.models import ApiKey
 from app.domains.api_keys.schemas import (
@@ -44,6 +50,7 @@ async def create_api_key(
     session: DbSession,
     settings: AppSettings,
 ) -> ApiKeyCreateResponse:
+    _ensure_scopes_within_caller(principal, request.scopes)
     owner_user_id = await _resolve_owner_user_id(session, principal=principal, request=request)
     api_key, plaintext = await create_api_key_record(
         session,
@@ -77,6 +84,18 @@ async def revoke_api_key(
             )
     await revoke_api_key_record(session, api_key_id=api_key_id)
     await session.commit()
+
+
+def _ensure_scopes_within_caller(principal: Principal, scopes: list[str]) -> None:
+    allowed = {permission.value for permission in grantable_permissions(principal)}
+    exceeded = [scope for scope in scopes if scope not in allowed]
+    if exceeded:
+        raise APIError(
+            code="api_key_scope_exceeds_caller",
+            message="An API key cannot be granted scopes beyond the caller's own permissions.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details=sorted(set(exceeded)),
+        )
 
 
 def _can_manage_all_keys(principal: Principal) -> bool:

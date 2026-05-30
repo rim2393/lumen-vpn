@@ -275,7 +275,16 @@ PROTOCOL_ADAPTERS = (
         required_credential_refs=["private_key"],
     ),
 )
-LIVE_PROFILE_ADAPTERS = frozenset({"vless-reality", "vless-tcp-tls"})
+def _protocol_adapter_by_protocol(protocol: str) -> ProtocolAdapterResponse:
+    return next(
+        (adapter for adapter in PROTOCOL_ADAPTERS if adapter.protocol == protocol),
+        None,
+    )
+
+
+LIVE_PROFILE_ADAPTERS = frozenset(
+    adapter.protocol for adapter in PROTOCOL_ADAPTERS if adapter.status != "legacy"
+)
 
 
 def list_protocol_adapters() -> list[ProtocolAdapterResponse]:
@@ -308,12 +317,40 @@ async def get_profile_computed_config(
     profile = await get_profile(session, profile_id=profile_id)
     node = await _get_profile_node(session, profile)
     inbounds = await list_profile_inbounds(session, profile_id=profile.id)
-    computed_config = _computed_xray_config(profile, inbounds)
+    computed_config = compute_node_outbound_config(profile, inbounds)
     return ProfileComputedConfigResponse(
         profile=profile_response(profile),
         node=_computed_node_response(node),
         inbounds=inbounds,
         computed_config=computed_config,
+    )
+
+
+async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
+    """Build a node runtime config for the profile and queue an outbound.apply.
+
+    The payload references client secrets via `clientsRef`; concrete credentials
+    are injected by the secret-delivery layer before the command reaches the
+    node (node commands must never carry inline secrets).
+    """
+
+    from app.domains.nodes.schemas import NodeCommandCreateRequest
+    from app.domains.nodes.service import enqueue_node_command
+
+    profile = await get_profile(session, profile_id=profile_id)
+    if profile.status != "active":
+        raise APIError(
+            code="profile_not_active",
+            message="Only active profiles can be applied to a node.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    node = await _get_profile_node(session, profile)
+    inbounds = await list_profile_inbounds(session, profile_id=profile.id)
+    payload = build_node_outbound_payload(profile, inbounds)
+    return await enqueue_node_command(
+        session,
+        node_id=node.id,
+        request=NodeCommandCreateRequest(command_type="outbound.apply", payload_json=payload),
     )
 
 
@@ -442,6 +479,14 @@ async def delete_profile(session: AsyncSession, *, profile_id: UUID) -> None:
     profile = await get_profile(session, profile_id=profile_id)
     await session.delete(profile)
     await session.flush()
+
+
+async def delete_profiles(session: AsyncSession, *, ids: list[UUID]) -> int:
+    profiles = await _get_profiles_by_ids(session, ids)
+    for profile in profiles:
+        await session.delete(profile)
+    await session.flush()
+    return len(profiles)
 
 
 async def check_port_conflicts(
@@ -770,6 +815,21 @@ async def _get_hosts_by_ids(session: AsyncSession, ids: list[UUID]) -> list[Host
     return hosts
 
 
+async def _get_profiles_by_ids(session: AsyncSession, ids: list[UUID]) -> list[ProtocolProfile]:
+    result = await session.execute(select(ProtocolProfile).where(ProtocolProfile.id.in_(ids)))
+    profiles = list(result.scalars().all())
+    if len(profiles) != len(set(ids)):
+        found = {profile.id for profile in profiles}
+        missing = [str(profile_id) for profile_id in ids if profile_id not in found]
+        raise APIError(
+            code="protocol_profile_not_found",
+            message="One or more protocol profiles were not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=missing,
+        )
+    return profiles
+
+
 async def _ensure_node_exists(session: AsyncSession, node_id: UUID) -> None:
     node = await session.get(Node, node_id)
     if node is None:
@@ -791,15 +851,22 @@ def _ensure_adapter_known(adapter: str) -> None:
 
 
 def _ensure_adapter_live_for_active_profile(adapter: str, profile_status: str) -> None:
-    _ensure_adapter_known(adapter)
+    adapter_def = _protocol_adapter_by_protocol(adapter)
+    if adapter_def is None:
+        _ensure_adapter_known(adapter)
     if profile_status != "active":
         return
-    if adapter in LIVE_PROFILE_ADAPTERS:
+    if adapter_def is None:
+        return
+    if adapter_def.status != "legacy":
+        return
+    if profile_status != "active":
         return
     raise APIError(
         code="protocol_adapter_not_live",
         message=(
-            "This protocol adapter is catalog-only until its node-agent runtime, "
+            "This protocol adapter is legacy in current MVP and can be used in disabled state only "
+            "until its node-agent runtime, "
             "renderer, and client compatibility checks are complete."
         ),
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1114,6 +1181,103 @@ def _xray_inbound_settings(inbound: ProfileInboundResponse) -> dict[str, object]
     if inbound.credentials_ref is not None:
         settings["clientsRef"] = inbound.credentials_ref
     return settings
+
+
+# -- node runtime config generation (panel -> node outbound.apply payload) -----
+#
+# Each generator returns the node-runtime config for one adapter family in the
+# exact shape the node-agent dispatcher reads (xrayConfig / hysteria2Config /
+# tuicConfig / wireguardConfig). Client secrets are referenced via `clientsRef`
+# (a vault reference) and resolved to concrete credentials by the secret layer
+# before the command reaches the node; the node-agent rejects any config that
+# still contains an unresolved `clientsRef`/`credentialsRef`.
+
+_NODE_CONFIG_KEY_BY_FAMILY = {
+    "hysteria2": "hysteria2Config",
+    "tuic": "tuicConfig",
+    "wireguard": "wireguardConfig",
+    "xray": "xrayConfig",
+}
+
+
+def _adapter_family(adapter: str) -> str:
+    protocol = _inbound_protocol(adapter)
+    if protocol in {"hysteria2", "tuic", "wireguard"}:
+        return protocol
+    return "xray"
+
+
+def _first_inbound_port(inbounds: list[ProfileInboundResponse]) -> int | None:
+    for inbound in inbounds:
+        port = getattr(inbound, "port", None)
+        if port:
+            return int(port)
+    return None
+
+
+def _profile_config_dict(profile: ProtocolProfile) -> dict[str, object]:
+    config = deepcopy(profile.config_json)
+    return config if isinstance(config, dict) else {}
+
+
+def _computed_hysteria2_config(
+    profile: ProtocolProfile,
+    port: int | None,
+) -> dict[str, object]:
+    config = _profile_config_dict(profile)
+    config.setdefault("listen", f":{port}" if port else ":443")
+    config.setdefault("tls", config.get("tls") or {})
+    config["clientsRef"] = profile.credentials_ref
+    return config
+
+
+def _computed_tuic_config(profile: ProtocolProfile, port: int | None) -> dict[str, object]:
+    config = _profile_config_dict(profile)
+    config.setdefault("server", f":{port}" if port else ":443")
+    config.setdefault("congestion_control", config.get("congestion_control") or "bbr")
+    config["clientsRef"] = profile.credentials_ref
+    return config
+
+
+def _computed_wireguard_config(
+    profile: ProtocolProfile,
+    port: int | None,
+) -> dict[str, object]:
+    config = _profile_config_dict(profile)
+    interface = dict(config.get("interface") or {})
+    interface.setdefault("listen_port", port or 51820)
+    config["interface"] = interface
+    config["clientsRef"] = profile.credentials_ref
+    return config
+
+
+def compute_node_outbound_config(
+    profile: ProtocolProfile,
+    inbounds: list[ProfileInboundResponse],
+) -> dict[str, object]:
+    family = _adapter_family(profile.adapter)
+    if family == "hysteria2":
+        return _computed_hysteria2_config(profile, _first_inbound_port(inbounds))
+    if family == "tuic":
+        return _computed_tuic_config(profile, _first_inbound_port(inbounds))
+    if family == "wireguard":
+        return _computed_wireguard_config(profile, _first_inbound_port(inbounds))
+    return _computed_xray_config(profile, inbounds)
+
+
+def build_node_outbound_payload(
+    profile: ProtocolProfile,
+    inbounds: list[ProfileInboundResponse],
+) -> dict[str, object]:
+    """Build the ``outbound.apply`` command payload the panel sends to a node."""
+
+    family = _adapter_family(profile.adapter)
+    config_key = _NODE_CONFIG_KEY_BY_FAMILY[family]
+    return {
+        "adapter": profile.adapter,
+        "profileId": str(profile.id),
+        config_key: compute_node_outbound_config(profile, inbounds),
+    }
 
 
 def _host_binding_response(host: Host) -> ProfileInboundHostBindingResponse:

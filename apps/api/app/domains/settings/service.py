@@ -232,7 +232,12 @@ async def _save_auth_providers(
     principal: Principal,
 ) -> None:
     request = SettingUpdateRequest(value_json={"items": providers})
-    await _upsert_setting(session, key=AUTH_PROVIDERS_KEY, value_json=request.value_json, principal=principal)
+    await _upsert_setting(
+        session,
+        key=AUTH_PROVIDERS_KEY,
+        value_json=request.value_json,
+        principal=principal,
+    )
 
 
 def _auth_provider_response(record: dict[str, object]) -> AuthProviderResponse:

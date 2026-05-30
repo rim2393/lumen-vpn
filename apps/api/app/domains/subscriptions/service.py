@@ -35,7 +35,7 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "runtime_config",
     }
 )
-RENDERABLE_PROTOCOL_PREFIXES = ("vless",)
+RENDERABLE_PROTOCOL_PREFIXES = ("vless", "vmess", "trojan", "shadowsocks", "tuic", "wireguard")
 
 
 def utc_now() -> datetime:
@@ -214,6 +214,9 @@ async def build_subscription_manifest(
                             "liveDiagnostic": False,
                             "name": profile_title,
                             "method": delivery.get("method"),
+                            "address": delivery.get("address"),
+                            "allowedIps": delivery.get("allowed_ips"),
+                            "mtu": delivery.get("mtu"),
                         },
                     }
                 ],

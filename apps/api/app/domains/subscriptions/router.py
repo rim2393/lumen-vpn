@@ -9,8 +9,7 @@ from app.core.errors import APIError
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
 from app.domains.audit.schemas import AuditEventCreate
-from app.domains.audit.service import create_audit_event
-from app.domains.audit.service import record_audit_event
+from app.domains.audit.service import create_audit_event, record_audit_event
 from app.domains.subscription_assets.service import list_response_rules, list_templates
 from app.domains.subscriptions.renderers import (
     RenderedSubscription,

@@ -132,12 +132,18 @@ def ensure_supported_node_command(request: NodeCommandCreateRequest) -> None:
         adapter = request.payload_json.get("adapter")
         has_live_payload = (
             isinstance(request.payload_json.get("xrayConfig"), dict)
+            or isinstance(request.payload_json.get("hysteria2Config"), dict)
+            or isinstance(request.payload_json.get("tuicConfig"), dict)
+            or isinstance(request.payload_json.get("wireguardConfig"), dict)
             or adapter == "tcp-diagnostic-listener"
         )
         if not has_live_payload:
             raise APIError(
                 code="node_command_payload_not_live",
-                message="outbound.apply requires a live Xray config or tcp diagnostic listener payload.",
+                message=(
+                    "outbound.apply requires a live Xray, Hysteria2, TUIC, or "
+                    "WireGuard config, or a tcp diagnostic listener payload."
+                ),
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 details=["payload_json.xrayConfig"],
             )
@@ -147,7 +153,10 @@ def _set_pending_control_action(node: Node, command: NodeCommand) -> None:
     capabilities = dict(node.capabilities)
     capabilities["pending_control_command_id"] = str(command.id)
     capabilities["pending_control_command_type"] = command.command_type
-    if target_status := command.payload_json.get("status") or command.payload_json.get("target_status"):
+    target_status = command.payload_json.get("status") or command.payload_json.get(
+        "target_status"
+    )
+    if target_status:
         capabilities["pending_control_target_status"] = str(target_status)
     node.capabilities = capabilities
 
@@ -669,7 +678,8 @@ async def complete_node_command(
     command.error_message = request.error_message
     command.completed_at = utc_now()
     node = await session.get(Node, node_id)
-    if node is not None and command.command_type in {"node.pause", "node.resume", "node.quarantine"}:
+    control_command_types = {"node.pause", "node.resume", "node.quarantine"}
+    if node is not None and command.command_type in control_command_types:
         if request.status == "succeeded":
             _apply_completed_control_action(node, command)
         elif request.status == "failed":

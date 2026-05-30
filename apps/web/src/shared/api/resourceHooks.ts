@@ -12,6 +12,7 @@ import type {
   NodeResumeRequest,
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
+  ProfileBulkActionRequest,
   ProvisioningJobCreateRequest,
   ResponseRuleCreateRequest,
   ResponseRuleTestRequest,
@@ -240,6 +241,20 @@ export function useCreateProfile() {
 
   return useMutation({
     mutationFn: (request: ProtocolProfileCreateRequest) => apiClient.createProfile(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
+    },
+  })
+}
+
+export function useBulkProfiles() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ action, request }: { action: string; request: ProfileBulkActionRequest }) =>
+      apiClient.bulkProfiles(action, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })

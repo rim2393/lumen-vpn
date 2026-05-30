@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -35,6 +37,19 @@ NODE_TOKEN = "lumen_node_test_foundation"  # noqa: S105 - deterministic test tok
 def _decode_base64url_nopad(value: str) -> bytes:
     padding = "=" * (-len(value) % 4)
     return base64.urlsafe_b64decode(value + padding)
+
+
+async def _seed_user(
+    foundation_app: FoundationRouteApp,
+    *,
+    email: str,
+    role: Role,
+) -> str:
+    async with foundation_app.sessionmaker() as session:
+        user = User(email=email, role=role.value, status="active")
+        session.add(user)
+        await session.commit()
+        return str(user.id)
 
 
 @dataclass(frozen=True)
@@ -742,6 +757,43 @@ async def test_host_bulk_actions_and_reorder_are_persisted(
     assert final_response.json()["items"] == []
 
 
+async def test_profile_bulk_delete_is_supported(foundation_app: FoundationRouteApp) -> None:
+    node_id = await seeded_node_id(foundation_app)
+
+    profile_ids: list[str] = []
+    for index in range(2):
+        response = await foundation_app.client.post(
+            "/api/v1/profiles",
+            json={
+                "name": f"Parity Profile {index}",
+                "node_id": node_id,
+                "adapter": "vless-reality",
+                "credentials_ref": f"vault://protocols/parity-profile-{index}",
+                "port_reservations": [
+                    {
+                        "address": WILDCARD_BIND_ADDRESS,
+                        "port": 18080 + index,
+                        "protocol": "tcp",
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 201
+        profile_ids.append(response.json()["id"])
+
+    delete_response = await foundation_app.client.post(
+        "/api/v1/profiles/bulk/delete",
+        json={"ids": profile_ids},
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["updated"] == 2
+
+    list_response = await foundation_app.client.get("/api/v1/profiles")
+    assert list_response.status_code == 200
+    remaining_ids = {item["id"] for item in list_response.json()["items"]}
+    assert not set(profile_ids).intersection(remaining_ids)
+
+
 async def test_squad_detail_membership_and_reorder_are_persisted(
     foundation_app: FoundationRouteApp,
 ) -> None:
@@ -913,6 +965,120 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
     clear_devices_response = await foundation_app.client.delete(f"/api/v1/users/{user_id}/devices")
     assert clear_devices_response.status_code == 200
     assert clear_devices_response.json()["devices"] == []
+
+
+async def test_user_role_escalation_is_rejected_for_lower_privileged_actors(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    support_id = await _seed_user(
+        foundation_app,
+        email="support-operator@example.com",
+        role=Role.SUPPORT,
+    )
+    foundation_app.principal_ref["principal"] = Principal(
+        subject=support_id,
+        email="support-operator@example.com",
+        roles={Role.SUPPORT},
+        permissions=set(),
+    )
+
+    owner_create_response = await foundation_app.client.post(
+        "/api/v1/users",
+        json={
+            "email": "forbidden-owner@example.com",
+            "password": "correct horse battery staple",
+            "role": "owner",
+        },
+    )
+    assert owner_create_response.status_code == 403
+    assert owner_create_response.json()["error"]["code"] == "permission_denied"
+
+    foundation_app.principal_ref["principal"] = Principal(
+        subject=support_id,
+        email="support-operator@example.com",
+        roles={Role.SUPPORT},
+        permissions={Permission.USER_MANAGE},
+    )
+    escalation_owner_response = await foundation_app.client.post(
+        "/api/v1/users",
+        json={
+            "email": "forbidden-owner-after-manual-permission@example.com",
+            "password": "correct horse battery staple",
+            "role": "owner",
+        },
+    )
+    assert escalation_owner_response.status_code == 403
+    assert escalation_owner_response.json()["error"]["code"] == "user_role_escalation_forbidden"
+
+    admin_create_response = await foundation_app.client.post(
+        "/api/v1/users",
+        json={
+            "email": "forbidden-admin@example.com",
+            "password": "correct horse battery staple",
+            "role": "admin",
+        },
+    )
+    assert admin_create_response.status_code == 403
+    assert admin_create_response.json()["error"]["code"] == "user_role_escalation_forbidden"
+
+    user_create_response = await foundation_app.client.post(
+        "/api/v1/users",
+        json={
+            "email": "downgraded-user@example.com",
+            "password": "correct horse battery staple",
+            "role": "user",
+        },
+    )
+    assert user_create_response.status_code == 201
+
+
+async def test_user_self_and_owner_privilege_edits_are_rejected_for_support(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    support_id = await _seed_user(
+        foundation_app,
+        email="support-reset@example.com",
+        role=Role.SUPPORT,
+    )
+    owner_id = foundation_app.principal_ref["principal"].subject
+    foundation_app.principal_ref["principal"] = Principal(
+        subject=support_id,
+        email="support-reset@example.com",
+        roles={Role.SUPPORT},
+        permissions={Permission.USER_MANAGE},
+    )
+
+    self_password_reset_response = await foundation_app.client.patch(
+        f"/api/v1/users/{support_id}",
+        json={"password": "correct horse battery staple 2"},
+    )
+    assert self_password_reset_response.status_code == 403
+    assert self_password_reset_response.json()["error"]["code"] == (
+        "user_self_management_forbidden"
+    )
+
+    owner_password_reset_response = await foundation_app.client.patch(
+        f"/api/v1/users/{owner_id}",
+        json={"password": "new-owner-password"},
+    )
+    assert owner_password_reset_response.status_code == 403
+    assert owner_password_reset_response.json()["error"]["code"] == "user_modify_forbidden"
+
+
+async def test_tools_routes_require_user_manage_privilege(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    owner_id = foundation_app.principal_ref["principal"].subject
+    foundation_app.principal_ref["principal"] = Principal(
+        subject=owner_id,
+        email="owner@example.com",
+        roles={Role.USER},
+        permissions=set(),
+    )
+
+    tools_summary_response = await foundation_app.client.get("/api/v1/tools/summary")
+    assert tools_summary_response.status_code == 403
+    assert tools_summary_response.json()["error"]["code"] == "permission_denied"
 
 
 async def test_tools_reports_are_real_database_views(foundation_app: FoundationRouteApp) -> None:
@@ -1194,7 +1360,7 @@ async def test_active_profile_rejects_catalog_only_adapter(
     active_response = await foundation_app.client.post(
         "/api/v1/profiles",
         json={
-            "name": "WireGuard catalog only",
+            "name": "WireGuard native",
             "node_id": node_id,
             "adapter": "wireguard-native",
             "credentials_ref": "vault://protocols/wireguard/catalog-only",
@@ -1203,17 +1369,17 @@ async def test_active_profile_rejects_catalog_only_adapter(
             ],
         },
     )
-    assert active_response.status_code == 422
-    assert active_response.json()["error"]["code"] == "protocol_adapter_not_live"
+    assert active_response.status_code == 201
+    assert active_response.json()["status"] == "active"
 
     disabled_response = await foundation_app.client.post(
         "/api/v1/profiles",
         json={
-            "name": "WireGuard catalog draft",
+            "name": "Legacy adapter draft",
             "node_id": node_id,
-            "adapter": "wireguard-native",
+            "adapter": "wireguard",
             "status": "disabled",
-            "credentials_ref": "vault://protocols/wireguard/catalog-draft",
+            "credentials_ref": "vault://protocols/wireguard-legacy/catalog-draft",
             "port_reservations": [
                 {"address": WILDCARD_BIND_ADDRESS, "port": 51821, "protocol": "udp"}
             ],
@@ -1221,6 +1387,22 @@ async def test_active_profile_rejects_catalog_only_adapter(
     )
     assert disabled_response.status_code == 201
     assert disabled_response.json()["status"] == "disabled"
+
+    active_legacy_response = await foundation_app.client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "Legacy adapter active",
+            "node_id": node_id,
+            "adapter": "wireguard",
+            "status": "active",
+            "credentials_ref": "vault://protocols/wireguard-legacy/active",
+            "port_reservations": [
+                {"address": WILDCARD_BIND_ADDRESS, "port": 51822, "protocol": "udp"}
+            ],
+        },
+    )
+    assert active_legacy_response.status_code == 422
+    assert active_legacy_response.json()["error"]["code"] == "protocol_adapter_not_live"
 
 
 async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp) -> None:

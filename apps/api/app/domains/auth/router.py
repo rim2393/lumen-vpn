@@ -34,8 +34,8 @@ router = APIRouter()
 CurrentPrincipal = Annotated[Principal, Depends(get_current_principal)]
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
-ACCESS_COOKIE_NAME = "lumen_access_token"  # noqa: S105 - cookie name, not secret material.
-REFRESH_COOKIE_NAME = "lumen_refresh_token"  # noqa: S105 - cookie name, not secret material.
+ACCESS_COOKIE_NAME = "lumen_access_token"
+REFRESH_COOKIE_NAME = "lumen_refresh_token"
 
 
 @router.post("/login", response_model=LoginResponse)
