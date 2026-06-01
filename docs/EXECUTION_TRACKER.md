@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.68` |
-| Product repo head | `2bf2979 Complete profile detail editor metadata parity` |
-| Public installer manifest | `rim2393/lumen_vpn@74325ec` |
+| Latest production release | `v0.1.84` |
+| Product repo head | `a143edd Translate node status feedback` |
+| Public installer manifest | `rim2393/lumen_vpn@0b57d06` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -92,7 +92,7 @@ evidence here is wrong or stale.
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
 | N-001 | Node management P0 actions | DONE | update/delete/reorder/restart/reset traffic/restart all/bulk, real node-agent commands | `v0.1.59`, live restart evidence |
-| N-002 | Node management UX polish | OPEN | UI flows are clear, all buttons explain state/result and avoid fake success | Not started |
+| N-002 | Node management UX polish | DONE | UI flows are clear, all buttons explain state/result and avoid fake success | `090e027` + `2982531` + `a143edd`, `v0.1.84`, release run `26787224997`, installer/deploy run `26787279368`, manifest `rim2393/lumen_vpn@0b57d06`; web `npm run build` passed, focused Vitest `src/pages/NodesPage.test.tsx` 4 passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.84` healthy; live browser `/nodes?focus=d40a27ae-29fa-4cd1-88ee-269957de1e30` verified real node `node-01` at `85.192.60.8`, heartbeat, node operations panel, command queue, metrics, bulk actions, queued-command UX, and localized statuses (`активна`/`успешно`) with no fake success state. |
 | N-003 | Node plugins CRUD/clone/reorder/executor | OPEN | Plugin management is full CRUD and runtime policy evidence exists | Partial policy integration exists; management parity open |
 | N-004 | Node stats, bandwidth, metadata, infra billing, provider history | OPEN | Real metrics/history surfaces only, no fake counters | Not started |
 
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`PH-006`: profile/host runtime sync state.
+`N-003`: node plugins CRUD/clone/reorder/executor.
 
 Proposed implementation:
 
-1. Add backend dirty-state metadata when profile/host changes affect runtime.
-2. Expose affected profile/node pending-apply status in API responses.
-3. Add UI indicator and action to apply pending changes.
-4. Keep explicit Apply available; do not silently fake runtime sync.
-5. Test: profile/host mutation marks pending; apply queues real node command and clears pending only after command success evidence.
+1. Audit current node plugin backend/API/UI/runtime policy surface.
+2. Add real CRUD, clone, reorder and executor controls without inline secrets.
+3. Wire plugin changes into node runtime policy evidence where required.
+4. Test backend and UI paths with real command/policy contracts.
+5. Release through signed manifest and verify on the live panel/node path before marking DONE.
 
 ## Checkpoint Notes
 
