@@ -950,6 +950,13 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
         },
     )
     assert subscription_response.status_code == 201
+    subscription = subscription_response.json()
+
+    public_render_response = await foundation_app.client.get(
+        f"/api/v1/subscriptions/public/{subscription['public_id']}/render?target=happ",
+    )
+    assert public_render_response.status_code == 200
+    assert public_render_response.headers["x-lumen-render-target"] == "happ"
 
     detail_response = await foundation_app.client.get(f"/api/v1/users/{user_id}/detail")
     assert detail_response.status_code == 200
@@ -958,7 +965,18 @@ async def test_user_detail_returns_subscriptions_devices_nodes_and_history(
     assert detail["subscriptions"][0]["public_id"].startswith("lumen_sub")
     assert detail["devices"][0]["hwid"] == "AABBCC"
     assert detail["accessible_nodes"][0]["id"] == node_id
-    assert [event["action"] for event in detail["request_history"]] == ["user.created"]
+    assert [event["action"] for event in detail["request_history"]] == [
+        "subscription.public.rendered",
+        "user.created",
+    ]
+    render_event = detail["request_history"][0]
+    assert render_event["resource_type"] == "user"
+    assert render_event["resource_id"] == user_id
+    assert render_event["metadata_json"] == {
+        "public_id": subscription["public_id"],
+        "subscription_id": subscription["id"],
+        "target": "happ",
+    }
 
     delete_device_response = await foundation_app.client.delete(
         f"/api/v1/users/{user_id}/devices/hwid-1",
