@@ -183,6 +183,10 @@ async function runExecFile(execFileImpl, command, args) {
   return await execFileAsync(command, args);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function configureForwarding(execFileImpl, networkCidr) {
   await runExecFile(execFileImpl, "sh", ["-c", [
     "sysctl -w net.ipv4.ip_forward=1 >/dev/null",
@@ -213,6 +217,35 @@ function isPidRunning(pid) {
   } catch {
     return false;
   }
+}
+
+function readLogTail(logPath, maxBytes = 4096) {
+  try {
+    const raw = readFileSync(logPath, "utf8");
+    return raw.slice(Math.max(0, raw.length - maxBytes)).trim();
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return "";
+    }
+    throw error;
+  }
+}
+
+async function assertManagedProcessAlive(pid, logPath, input = {}) {
+  const waitMs = Number.isInteger(input.processStartCheckMs) ? input.processStartCheckMs : 1000;
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  const isRunning = input.isPidRunningImpl ?? isPidRunning;
+  if (isRunning(pid)) {
+    return;
+  }
+  const tail = readLogTail(logPath);
+  throw new Error(
+    tail.length > 0
+      ? `openvpn managed process exited during startup: ${tail}`
+      : "openvpn managed process exited during startup"
+  );
 }
 
 function stopPid(pidFile) {
@@ -277,7 +310,7 @@ export async function ensureManagedOpenVpnProcess(input = {}) {
   const binary = env.LUMEN_OPENVPN_BINARY ?? DEFAULT_OPENVPN_BINARY;
   const logPath = env.LUMEN_OPENVPN_LOG_FILE ?? DEFAULT_OPENVPN_LOG_FILE;
   const pidFile = env.LUMEN_OPENVPN_PID_FILE ?? DEFAULT_OPENVPN_PID_FILE;
-  await runExecFile(input.execFileImpl, binary, ["--config", configPath, "--verb", "0", "--test-crypto"]);
+  await runExecFile(input.execFileImpl, binary, ["--version"]);
   const pid = readPid(pidFile);
   if (isPidRunning(pid)) {
     return Object.freeze({
@@ -288,6 +321,7 @@ export async function ensureManagedOpenVpnProcess(input = {}) {
     });
   }
   const nextPid = startManagedProcess(binary, configPath, logPath, pidFile, input.spawnImpl);
+  await assertManagedProcessAlive(nextPid, logPath, input);
   return Object.freeze({
     implementationStatus: "openvpn-managed-process-restored",
     configPath,
@@ -312,12 +346,13 @@ export async function applyOpenVpnConfig(plan, input = {}) {
   }
 
   writeOpenVpnRuntimeFiles(plan.config, configPath, env);
-  await runExecFile(input.execFileImpl, binary, ["--config", configPath, "--verb", "0", "--test-crypto"]);
+  await runExecFile(input.execFileImpl, binary, ["--version"]);
   await configureForwarding(input.execFileImpl, network.cidr);
   const logPath = env.LUMEN_OPENVPN_LOG_FILE ?? DEFAULT_OPENVPN_LOG_FILE;
   const pidFile = env.LUMEN_OPENVPN_PID_FILE ?? DEFAULT_OPENVPN_PID_FILE;
   stopPid(pidFile);
   const pid = startManagedProcess(binary, configPath, logPath, pidFile, input.spawnImpl);
+  await assertManagedProcessAlive(pid, logPath, input);
   return Object.freeze({
     implementationStatus: "openvpn-managed-process-started",
     configPath,

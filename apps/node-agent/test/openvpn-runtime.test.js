@@ -58,6 +58,8 @@ test("applyOpenVpnConfig writes runtime files and starts managed process", async
         calls.push([command, args]);
         return { stdout: "", stderr: "" };
       },
+      isPidRunningImpl: () => true,
+      processStartCheckMs: 0,
       spawnImpl: () => ({
         pid: 4242,
         unref() {}
@@ -68,7 +70,7 @@ test("applyOpenVpnConfig writes runtime files and starts managed process", async
     assert.equal(result.listenPort, 1194);
     assert.match(readFileSync(configPath, "utf8"), /auth-user-pass-verify/);
     assert.match(readFileSync(join(dir, "users.txt"), "utf8"), /lumen_sub_test:pass-123/);
-    assert.deepEqual(calls[0], ["openvpn", ["--config", configPath, "--verb", "0", "--test-crypto"]]);
+    assert.deepEqual(calls[0], ["openvpn", ["--version"]]);
     assert.equal(calls[1][0], "sh");
   } finally {
     rmSync(dir, { recursive: true, force: true });
