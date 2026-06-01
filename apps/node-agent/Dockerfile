@@ -8,7 +8,7 @@ ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
 WORKDIR /srv/lumen-node-agent
 
-RUN apk add --no-cache ca-certificates curl unzip \
+RUN apk add --no-cache ca-certificates curl gcompat unzip \
   && mkdir -p /usr/local/share/xray \
   && curl -fsSL -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip" \
   && unzip -j /tmp/xray.zip xray geoip.dat geosite.dat -d /usr/local/share/xray \
