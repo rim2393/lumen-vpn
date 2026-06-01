@@ -302,6 +302,28 @@ export function createHttpLumenApiClient({
       }
       return readSessionAfterTokenIssue(result)
     },
+    listMfaMethods: () => request('/api/v1/auth/mfa/methods'),
+    setupTotp: (label: string) =>
+      request('/api/v1/auth/mfa/totp/setup', { body: { label }, method: 'POST' }),
+    verifyTotpSetup: (methodId: string, code: string) =>
+      request('/api/v1/auth/mfa/totp/verify', {
+        body: { code, method_id: methodId },
+        method: 'POST',
+      }),
+    deleteMfaMethod: (methodId: string) =>
+      request(`/api/v1/auth/mfa/methods/${methodId}`, { method: 'DELETE' }),
+    webauthnRegisterOptions: () =>
+      request<WebAuthnOptionsApiResponse>('/api/v1/auth/webauthn/register/options', {
+        method: 'POST',
+      }),
+    webauthnRegisterVerify: (challengeId: string, credential: Record<string, unknown>, label?: string | null) =>
+      request('/api/v1/auth/webauthn/register/verify', {
+        body: { challenge_id: challengeId, credential, label: label ?? null },
+        method: 'POST',
+      }),
+    listWebAuthnCredentials: () => request('/api/v1/auth/webauthn/credentials'),
+    deleteWebAuthnCredential: (credentialId: string) =>
+      request(`/api/v1/auth/webauthn/credentials/${credentialId}`, { method: 'DELETE' }),
     telegramLogin: async (payload: TelegramLoginPayload) => {
       const result = await request<LoginApiResponse>('/api/v1/auth/oauth/telegram/callback', {
         body: payload,

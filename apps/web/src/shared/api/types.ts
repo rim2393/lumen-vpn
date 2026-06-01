@@ -44,6 +44,17 @@ export type MfaChallengeVerifyRequest = {
   methodId: string
 }
 
+export type TotpSetupResponse = {
+  method_id: string
+  secret: string
+  otpauth_url: string
+  status: 'pending'
+}
+
+export type MfaMethodListResponse = {
+  items: MfaMethod[]
+}
+
 export type TokenPairResponse = {
   mfa_required?: false
   access_token: string
@@ -1248,6 +1259,18 @@ export type LumenApiClient = {
     challengeId: string,
     credential: Record<string, unknown>,
   ) => Promise<AuthSession | MfaChallenge>
+  listMfaMethods: () => Promise<MfaMethodListResponse>
+  setupTotp: (label: string) => Promise<TotpSetupResponse>
+  verifyTotpSetup: (methodId: string, code: string) => Promise<MfaMethodListResponse>
+  deleteMfaMethod: (methodId: string) => Promise<void>
+  webauthnRegisterOptions: () => Promise<WebAuthnOptionsApiResponse>
+  webauthnRegisterVerify: (
+    challengeId: string,
+    credential: Record<string, unknown>,
+    label?: string | null,
+  ) => Promise<WebAuthnCredentialRecord>
+  listWebAuthnCredentials: () => Promise<WebAuthnCredentialListResponse>
+  deleteWebAuthnCredential: (credentialId: string) => Promise<void>
   telegramLogin: (payload: TelegramLoginPayload) => Promise<AuthSession | MfaChallenge>
   logout: () => Promise<void>
   readProvisioningJob: (jobId: string) => Promise<ProvisioningJobResponse>
@@ -1345,6 +1368,20 @@ export type OAuthStartResponse = {
 export type WebAuthnOptionsApiResponse = {
   options: Record<string, unknown>
   challenge_id: string
+}
+
+export type WebAuthnCredentialRecord = {
+  id: string
+  label: string | null
+  aaguid: string | null
+  transports: string[]
+  sign_count: number
+  last_used_at: string | null
+  created_at: string
+}
+
+export type WebAuthnCredentialListResponse = {
+  items: WebAuthnCredentialRecord[]
 }
 
 export type TelegramLoginPayload = {

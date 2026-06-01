@@ -1,13 +1,27 @@
 import { useState, type FormEvent } from 'react'
 import {
+  useDeleteMfaMethod,
+  useDeleteWebAuthnCredential,
   useAuthProvidersData,
+  useMfaMethodsData,
   useSettingGroupsData,
   useSettingsPageData,
+  useSetupTotp,
   useUpdateAuthProvider,
   useUpdateSetting,
   useUpdateSettingGroup,
+  useVerifyTotpSetup,
+  useWebAuthnCredentialsData,
 } from '../shared/api/resourceHooks'
-import type { AuthProviderRecord, SettingGroupRecord } from '../shared/api/types'
+import { useApiClient } from '../shared/api/apiClientContext'
+import { isPasskeySupported, performPasskeyRegistration } from '../features/auth/webauthn'
+import type {
+  AuthProviderRecord,
+  MfaMethod,
+  SettingGroupRecord,
+  TotpSetupResponse,
+  WebAuthnCredentialRecord,
+} from '../shared/api/types'
 import {
   FormError,
   ResourceScreen,
@@ -184,12 +198,255 @@ export function SettingsPage() {
               ))}
             </div>
           </article>
+          <SecurityMethodsPanel />
         </div>
       }
       spec={settingsSpec}
       tableEyebrow="Instance settings"
       tableTitle="Settings registry"
     />
+  )
+}
+
+function SecurityMethodsPanel() {
+  const { t } = useI18n()
+  const apiClient = useApiClient()
+  const mfaQuery = useMfaMethodsData()
+  const passkeysQuery = useWebAuthnCredentialsData()
+  const setupTotp = useSetupTotp()
+  const verifyTotp = useVerifyTotpSetup()
+  const deleteMfa = useDeleteMfaMethod()
+  const deletePasskey = useDeleteWebAuthnCredential()
+  const [totpLabel, setTotpLabel] = useState('Authenticator')
+  const [totpCode, setTotpCode] = useState('')
+  const [pendingTotp, setPendingTotp] = useState<TotpSetupResponse | null>(null)
+  const [passkeyLabel, setPasskeyLabel] = useState('Operator passkey')
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [passkeyPending, setPasskeyPending] = useState(false)
+
+  async function beginTotpSetup() {
+    setError(null)
+    setMessage(null)
+    try {
+      const response = await setupTotp.mutateAsync(totpLabel.trim() || 'Authenticator')
+      setPendingTotp(response)
+      setMessage(t('Scan the authenticator secret and confirm it with a current code.'))
+    } catch (setupError) {
+      setError(setupError instanceof Error ? setupError.message : 'TOTP setup failed.')
+    }
+  }
+
+  async function confirmTotpSetup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!pendingTotp) {
+      return
+    }
+    setError(null)
+    setMessage(null)
+    try {
+      await verifyTotp.mutateAsync({
+        code: totpCode.trim(),
+        methodId: pendingTotp.method_id,
+      })
+      setPendingTotp(null)
+      setTotpCode('')
+      setMessage(t('Authenticator MFA is active.'))
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : 'TOTP verification failed.')
+    }
+  }
+
+  async function removeMfaMethod(method: MfaMethod) {
+    setError(null)
+    setMessage(null)
+    try {
+      await deleteMfa.mutateAsync(method.id)
+      setMessage(t('MFA method deleted.'))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'MFA method could not be deleted.')
+    }
+  }
+
+  async function registerPasskey() {
+    setError(null)
+    setMessage(null)
+    if (!isPasskeySupported()) {
+      setError(t('Passkeys are not supported by this browser context.'))
+      return
+    }
+    setPasskeyPending(true)
+    try {
+      const options = await apiClient.webauthnRegisterOptions()
+      const credential = await performPasskeyRegistration(options.options)
+      await apiClient.webauthnRegisterVerify(
+        options.challenge_id,
+        credential,
+        passkeyLabel.trim() || null,
+      )
+      await passkeysQuery.refetch()
+      setMessage(t('Passkey registered.'))
+    } catch (registerError) {
+      setError(registerError instanceof Error ? registerError.message : 'Passkey registration failed.')
+    } finally {
+      setPasskeyPending(false)
+    }
+  }
+
+  async function removePasskey(credential: WebAuthnCredentialRecord) {
+    setError(null)
+    setMessage(null)
+    try {
+      await deletePasskey.mutateAsync(credential.id)
+      setMessage(t('Passkey deleted.'))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Passkey could not be deleted.')
+    }
+  }
+
+  return (
+    <article className="panel" aria-label={t('MFA and passkeys')}>
+      <div className="panel__header">
+        <div>
+          <p className="eyebrow">{t('Account security')}</p>
+          <h2>{t('MFA and passkeys')}</h2>
+        </div>
+        <StatusBadge tone="good">real auth</StatusBadge>
+      </div>
+      <div className="resource-list">
+        <div className="resource-list__item">
+          <span>
+            {t('Authenticator app')}
+            <small>{t('Register a TOTP method for the current operator account.')}</small>
+          </span>
+          <span className="inline-actions">
+            <input
+              aria-label={t('MFA label')}
+              value={totpLabel}
+              onChange={(event) => setTotpLabel(event.target.value)}
+            />
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={setupTotp.isPending}
+              onClick={() => void beginTotpSetup()}
+            >
+              {t('Start setup')}
+            </button>
+          </span>
+        </div>
+        {pendingTotp ? (
+          <form className="resource-list__item" onSubmit={confirmTotpSetup}>
+            <span>
+              {t('Pending authenticator')}
+              <small>{t('Secret')}: {pendingTotp.secret}</small>
+              <small>{pendingTotp.otpauth_url}</small>
+            </span>
+            <span className="inline-actions">
+              <input
+                aria-label={t('Authenticator code')}
+                inputMode="numeric"
+                required
+                value={totpCode}
+                onChange={(event) => setTotpCode(event.target.value)}
+              />
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={verifyTotp.isPending}
+              >
+                {t('Confirm code')}
+              </button>
+            </span>
+          </form>
+        ) : null}
+        {(mfaQuery.data?.items ?? []).map((method) => (
+          <div className="resource-list__item" key={method.id}>
+            <span>
+              {method.label || method.kind}
+              <small>{method.kind} / {method.status}</small>
+              <small>
+                {t('Confirmed')}: {formatDateTime(method.confirmed_at)}
+              </small>
+              <small>
+                {t('Last used')}: {formatDateTime(method.last_used_at)}
+              </small>
+            </span>
+            <span className="inline-actions">
+              <StatusBadge tone={method.status === 'active' ? 'good' : 'watch'}>
+                {method.status}
+              </StatusBadge>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={deleteMfa.isPending}
+                onClick={() => void removeMfaMethod(method)}
+              >
+                {t('Delete')}
+              </button>
+            </span>
+          </div>
+        ))}
+        {mfaQuery.isLoading ? <p className="auth-card__note">{t('Loading MFA methods...')}</p> : null}
+        {mfaQuery.isSuccess && (mfaQuery.data?.items ?? []).length === 0 ? (
+          <p className="auth-card__note">{t('No MFA methods are active for this account.')}</p>
+        ) : null}
+      </div>
+      <div className="resource-list">
+        <div className="resource-list__item">
+          <span>
+            {t('Passkeys')}
+            <small>{t('Register a hardware or platform passkey for passwordless login.')}</small>
+          </span>
+          <span className="inline-actions">
+            <input
+              aria-label={t('Passkey label')}
+              value={passkeyLabel}
+              onChange={(event) => setPasskeyLabel(event.target.value)}
+            />
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={passkeyPending}
+              onClick={() => void registerPasskey()}
+            >
+              {t('Register passkey')}
+            </button>
+          </span>
+        </div>
+        {(passkeysQuery.data?.items ?? []).map((credential) => (
+          <div className="resource-list__item" key={credential.id}>
+            <span>
+              {credential.label || credential.id}
+              <small>{credential.transports.join(', ') || 'no transports'}</small>
+              <small>
+                {t('Created')}: {formatDateTime(credential.created_at)}
+              </small>
+              <small>
+                {t('Last used')}: {formatDateTime(credential.last_used_at)}
+              </small>
+            </span>
+            <span className="inline-actions">
+              <StatusBadge tone="good">passkey</StatusBadge>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={deletePasskey.isPending}
+                onClick={() => void removePasskey(credential)}
+              >
+                {t('Delete')}
+              </button>
+            </span>
+          </div>
+        ))}
+        {passkeysQuery.isLoading ? <p className="auth-card__note">{t('Loading passkeys...')}</p> : null}
+        {passkeysQuery.isSuccess && (passkeysQuery.data?.items ?? []).length === 0 ? (
+          <p className="auth-card__note">{t('No passkeys are registered for this account.')}</p>
+        ) : null}
+      </div>
+      {message ? <p className="auth-card__note" aria-live="polite">{message}</p> : null}
+      {error ? <p className="auth-card__note" role="alert">{error}</p> : null}
+    </article>
   )
 }
 

@@ -27,6 +27,7 @@ import type {
   InfraProviderCreateRequest,
   InfraProviderRecord,
   LumenApiClient,
+  MfaMethod,
   NodeBulkActionRequest,
   NodePluginApplyRequest,
   NodePluginCloneRequest,
@@ -84,6 +85,7 @@ import type {
   UserListResponse,
   UserRecord,
   UserUpdateRequest,
+  WebAuthnCredentialRecord,
 } from './types'
 
 const generatedAt = '2026-05-27T00:00:00Z'
@@ -185,6 +187,17 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
   const infraProviders: InfraProviderRecord[] = []
   const infraBillingRecords: InfraBillingRecordRecord[] = []
   const nodeCommands: NodeCommandRecord[] = []
+  const mfaMethods: MfaMethod[] = [
+    {
+      confirmed_at: '2026-05-27T00:00:00Z',
+      id: 'dev-mfa-method',
+      kind: 'totp',
+      label: 'Development authenticator',
+      last_used_at: null,
+      status: 'active',
+    },
+  ]
+  const webauthnCredentials: WebAuthnCredentialRecord[] = []
   const authProviders: AuthProviderRecord[] = [
     {
       display_name: 'Password',
@@ -1178,6 +1191,54 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     },
     webauthnAuthenticateVerify: async () => {
       throw new Error('Passkey sign-in is not available in the development client.')
+    },
+    listMfaMethods: async () => ({ items: mfaMethods }),
+    setupTotp: async (label: string) => ({
+      method_id: `mfa_${Date.now()}`,
+      otpauth_url: `otpauth://totp/Lumen:${encodeURIComponent(label || 'dev@example.com')}?secret=DEVSECRET&issuer=Lumen`,
+      secret: 'DEVSECRET',
+      status: 'pending' as const,
+    }),
+    verifyTotpSetup: async (methodId: string, _code: string) => {
+      mfaMethods.unshift({
+        confirmed_at: new Date().toISOString(),
+        id: methodId,
+        kind: 'totp',
+        label: 'Development authenticator',
+        last_used_at: null,
+        status: 'active',
+      })
+      return { items: mfaMethods }
+    },
+    deleteMfaMethod: async (methodId: string) => {
+      const index = mfaMethods.findIndex((item) => item.id === methodId)
+      if (index >= 0) {
+        mfaMethods.splice(index, 1)
+      }
+    },
+    webauthnRegisterOptions: async () => ({
+      challenge_id: 'dev-passkey-challenge',
+      options: { challenge: 'ZGV2LWNoYWxsZW5nZQ', rp: { name: 'Lumen' }, user: { id: 'ZGV2', name: 'dev@example.com', displayName: 'Dev' }, pubKeyCredParams: [] },
+    }),
+    webauthnRegisterVerify: async (_challengeId: string, _credential: Record<string, unknown>, label?: string | null) => {
+      const credential = {
+        aaguid: null,
+        created_at: new Date().toISOString(),
+        id: `passkey_${Date.now()}`,
+        label: label ?? 'Development passkey',
+        last_used_at: null,
+        sign_count: 0,
+        transports: [],
+      }
+      webauthnCredentials.unshift(credential)
+      return credential
+    },
+    listWebAuthnCredentials: async () => ({ items: webauthnCredentials }),
+    deleteWebAuthnCredential: async (credentialId: string) => {
+      const index = webauthnCredentials.findIndex((item) => item.id === credentialId)
+      if (index >= 0) {
+        webauthnCredentials.splice(index, 1)
+      }
     },
     telegramLogin: async () => {
       throw new Error('Telegram sign-in is not available in the development client.')

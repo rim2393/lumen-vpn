@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Response, status
 from pydantic import SecretStr
@@ -20,6 +21,7 @@ from app.domains.auth.schemas import (
     TotpVerifyRequest,
 )
 from app.domains.auth.service import (
+    delete_mfa_method,
     list_mfa_methods,
     login_user,
     mfa_method_response,
@@ -132,6 +134,20 @@ async def list_my_mfa_methods(
 ) -> MfaMethodListResponse:
     methods = await list_mfa_methods(session, user_id=_principal_user_id(principal))
     return MfaMethodListResponse(items=[mfa_method_response(method) for method in methods])
+
+
+@router.delete("/mfa/methods/{method_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_mfa_method(
+    method_id: UUID,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> None:
+    await delete_mfa_method(
+        session,
+        user_id=_principal_user_id(principal),
+        method_id=method_id,
+    )
+    await session.commit()
 
 
 @router.post(

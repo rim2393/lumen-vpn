@@ -437,6 +437,23 @@ async def list_mfa_methods(
     return list(result.scalars().all())
 
 
+async def delete_mfa_method(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    method_id: UUID,
+) -> None:
+    method = await session.get(UserMfaMethod, method_id)
+    if method is None or method.user_id != user_id:
+        raise APIError(
+            code="mfa_method_not_found",
+            message="MFA method was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    await session.delete(method)
+    await session.flush()
+
+
 def mfa_method_response(method: UserMfaMethod) -> MfaMethodResponse:
     return MfaMethodResponse(
         id=method.id,

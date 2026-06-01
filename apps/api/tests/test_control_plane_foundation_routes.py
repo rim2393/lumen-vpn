@@ -159,6 +159,14 @@ async def test_totp_mfa_setup_verify_and_list(foundation_app: FoundationRouteApp
     assert list_response.status_code == 200
     assert list_response.json()["items"][0]["label"] == "Owner phone"
 
+    delete_response = await foundation_app.client.delete(
+        f"/api/v1/auth/mfa/methods/{method['id']}"
+    )
+    assert delete_response.status_code == 204
+    empty_response = await foundation_app.client.get("/api/v1/auth/mfa/methods")
+    assert empty_response.status_code == 200
+    assert empty_response.json()["items"] == []
+
 
 async def test_settings_update_records_audit_event(foundation_app: FoundationRouteApp) -> None:
     update_response = await foundation_app.client.put(

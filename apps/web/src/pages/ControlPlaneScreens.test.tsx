@@ -1106,6 +1106,85 @@ describe('Control plane resource screens', () => {
     })
   })
 
+  it('manages MFA methods and passkeys through auth security APIs', async () => {
+    const user = userEvent.setup()
+    const mfaMethods = [
+      {
+        confirmed_at: '2026-05-27T00:00:00Z',
+        id: 'mfa_existing',
+        kind: 'totp',
+        label: 'Existing authenticator',
+        last_used_at: null,
+        status: 'active',
+      },
+    ]
+    const passkeys = [
+      {
+        aaguid: null,
+        created_at: '2026-05-27T00:00:00Z',
+        id: 'passkey_existing',
+        label: 'Laptop passkey',
+        last_used_at: null,
+        sign_count: 0,
+        transports: ['internal'],
+      },
+    ]
+    const listMfaMethods = vi.fn(async () => ({ items: mfaMethods }))
+    const setupTotp = vi.fn(async (label: string) => ({
+      method_id: 'mfa_pending',
+      otpauth_url: `otpauth://totp/Lumen:${label}?secret=TESTSECRET&issuer=Lumen`,
+      secret: 'TESTSECRET',
+      status: 'pending' as const,
+    }))
+    const verifyTotpSetup = vi.fn(async (methodId: string, code: string) => ({
+      items: [
+        ...mfaMethods,
+        {
+          confirmed_at: '2026-05-27T01:00:00Z',
+          id: methodId,
+          kind: 'totp',
+          label: `verified-${code}`,
+          last_used_at: null,
+          status: 'active',
+        },
+      ],
+    }))
+    const deleteMfaMethod = vi.fn(async (_methodId: string) => undefined)
+    const listWebAuthnCredentials = vi.fn(async () => ({ items: passkeys }))
+    const deleteWebAuthnCredential = vi.fn(async (_credentialId: string) => undefined)
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      deleteMfaMethod,
+      deleteWebAuthnCredential,
+      listMfaMethods,
+      listWebAuthnCredentials,
+      setupTotp,
+      verifyTotpSetup,
+    }
+
+    renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('heading', { name: /MFA and passkeys/i })).toBeInTheDocument()
+    expect(await screen.findByText('Existing authenticator')).toBeInTheDocument()
+    expect(await screen.findByText('Laptop passkey')).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText(/MFA label/i))
+    await user.type(screen.getByLabelText(/MFA label/i), 'Owner phone')
+    await user.click(screen.getByRole('button', { name: /start setup/i }))
+    await waitFor(() => expect(setupTotp).toHaveBeenCalledWith('Owner phone'))
+    expect((await screen.findAllByText(/TESTSECRET/)).length).toBeGreaterThanOrEqual(2)
+
+    await user.type(screen.getByLabelText(/authenticator code/i), '123456')
+    await user.click(screen.getByRole('button', { name: /confirm code/i }))
+    await waitFor(() => expect(verifyTotpSetup).toHaveBeenCalledWith('mfa_pending', '123456'))
+
+    await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    await waitFor(() => expect(deleteMfaMethod).toHaveBeenCalledWith('mfa_existing'))
+
+    await user.click(screen.getAllByRole('button', { name: /^delete$/i })[1])
+    await waitFor(() => expect(deleteWebAuthnCredential).toHaveBeenCalledWith('passkey_existing'))
+  })
+
   it('does not offer enable actions for catalog-only auth providers', async () => {
     const updateAuthProvider = vi.fn()
     const apiClient: LumenApiClient = {

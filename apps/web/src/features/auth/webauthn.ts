@@ -26,6 +26,36 @@ export function isPasskeySupported(): boolean {
 }
 
 type AllowCredential = { id: string; type?: string; transports?: string[] }
+type ExcludeCredential = { id: string; type?: string; transports?: string[] }
+
+function convertCredentialCreationOptions(
+  options: Record<string, unknown>,
+): PublicKeyCredentialCreationOptions {
+  const source = { ...options } as Record<string, unknown>
+  const user = source.user as Record<string, unknown> | undefined
+  const creationOptions: PublicKeyCredentialCreationOptions = {
+    ...(source as unknown as PublicKeyCredentialCreationOptions),
+    challenge: base64urlToBuffer(String(source.challenge)),
+    user: {
+      ...(user as unknown as PublicKeyCredentialUserEntity),
+      id: base64urlToBuffer(String(user?.id ?? '')),
+      name: String(user?.name ?? ''),
+      displayName: String(user?.displayName ?? user?.name ?? ''),
+    },
+  }
+
+  if (Array.isArray(source.excludeCredentials)) {
+    creationOptions.excludeCredentials = (source.excludeCredentials as ExcludeCredential[]).map(
+      (credential) => ({
+        id: base64urlToBuffer(credential.id),
+        type: 'public-key',
+        transports: credential.transports as AuthenticatorTransport[] | undefined,
+      }),
+    )
+  }
+
+  return creationOptions
+}
 
 export async function performPasskeyAuthentication(
   options: Record<string, unknown>,
@@ -66,5 +96,31 @@ export async function performPasskeyAuthentication(
       userHandle: response.userHandle ? bufferToBase64url(response.userHandle) : null,
     },
     clientExtensionResults: assertion.getClientExtensionResults(),
+  }
+}
+
+export async function performPasskeyRegistration(
+  options: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const credential = (await navigator.credentials.create({
+    publicKey: convertCredentialCreationOptions(options),
+  })) as PublicKeyCredential | null
+
+  if (!credential) {
+    throw new Error('Passkey registration was cancelled.')
+  }
+
+  const response = credential.response as AuthenticatorAttestationResponse
+  return {
+    id: credential.id,
+    rawId: bufferToBase64url(credential.rawId),
+    type: credential.type,
+    response: {
+      attestationObject: bufferToBase64url(response.attestationObject),
+      clientDataJSON: bufferToBase64url(response.clientDataJSON),
+      transports:
+        typeof response.getTransports === 'function' ? response.getTransports() : [],
+    },
+    clientExtensionResults: credential.getClientExtensionResults(),
   }
 }

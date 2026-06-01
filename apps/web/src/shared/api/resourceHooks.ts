@@ -61,6 +61,8 @@ export const resourceQueryKeys = {
   session: ['auth', 'session'] as const,
   settings: ['resource', 'settings'] as const,
   settingGroups: ['resource', 'settings', 'groups'] as const,
+  mfaMethods: ['resource', 'auth', 'mfa-methods'] as const,
+  webauthnCredentials: ['resource', 'auth', 'webauthn-credentials'] as const,
   authProviders: ['resource', 'settings', 'auth-providers'] as const,
   squads: ['resource', 'squads'] as const,
   squadDetail: (squadId: string) => ['resource', 'squads', squadId, 'detail'] as const,
@@ -1054,6 +1056,69 @@ export function useUpdateSettingGroup() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settingGroups })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settings })
+    },
+  })
+}
+
+export function useMfaMethodsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listMfaMethods,
+    queryKey: resourceQueryKeys.mfaMethods,
+  })
+}
+
+export function useSetupTotp() {
+  const apiClient = useApiClient()
+
+  return useMutation({
+    mutationFn: (label: string) => apiClient.setupTotp(label),
+  })
+}
+
+export function useVerifyTotpSetup() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ code, methodId }: { code: string; methodId: string }) =>
+      apiClient.verifyTotpSetup(methodId, code),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.mfaMethods })
+    },
+  })
+}
+
+export function useDeleteMfaMethod() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (methodId: string) => apiClient.deleteMfaMethod(methodId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.mfaMethods })
+    },
+  })
+}
+
+export function useWebAuthnCredentialsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listWebAuthnCredentials,
+    queryKey: resourceQueryKeys.webauthnCredentials,
+  })
+}
+
+export function useDeleteWebAuthnCredential() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (credentialId: string) => apiClient.deleteWebAuthnCredential(credentialId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.webauthnCredentials })
     },
   })
 }
