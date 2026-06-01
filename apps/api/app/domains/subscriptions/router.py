@@ -320,9 +320,10 @@ async def _apply_subscription_template(
     body = rendered.body
     prepend = content.get("prepend")
     append = content.get("append")
-    if isinstance(prepend, str) and prepend:
+    allow_body_wrapping = not _is_json_content_type(rendered.content_type)
+    if allow_body_wrapping and isinstance(prepend, str) and prepend:
         body = f"{prepend}{body}"
-    if isinstance(append, str) and append:
+    if allow_body_wrapping and isinstance(append, str) and append:
         body = f"{body}{append}"
 
     headers = dict(rendered.headers)
@@ -354,6 +355,13 @@ async def _apply_subscription_template(
         filename=filename,
         headers=headers,
     )
+
+
+def _is_json_content_type(content_type: str) -> bool:
+    return content_type.split(";", 1)[0].strip().lower() in {
+        "application/json",
+        "application/x-json",
+    }
 
 
 def _template_format_for_target(render_target: str) -> str | None:

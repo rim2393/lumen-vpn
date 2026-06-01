@@ -465,10 +465,29 @@ async def test_public_subscription_renderers_emit_client_compatible_formats(
         "F1E2D3C4B5A69788776655443322110abcdEFGH_-"
     )
 
+    xray_template_response = await route_app.client.post(
+        "/api/v1/subscription-templates",
+        json={
+            "name": "Xray JSON production template",
+            "format": "xray_json",
+            "content_json": {
+                "prepend": "# invalid for json\n",
+                "append": "# invalid for json\n",
+                "filename": "lumen-xray-managed.json",
+                "headers": {"X-Lumen-Template": "xray-production"},
+            },
+        },
+    )
+    assert xray_template_response.status_code == 201
+    xray_template_id = xray_template_response.json()["id"]
+
     xray_response = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=amnezia",
     )
     assert xray_response.status_code == 200
+    assert xray_response.headers["x-lumen-template-id"] == xray_template_id
+    assert xray_response.headers["x-lumen-template"] == "xray-production"
+    assert "lumen-xray-managed.json" in xray_response.headers["content-disposition"]
     xray = xray_response.json()
     assert xray["outbounds"][0]["protocol"] == "vless"
     assert xray["outbounds"][0]["streamSettings"]["security"] == "reality"
