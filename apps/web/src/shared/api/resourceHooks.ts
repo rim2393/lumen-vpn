@@ -368,6 +368,7 @@ export function useApplyProfileToNode() {
     mutationFn: (profileId: string) => apiClient.applyProfileToNode(profileId),
     onSuccess: (_response, profileId) => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
       void queryClient.invalidateQueries({
         queryKey: resourceQueryKeys.profileComputedConfig(profileId),
       })
@@ -390,6 +391,7 @@ export function useUpdateProfile() {
       void queryClient.invalidateQueries({
         queryKey: resourceQueryKeys.profileComputedConfig(variables.id),
       })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileInbounds(variables.id) })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
@@ -426,6 +428,8 @@ export function useCreateHost() {
     mutationFn: (request: HostCreateRequest) => apiClient.createHost(request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
   })
 }
@@ -439,6 +443,8 @@ export function useUpdateHost() {
       apiClient.updateHost(id, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
   })
 }
@@ -451,6 +457,8 @@ export function useDeleteHost() {
     mutationFn: (id: string) => apiClient.deleteHost(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
   })
 }
@@ -464,6 +472,8 @@ export function useBulkHosts() {
       apiClient.bulkHosts(action, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
   })
 }
@@ -476,6 +486,8 @@ export function useReorderHosts() {
     mutationFn: (ids: string[]) => apiClient.reorderHosts(ids),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.hosts })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
     },
   })
 }

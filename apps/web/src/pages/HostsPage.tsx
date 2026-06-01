@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Ban, Save, Trash2 } from 'lucide-react'
+import { Ban, Save, Send, Trash2 } from 'lucide-react'
 import {
+  useApplyProfileToNode,
   useBulkHosts,
   useCreateHost,
   useDeleteHost,
@@ -35,6 +36,7 @@ export function HostsPage() {
   const deleteHost = useDeleteHost()
   const bulkHosts = useBulkHosts()
   const reorderHosts = useReorderHosts()
+  const applyProfileToNode = useApplyProfileToNode()
   const hosts = query.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
   const profiles = profilesQuery.data?.items ?? []
@@ -126,7 +128,7 @@ export function HostsPage() {
   return (
     <ResourceScreen
       caption="Host inventory"
-      columns={['Select', 'Name', 'Hostname', 'Node', 'Profile', 'Squad', 'Endpoint', 'Tags', 'Status', 'Actions']}
+      columns={['Select', 'Name', 'Hostname', 'Node', 'Profile', 'Squad', 'Endpoint', 'Tags', 'Runtime', 'Status', 'Actions']}
       createForm={
         <ScreenForm onSubmit={handleSubmit}>
           <div>
@@ -238,6 +240,7 @@ export function HostsPage() {
           squads.find((squad) => squad.id === host.squad_id)?.name ?? 'None',
           `${host.address ?? host.hostname}${host.port ? `:${host.port}` : ''}${host.path ?? ''}`,
           host.tags.join(', ') || 'None',
+          <RuntimeSyncBadge status={runtimeSyncStatus(host)} />,
           <StatusBadge tone={toneForStatus(host.status)}>{host.status}</StatusBadge>,
           <div className="inline-actions">
             <button
@@ -247,6 +250,15 @@ export function HostsPage() {
               onClick={() => setSelectedHostId(host.id)}
             >
               <Save size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              disabled={!host.protocol_profile_id || applyProfileToNode.isPending}
+              aria-label={`Apply ${host.name} profile to node`}
+              onClick={() => host.protocol_profile_id && void applyProfileToNode.mutateAsync(host.protocol_profile_id)}
+            >
+              <Send size={16} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -606,6 +618,27 @@ function parseMetadata(value: string): Record<string, unknown> {
     throw new Error('metadata_json must be a JSON object.')
   }
   return parsed as Record<string, unknown>
+}
+
+function RuntimeSyncBadge({ status }: { status: { label: string; tone: 'danger' | 'good' | 'info' | 'neutral' | 'watch' } }) {
+  return <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+}
+
+function runtimeSyncStatus(host: HostRecord): { label: string; tone: 'danger' | 'good' | 'info' | 'neutral' | 'watch' } {
+  const status = host.runtime_sync?.status ?? 'never_applied'
+  if (status === 'applied') {
+    return { label: 'Runtime applied', tone: 'good' }
+  }
+  if (status === 'apply_queued') {
+    return { label: 'Apply queued', tone: 'info' }
+  }
+  if (status === 'apply_failed') {
+    return { label: 'Apply failed', tone: 'danger' }
+  }
+  if (host.runtime_sync?.pending_apply || status === 'pending_apply') {
+    return { label: 'Pending apply', tone: 'watch' }
+  }
+  return { label: 'Never applied', tone: 'neutral' }
 }
 
 function isValidHostPort(value: number): boolean {

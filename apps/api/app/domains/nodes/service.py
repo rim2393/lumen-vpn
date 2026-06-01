@@ -900,6 +900,10 @@ async def complete_node_command(
             _apply_completed_control_action(node, command)
         elif request.status == "failed":
             _clear_pending_control_action(node, command)
+    if command.command_type == "outbound.apply":
+        from app.domains.protocols.service import record_outbound_apply_result
+
+        await record_outbound_apply_result(session, command=command)
     await session.flush()
     return command
 

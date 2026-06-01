@@ -968,6 +968,7 @@ function ProfileInventoryTable({
         t('Hosts'),
         t('Inbounds'),
         t('Config'),
+        t('Runtime'),
         t('Status'),
         t('Actions'),
       ]}
@@ -1018,6 +1019,7 @@ function ProfileInventoryTable({
             </StatusBadge>
           </div>,
           <code key="config">{configSummary(profile)}</code>,
+          <RuntimeSyncBadge key="runtime" status={runtimeSyncStatus(profile)} />,
           <StatusBadge key="status" tone={toneForStatus(profile.status)}>
             {t(profile.status)}
           </StatusBadge>,
@@ -1165,7 +1167,11 @@ function ProfileCard({
         <StatusBadge tone="info">{portsLabel(profile, t)}</StatusBadge>
         <StatusBadge tone="good">{t('profile.hosts.count', { count: hosts.length })}</StatusBadge>
         <StatusBadge tone="neutral">{t('inbounds.count', { count: inbounds })}</StatusBadge>
-        <StatusBadge tone={toneForStatus(profile.status)}>{t(profile.status)}</StatusBadge>
+        <RuntimeSyncBadge status={runtimeSyncStatus(profile)} />
+        <div className="inline-actions inline-actions--compact">
+          <RuntimeSyncBadge status={runtimeSyncStatus(profile)} />
+          <StatusBadge tone={toneForStatus(profile.status)}>{t(profile.status)}</StatusBadge>
+        </div>
       </div>
       <div className="profile-card__actions">
         <button
@@ -1276,6 +1282,10 @@ function ProfileCard({
       </div>
     </article>
   )
+}
+
+function RuntimeSyncBadge({ status }: { status: { label: string; tone: 'danger' | 'good' | 'info' | 'neutral' | 'watch' } }) {
+  return <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
 }
 
 function ProfileDetailPanel({
@@ -1996,6 +2006,23 @@ function configSummary(profile: ProtocolProfileRecord): string {
   const security = String(profile.config_json.security ?? 'security?')
   const smoke = profile.config_json.smoke === true ? ', smoke=true' : ''
   return `transport=${transport}, security=${security}${smoke}`
+}
+
+function runtimeSyncStatus(profile: ProtocolProfileRecord): { label: string; tone: 'danger' | 'good' | 'info' | 'neutral' | 'watch' } {
+  const status = profile.runtime_sync?.status ?? 'never_applied'
+  if (status === 'applied') {
+    return { label: 'Runtime applied', tone: 'good' }
+  }
+  if (status === 'apply_queued') {
+    return { label: 'Apply queued', tone: 'info' }
+  }
+  if (status === 'apply_failed') {
+    return { label: 'Apply failed', tone: 'danger' }
+  }
+  if (profile.runtime_sync?.pending_apply || status === 'pending_apply') {
+    return { label: 'Pending apply', tone: 'watch' }
+  }
+  return { label: 'Never applied', tone: 'neutral' }
 }
 
 function portsLabel(profile: ProtocolProfileRecord, t: (value: string) => string): string {

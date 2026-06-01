@@ -17,7 +17,8 @@ from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import Node, NodeCommand
-from app.domains.protocols.models import ProtocolProfile
+from app.domains.protocols.models import Host, ProtocolProfile
+from app.domains.protocols.service import record_outbound_apply_result
 from app.domains.subscriptions.models import Subscription
 from app.domains.users.models import User
 from app.main import create_app
@@ -283,3 +284,60 @@ async def test_apply_profile_without_real_subscription_is_rejected(route_app: Ro
     response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "profile_runtime_clients_required"
+
+
+async def test_profile_and_host_mutations_track_real_runtime_apply_state(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(route_app, "hysteria2")
+    async with route_app.sessionmaker() as session:
+        host = Host(
+            name=f"host-{uuid4().hex[:6]}",
+            hostname="sub.example.test",
+            node_id=UUID(node_id),
+            protocol_profile_id=UUID(profile_id),
+            status="active",
+            tags=[],
+        )
+        session.add(host)
+        await session.commit()
+        host_id = str(host.id)
+
+    host_update = await route_app.client.patch(
+        f"/api/v1/hosts/{host_id}",
+        json={"path": "/changed"},
+    )
+    assert host_update.status_code == 200, host_update.text
+    host_body = host_update.json()
+    assert host_body["runtime_sync"]["pending_apply"] is True
+    assert host_body["runtime_sync"]["status"] == "pending_apply"
+
+    profile_response = await route_app.client.get(f"/api/v1/profiles/{profile_id}")
+    assert profile_response.status_code == 200, profile_response.text
+    profile_body = profile_response.json()
+    assert profile_body["runtime_sync"]["pending_apply"] is True
+    assert profile_body["runtime_sync"]["status"] == "pending_apply"
+
+    apply_response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert apply_response.status_code == 202, apply_response.text
+    command_id = apply_response.json()["command_id"]
+
+    queued_profile = await route_app.client.get(f"/api/v1/profiles/{profile_id}")
+    assert queued_profile.json()["runtime_sync"]["pending_apply"] is True
+    assert queued_profile.json()["runtime_sync"]["status"] == "apply_queued"
+    assert queued_profile.json()["runtime_sync"]["last_command_id"] == command_id
+
+    async with route_app.sessionmaker() as session:
+        command = await session.get(NodeCommand, UUID(command_id))
+        assert command is not None
+        command.status = "succeeded"
+        await record_outbound_apply_result(session, command=command)
+        await session.commit()
+
+    applied_profile = await route_app.client.get(f"/api/v1/profiles/{profile_id}")
+    assert applied_profile.json()["runtime_sync"]["pending_apply"] is False
+    assert applied_profile.json()["runtime_sync"]["status"] == "applied"
+
+    applied_host = await route_app.client.get(f"/api/v1/hosts/{host_id}")
+    assert applied_host.json()["runtime_sync"]["pending_apply"] is False
+    assert applied_host.json()["runtime_sync"]["status"] == "applied"

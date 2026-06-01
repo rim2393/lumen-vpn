@@ -381,6 +381,25 @@ export type PortCheckResponse = {
   conflicts: PortConflict[]
 }
 
+export type RuntimeSyncStatus = {
+  applied_command_id?: string | null
+  changed_at?: string | null
+  changed_fields?: string[]
+  error_code?: string | null
+  error_message?: string | null
+  failed_command_id?: string | null
+  host_id?: string | null
+  last_applied_at?: string | null
+  last_apply_queued_at?: string | null
+  last_command_id?: string | null
+  last_failed_at?: string | null
+  node_id?: string | null
+  pending_apply: boolean
+  profile_id?: string | null
+  reason?: string | null
+  status: string
+}
+
 export type SquadKind = 'internal' | 'external'
 
 export type SquadRecord = {
@@ -481,6 +500,7 @@ export type ProtocolProfileRecord = {
   name: string
   node_id: string
   port_reservations: Array<Record<string, unknown>>
+  runtime_sync?: RuntimeSyncStatus
   squad_id: string | null
   status: string
   created_at?: string | null
@@ -542,6 +562,7 @@ export type HostRecord = {
   port: number | null
   protocol_profile_id: string | null
   remark: string | null
+  runtime_sync?: RuntimeSyncStatus
   security: string | null
   shuffle_host: boolean
   sni: string | null

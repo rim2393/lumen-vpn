@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import APIError
-from app.domains.nodes.models import Node
+from app.domains.nodes.models import Node, NodeCommand
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import (
     WILDCARD_BIND_ADDRESS,
@@ -311,6 +311,45 @@ LIVE_PROFILE_ADAPTERS = frozenset(
     adapter.protocol for adapter in PROTOCOL_ADAPTERS if adapter.status != "legacy"
 )
 
+RUNTIME_SYNC_METADATA_KEY = "runtime_sync"
+PROFILE_RUNTIME_FIELDS = frozenset(
+    {
+        "adapter",
+        "config_json",
+        "credentials_ref",
+        "node_id",
+        "port_reservations",
+        "squad_id",
+        "status",
+    }
+)
+HOST_RUNTIME_FIELDS = frozenset(
+    {
+        "address",
+        "excluded_internal_squad_ids",
+        "final_mask",
+        "hidden",
+        "hostname",
+        "inbound_tag",
+        "mihomo_x25519_public_key",
+        "mux_json",
+        "node_id",
+        "path",
+        "port",
+        "protocol_profile_id",
+        "security",
+        "shuffle_host",
+        "sni",
+        "sockopt_json",
+        "squad_id",
+        "status",
+        "subscription_excluded",
+        "tags",
+        "xhttp_json",
+        "xray_template_json",
+    }
+)
+
 
 def list_protocol_adapters() -> list[ProtocolAdapterResponse]:
     return list(PROTOCOL_ADAPTERS)
@@ -405,11 +444,15 @@ async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
             runtime_policy=runtime_policy,
             runtime_clients=runtime_clients,
         )
-    return await enqueue_node_command(
+    command = await enqueue_node_command(
         session,
         node_id=node.id,
         request=NodeCommandCreateRequest(command_type="outbound.apply", payload_json=payload),
     )
+    _mark_profile_apply_queued(profile, command=command)
+    await _mark_profile_hosts_apply_queued(session, profile_id=profile.id, command=command)
+    await session.flush()
+    return command
 
 
 async def list_profile_inbounds(
@@ -479,6 +522,19 @@ async def create_profile(
     session.add(profile)
     await session.flush()
     _ensure_openvpn_profile_pki(profile)
+    _mark_profile_runtime_pending(
+        profile,
+        reason="profile.created",
+        changed_fields=[
+            "adapter",
+            "config_json",
+            "credentials_ref",
+            "node_id",
+            "port_reservations",
+            "squad_id",
+            "status",
+        ],
+    )
     await session.flush()
     return profile
 
@@ -529,10 +585,19 @@ async def update_profile(
             )
         data["port_reservations"] = [reservation.model_dump() for reservation in reservations]
     data.pop("allow_port_conflicts", None)
+    changed_fields: list[str] = []
     for field, value in data.items():
+        if field in PROFILE_RUNTIME_FIELDS and getattr(profile, field) != value:
+            changed_fields.append(field)
         setattr(profile, field, value)
     await session.flush()
     _ensure_openvpn_profile_pki(profile)
+    if changed_fields:
+        _mark_profile_runtime_pending(
+            profile,
+            reason="profile.updated",
+            changed_fields=changed_fields,
+        )
     await session.flush()
     return profile
 
@@ -747,6 +812,19 @@ async def create_host(session: AsyncSession, *, request: HostCreateRequest) -> H
     host = Host(**request.model_dump())
     session.add(host)
     await session.flush()
+    _mark_host_runtime_pending(
+        host,
+        reason="host.created",
+        changed_fields=sorted(HOST_RUNTIME_FIELDS),
+    )
+    if host.protocol_profile_id is not None:
+        await _mark_profile_runtime_pending_by_id(
+            session,
+            profile_id=host.protocol_profile_id,
+            reason="host.created",
+            changed_fields=["hosts"],
+        )
+    await session.flush()
     return host
 
 
@@ -757,6 +835,7 @@ async def update_host(
     request: HostUpdateRequest,
 ) -> Host:
     host = await get_host(session, host_id=host_id)
+    previous_profile_id = host.protocol_profile_id
     data = request.model_dump(exclude_unset=True)
     if "node_id" in data and data["node_id"] is not None:
         await _ensure_node_exists(session, data["node_id"])
@@ -772,8 +851,30 @@ async def update_host(
             code="host_name_exists",
             exclude_id=host.id,
         )
+    changed_fields: list[str] = []
     for field, value in data.items():
+        if field in HOST_RUNTIME_FIELDS and getattr(host, field) != value:
+            changed_fields.append(field)
         setattr(host, field, value)
+    await session.flush()
+    if changed_fields:
+        _mark_host_runtime_pending(
+            host,
+            reason="host.updated",
+            changed_fields=changed_fields,
+        )
+        affected_profile_ids = {
+            profile_id
+            for profile_id in (previous_profile_id, host.protocol_profile_id)
+            if profile_id is not None
+        }
+        for profile_id in affected_profile_ids:
+            await _mark_profile_runtime_pending_by_id(
+                session,
+                profile_id=profile_id,
+                reason="host.updated",
+                changed_fields=["hosts", *changed_fields],
+            )
     await session.flush()
     return host
 
@@ -797,9 +898,14 @@ async def bulk_update_hosts(
         await session.flush()
         return len(hosts)
     for host in hosts:
+        changed_fields: list[str] = []
         if action == "enable":
+            if host.status != "active":
+                changed_fields.append("status")
             host.status = "active"
         elif action == "disable":
+            if host.status != "disabled":
+                changed_fields.append("status")
             host.status = "disabled"
         elif action == "set-inbound":
             if request.inbound_tag is None:
@@ -808,6 +914,8 @@ async def bulk_update_hosts(
                     message="inbound_tag is required for set-inbound.",
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
+            if host.inbound_tag != request.inbound_tag:
+                changed_fields.append("inbound_tag")
             host.inbound_tag = request.inbound_tag
         elif action == "set-port":
             if request.port is None:
@@ -816,6 +924,8 @@ async def bulk_update_hosts(
                     message="port is required for set-port.",
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
+            if host.port != request.port:
+                changed_fields.append("port")
             host.port = request.port
         else:
             raise APIError(
@@ -824,6 +934,19 @@ async def bulk_update_hosts(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 details=[action],
             )
+        if changed_fields:
+            _mark_host_runtime_pending(
+                host,
+                reason=f"host.bulk.{action}",
+                changed_fields=changed_fields,
+            )
+            if host.protocol_profile_id is not None:
+                await _mark_profile_runtime_pending_by_id(
+                    session,
+                    profile_id=host.protocol_profile_id,
+                    reason=f"host.bulk.{action}",
+                    changed_fields=["hosts", *changed_fields],
+                )
     await session.flush()
     return len(hosts)
 
@@ -857,6 +980,25 @@ async def bulk_set_status(
             details=missing,
         )
     for record in records:
+        if isinstance(record, ProtocolProfile) and record.status != status_value:
+            _mark_profile_runtime_pending(
+                record,
+                reason="profile.bulk.status",
+                changed_fields=["status"],
+            )
+        elif isinstance(record, Host) and record.status != status_value:
+            _mark_host_runtime_pending(
+                record,
+                reason="host.bulk.status",
+                changed_fields=["status"],
+            )
+            if record.protocol_profile_id is not None:
+                await _mark_profile_runtime_pending_by_id(
+                    session,
+                    profile_id=record.protocol_profile_id,
+                    reason="host.bulk.status",
+                    changed_fields=["hosts", "status"],
+                )
         record.status = status_value
     await session.flush()
     return len(records)
@@ -953,6 +1095,219 @@ async def _ensure_unique_name(
         )
 
 
+def _utc_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _metadata_with_runtime_sync(
+    metadata: dict[str, object],
+    runtime_sync: dict[str, object],
+) -> dict[str, object]:
+    next_metadata = deepcopy(metadata or {})
+    next_metadata[RUNTIME_SYNC_METADATA_KEY] = runtime_sync
+    return next_metadata
+
+
+def _runtime_sync_from_metadata(metadata: dict[str, object] | None) -> dict[str, object]:
+    value = (metadata or {}).get(RUNTIME_SYNC_METADATA_KEY)
+    if isinstance(value, dict):
+        return deepcopy(value)
+    return {"pending_apply": False, "status": "never_applied"}
+
+
+def _mark_profile_runtime_pending(
+    profile: ProtocolProfile,
+    *,
+    reason: str,
+    changed_fields: list[str],
+) -> None:
+    current = _runtime_sync_from_metadata(profile.metadata_json)
+    existing_fields = {
+        str(field)
+        for field in current.get("changed_fields", [])
+        if isinstance(field, str) and field
+    }
+    existing_fields.update(changed_fields)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "changed_at": _utc_iso(),
+        "changed_fields": sorted(existing_fields),
+        "node_id": str(profile.node_id),
+        "pending_apply": True,
+        "profile_id": str(profile.id),
+        "reason": reason,
+        "status": "pending_apply",
+    }
+    profile.metadata_json = _metadata_with_runtime_sync(profile.metadata_json, runtime_sync)
+
+
+async def _mark_profile_runtime_pending_by_id(
+    session: AsyncSession,
+    *,
+    profile_id: UUID,
+    reason: str,
+    changed_fields: list[str],
+) -> None:
+    profile = await session.get(ProtocolProfile, profile_id)
+    if profile is not None:
+        _mark_profile_runtime_pending(profile, reason=reason, changed_fields=changed_fields)
+
+
+def _mark_host_runtime_pending(
+    host: Host,
+    *,
+    reason: str,
+    changed_fields: list[str],
+) -> None:
+    current = _runtime_sync_from_metadata(host.metadata_json)
+    existing_fields = {
+        str(field)
+        for field in current.get("changed_fields", [])
+        if isinstance(field, str) and field
+    }
+    existing_fields.update(changed_fields)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "changed_at": _utc_iso(),
+        "changed_fields": sorted(existing_fields),
+        "host_id": str(host.id),
+        "node_id": str(host.node_id),
+        "pending_apply": True,
+        "profile_id": str(host.protocol_profile_id) if host.protocol_profile_id else None,
+        "reason": reason,
+        "status": "pending_apply",
+    }
+    host.metadata_json = _metadata_with_runtime_sync(host.metadata_json, runtime_sync)
+
+
+def _mark_profile_apply_queued(profile: ProtocolProfile, *, command: NodeCommand) -> None:
+    current = _runtime_sync_from_metadata(profile.metadata_json)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "last_apply_queued_at": _utc_iso(),
+        "last_command_id": str(command.id),
+        "node_id": str(command.node_id),
+        "pending_apply": True,
+        "profile_id": str(profile.id),
+        "status": "apply_queued",
+    }
+    profile.metadata_json = _metadata_with_runtime_sync(profile.metadata_json, runtime_sync)
+
+
+def _mark_host_apply_queued(host: Host, *, command: NodeCommand) -> None:
+    current = _runtime_sync_from_metadata(host.metadata_json)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "last_apply_queued_at": _utc_iso(),
+        "last_command_id": str(command.id),
+        "node_id": str(command.node_id),
+        "pending_apply": True,
+        "profile_id": str(host.protocol_profile_id) if host.protocol_profile_id else None,
+        "status": "apply_queued",
+    }
+    host.metadata_json = _metadata_with_runtime_sync(host.metadata_json, runtime_sync)
+
+
+async def _mark_profile_hosts_apply_queued(
+    session: AsyncSession,
+    *,
+    profile_id: UUID,
+    command: NodeCommand,
+) -> None:
+    hosts = await _list_profile_hosts(session, profile_id=profile_id)
+    for host in hosts:
+        runtime_sync = _runtime_sync_from_metadata(host.metadata_json)
+        if runtime_sync.get("pending_apply") is True:
+            _mark_host_apply_queued(host, command=command)
+
+
+async def record_outbound_apply_result(
+    session: AsyncSession,
+    *,
+    command: NodeCommand,
+) -> None:
+    if command.command_type != "outbound.apply":
+        return
+    profile_ids = _profile_ids_from_apply_command(command)
+    if not profile_ids:
+        return
+    profiles = (
+        await session.execute(select(ProtocolProfile).where(ProtocolProfile.id.in_(profile_ids)))
+    ).scalars().all()
+    hosts = (
+        await session.execute(select(Host).where(Host.protocol_profile_id.in_(profile_ids)))
+    ).scalars().all()
+    if command.status == "succeeded":
+        applied_at = command.completed_at.isoformat() if command.completed_at else _utc_iso()
+        for profile in profiles:
+            _mark_runtime_applied(profile, command=command, applied_at=applied_at)
+        for host in hosts:
+            _mark_runtime_applied(host, command=command, applied_at=applied_at)
+    elif command.status == "failed":
+        failed_at = command.completed_at.isoformat() if command.completed_at else _utc_iso()
+        for profile in profiles:
+            _mark_runtime_apply_failed(profile, command=command, failed_at=failed_at)
+        for host in hosts:
+            _mark_runtime_apply_failed(host, command=command, failed_at=failed_at)
+
+
+def _profile_ids_from_apply_command(command: NodeCommand) -> list[UUID]:
+    raw_profile_ids = command.payload_json.get("profileIds")
+    if isinstance(raw_profile_ids, list):
+        candidates = raw_profile_ids
+    else:
+        candidates = [command.payload_json.get("profileId")]
+    profile_ids: list[UUID] = []
+    for candidate in candidates:
+        try:
+            if candidate is not None:
+                profile_ids.append(UUID(str(candidate)))
+        except ValueError:
+            continue
+    return profile_ids
+
+
+def _mark_runtime_applied(
+    resource: ProtocolProfile | Host,
+    *,
+    command: NodeCommand,
+    applied_at: str,
+) -> None:
+    current = _runtime_sync_from_metadata(resource.metadata_json)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "applied_command_id": str(command.id),
+        "last_applied_at": applied_at,
+        "last_command_id": str(command.id),
+        "node_id": str(command.node_id),
+        "pending_apply": False,
+        "status": "applied",
+    }
+    runtime_sync.pop("changed_fields", None)
+    resource.metadata_json = _metadata_with_runtime_sync(resource.metadata_json, runtime_sync)
+
+
+def _mark_runtime_apply_failed(
+    resource: ProtocolProfile | Host,
+    *,
+    command: NodeCommand,
+    failed_at: str,
+) -> None:
+    current = _runtime_sync_from_metadata(resource.metadata_json)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "error_code": command.error_code,
+        "error_message": command.error_message,
+        "failed_command_id": str(command.id),
+        "last_failed_at": failed_at,
+        "last_command_id": str(command.id),
+        "node_id": str(command.node_id),
+        "pending_apply": True,
+        "status": "apply_failed",
+    }
+    resource.metadata_json = _metadata_with_runtime_sync(resource.metadata_json, runtime_sync)
+
+
 def profile_response(profile: ProtocolProfile) -> ProtocolProfileResponse:
     return ProtocolProfileResponse(
         id=profile.id,
@@ -965,6 +1320,7 @@ def profile_response(profile: ProtocolProfile) -> ProtocolProfileResponse:
         port_reservations=profile.port_reservations,
         credentials_ref=profile.credentials_ref,
         metadata_json=profile.metadata_json,
+        runtime_sync=_runtime_sync_from_metadata(profile.metadata_json),
     )
 
 
@@ -1067,6 +1423,7 @@ def host_response(host: Host) -> HostResponse:
         mihomo_x25519_public_key=host.mihomo_x25519_public_key,
         remark=host.remark,
         metadata_json=host.metadata_json,
+        runtime_sync=_runtime_sync_from_metadata(host.metadata_json),
     )
 
 

@@ -90,6 +90,7 @@ class ProtocolProfileResponse(BaseModel):
     port_reservations: list[dict[str, object]]
     credentials_ref: str | None
     metadata_json: dict[str, object]
+    runtime_sync: dict[str, object]
 
 
 class ProtocolProfileUpdateRequest(BaseModel):
@@ -324,6 +325,7 @@ class HostResponse(BaseModel):
     mihomo_x25519_public_key: str | None
     remark: str | None
     metadata_json: dict[str, object]
+    runtime_sync: dict[str, object]
 
 
 class HostUpdateRequest(BaseModel):
