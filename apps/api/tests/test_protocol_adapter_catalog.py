@@ -12,6 +12,8 @@ def test_protocol_adapter_catalog_contains_full_product_matrix() -> None:
     for expected_protocol in (
         "vless-reality",
         "vless-reality-grpc",
+        "vless-reality-xhttp",
+        "vless-reality-httpupgrade",
         "vless-ws-tls",
         "vmess-ws-tls",
         "trojan-tcp-tls",
@@ -27,3 +29,6 @@ def test_protocol_adapter_catalog_contains_full_product_matrix() -> None:
     for adapter in adapters:
         assert adapter.display_name
         assert "subscription" in adapter.capabilities
+
+    statuses = {adapter.protocol: adapter.status for adapter in adapters}
+    assert statuses["vless-reality-httpupgrade"] == "legacy"

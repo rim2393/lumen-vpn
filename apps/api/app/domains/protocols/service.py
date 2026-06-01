@@ -87,6 +87,7 @@ PROTOCOL_ADAPTERS = (
     _adapter(
         "vless-reality-httpupgrade",
         "VLESS Reality HTTPUpgrade",
+        status="legacy",
         capabilities=["xray", "vless", "reality", "httpupgrade", "subscription"],
         required_credential_refs=["client_uuid", "reality_private_key"],
     ),
