@@ -1020,6 +1020,61 @@ export type NodePluginApplyRequest = {
   reason?: string | null
 }
 
+export type NodeLatestMetricRecord = {
+  metric_kind: string
+  values_json: Record<string, number>
+  observed_at: string
+}
+
+export type NodeTrafficSummary = {
+  download_bytes: number | null
+  upload_bytes: number | null
+  total_bytes: number | null
+  metric_samples: number
+  last_observed_at: string | null
+}
+
+export type NodeCommandStatusCount = {
+  status: string
+  count: number
+}
+
+export type NodeCommandHistoryRecord = {
+  id: string
+  command_type: string
+  status: string
+  error_code: string | null
+  claimed_at: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export type NodeInfraBillingRecord = {
+  id: string
+  provider_id: string
+  provider_name: string
+  amount: number
+  currency: string
+  period: string
+  note: string | null
+}
+
+export type NodeInfraBillingCurrencyTotal = {
+  currency: string
+  total: number
+  records: number
+}
+
+export type NodeOverviewResponse = {
+  node: NodeResponse
+  latest_metrics: NodeLatestMetricRecord[]
+  traffic: NodeTrafficSummary
+  command_status_counts: NodeCommandStatusCount[]
+  latest_commands: NodeCommandHistoryRecord[]
+  infra_billing_records: NodeInfraBillingRecord[]
+  infra_billing_totals: NodeInfraBillingCurrencyTotal[]
+}
+
 export type InfraProviderRecord = {
   id: string
   name: string
@@ -1134,6 +1189,7 @@ export type LumenApiClient = {
   listApiKeys: () => Promise<ResourceListResponse<ApiKeyRecord>>
   listHosts: () => Promise<HostListResponse>
   listNodes: () => Promise<NodeListResponse>
+  getNodeOverview: (nodeId: string) => Promise<NodeOverviewResponse>
   listNodeCommands: (nodeId: string) => Promise<NodeCommandListResponse>
   listNodeMetrics: (nodeId: string) => Promise<NodeMetricListResponse>
   listProfiles: () => Promise<ProtocolProfileListResponse>

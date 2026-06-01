@@ -231,6 +231,61 @@ class NodeMetricListResponse(BaseModel):
     items: list[NodeMetricResponse]
 
 
+class NodeLatestMetricRecord(BaseModel):
+    metric_kind: str
+    values_json: dict[str, float]
+    observed_at: datetime
+
+
+class NodeTrafficSummary(BaseModel):
+    download_bytes: float | None
+    upload_bytes: float | None
+    total_bytes: float | None
+    metric_samples: int
+    last_observed_at: datetime | None
+
+
+class NodeCommandStatusCount(BaseModel):
+    status: str
+    count: int
+
+
+class NodeCommandHistoryRecord(BaseModel):
+    id: UUID
+    command_type: str
+    status: str
+    error_code: str | None
+    claimed_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+
+
+class NodeInfraBillingRecord(BaseModel):
+    id: UUID
+    provider_id: UUID
+    provider_name: str
+    amount: float
+    currency: str
+    period: str
+    note: str | None
+
+
+class NodeInfraBillingCurrencyTotal(BaseModel):
+    currency: str
+    total: float
+    records: int
+
+
+class NodeOverviewResponse(BaseModel):
+    node: NodeResponse
+    latest_metrics: list[NodeLatestMetricRecord]
+    traffic: NodeTrafficSummary
+    command_status_counts: list[NodeCommandStatusCount]
+    latest_commands: list[NodeCommandHistoryRecord]
+    infra_billing_records: list[NodeInfraBillingRecord]
+    infra_billing_totals: list[NodeInfraBillingCurrencyTotal]
+
+
 class ProvisioningJobResponse(BaseModel):
     id: UUID
     idempotency_key: str

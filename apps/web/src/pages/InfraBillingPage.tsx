@@ -7,6 +7,7 @@ import {
   useInfraBillingRecordsData,
   useInfraBillingSummary,
   useInfraProvidersData,
+  useNodesPageData,
 } from '../shared/api/resourceHooks'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
 import { DataTable } from '../shared/components/DataTable'
@@ -18,17 +19,20 @@ export function InfraBillingPage() {
   const providersQuery = useInfraProvidersData()
   const recordsQuery = useInfraBillingRecordsData()
   const summaryQuery = useInfraBillingSummary()
+  const nodesQuery = useNodesPageData()
   const createProvider = useCreateInfraProvider()
   const deleteProvider = useDeleteInfraProvider()
   const createRecord = useCreateInfraBillingRecord()
 
   const providers = providersQuery.data?.items ?? []
   const records = recordsQuery.data?.items ?? []
+  const nodes = nodesQuery.data?.items ?? []
   const summary = summaryQuery.data
 
   const [providerName, setProviderName] = useState('')
   const [providerUrl, setProviderUrl] = useState('')
   const [recordProvider, setRecordProvider] = useState('')
+  const [recordNode, setRecordNode] = useState('')
   const [amount, setAmount] = useState('0')
   const [currency, setCurrency] = useState('USD')
   const [period, setPeriod] = useState('')
@@ -40,6 +44,8 @@ export function InfraBillingPage() {
 
   const providerNameFor = (id: string) =>
     providers.find((provider) => provider.id === id)?.name ?? id
+  const nodeNameFor = (id: string | null) =>
+    id ? nodes.find((node) => node.id === id)?.name ?? id : t('Unassigned')
 
   async function submitProvider(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -68,12 +74,14 @@ export function InfraBillingPage() {
     try {
       await createRecord.mutateAsync({
         provider_id: recordProvider,
+        node_id: recordNode || null,
         amount: parsedAmount,
         currency,
         period,
       })
       setAmount('0')
       setPeriod('')
+      setRecordNode('')
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Could not create record.')
     }
@@ -168,11 +176,12 @@ export function InfraBillingPage() {
               ) : (
                 <DataTable
                   caption="Billing records"
-                  columns={[t('Provider'), t('Period'), t('Amount'), t('Currency')]}
+                  columns={[t('Provider'), t('Node'), t('Period'), t('Amount'), t('Currency')]}
                   rows={records.map((record) => ({
                     id: record.id,
                     cells: [
                       providerNameFor(record.provider_id),
+                      nodeNameFor(record.node_id),
                       record.period,
                       record.amount.toFixed(2),
                       record.currency,
@@ -227,6 +236,21 @@ export function InfraBillingPage() {
                     {providers.map((provider) => (
                       <option key={provider.id} value={provider.id}>
                         {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label htmlFor="record-node">
+                  {t('Node')}
+                  <select
+                    id="record-node"
+                    value={recordNode}
+                    onChange={(event) => setRecordNode(event.target.value)}
+                  >
+                    <option value="">{t('Unassigned')}</option>
+                    {nodes.map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {node.name}
                       </option>
                     ))}
                   </select>

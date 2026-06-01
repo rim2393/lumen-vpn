@@ -37,6 +37,7 @@ import type {
   NodeCommandCreateRequest,
   NodeCommandRecord,
   NodeListResponse,
+  NodeOverviewResponse,
   NodeRecord,
   NodeResponse,
   NodeReorderRequest,
@@ -305,6 +306,75 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     }
     nodeCommands.unshift(command)
     return command
+  }
+
+  function buildDevelopmentNodeOverview(nodeId: string): NodeOverviewResponse {
+    const node = asNodeListResponse().items.find((item) => item.id === nodeId)
+    if (!node) {
+      throw new Error('Node not found')
+    }
+    const metric = {
+      created_at: generatedAt,
+      id: `metric_${nodeId}`,
+      metric_kind: 'runtime',
+      node_id: nodeId,
+      observed_at: generatedAt,
+      values_json: { command_polled: 1, rx_bytes: 1024, tx_bytes: 512 },
+    }
+    const commands = nodeCommands.filter((command) => command.node_id === nodeId)
+    const counts = commands.reduce<Record<string, number>>((acc, command) => {
+      acc[command.status] = (acc[command.status] ?? 0) + 1
+      return acc
+    }, {})
+    const records = infraBillingRecords.filter((record) => record.node_id === nodeId)
+    const totals = records.reduce<Record<string, { currency: string; total: number; records: number }>>(
+      (acc, record) => {
+        acc[record.currency] ??= { currency: record.currency, records: 0, total: 0 }
+        acc[record.currency].records += 1
+        acc[record.currency].total += record.amount
+        return acc
+      },
+      {},
+    )
+    return {
+      command_status_counts: Object.entries(counts).map(([status, count]) => ({ count, status })),
+      infra_billing_records: records.map((record) => ({
+        amount: record.amount,
+        currency: record.currency,
+        id: record.id,
+        note: record.note,
+        period: record.period,
+        provider_id: record.provider_id,
+        provider_name:
+          infraProviders.find((provider) => provider.id === record.provider_id)?.name ??
+          record.provider_id,
+      })),
+      infra_billing_totals: Object.values(totals),
+      latest_commands: commands.slice(0, 10).map((command) => ({
+        claimed_at: command.claimed_at,
+        command_type: command.command_type,
+        completed_at: command.completed_at,
+        created_at: command.created_at,
+        error_code: command.error_code,
+        id: command.id,
+        status: command.status,
+      })),
+      latest_metrics: [
+        {
+          metric_kind: metric.metric_kind,
+          observed_at: metric.observed_at,
+          values_json: metric.values_json,
+        },
+      ],
+      node,
+      traffic: {
+        download_bytes: metric.values_json.rx_bytes,
+        last_observed_at: metric.observed_at,
+        metric_samples: 1,
+        total_bytes: metric.values_json.rx_bytes + metric.values_json.tx_bytes,
+        upload_bytes: metric.values_json.tx_bytes,
+      },
+    }
   }
 
   return {
@@ -774,6 +844,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     listApiKeys: async () => asListResponse(apiKeys),
     listHosts: async (): Promise<HostListResponse> => ({ items: hosts }),
     listNodes: async () => asNodeListResponse(),
+    getNodeOverview: async (nodeId: string) => buildDevelopmentNodeOverview(nodeId),
     listNodeCommands: async (nodeId: string) => ({
       items: nodeCommands.filter((command) => command.node_id === nodeId),
     }),

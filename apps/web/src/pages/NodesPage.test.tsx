@@ -110,6 +110,38 @@ describe('NodesPage backend wiring', () => {
       },
     ]
     const apiClient = createTestClient({
+      getNodeOverview: async (nodeId: string) => ({
+        command_status_counts: [{ count: 2, status: 'succeeded' }],
+        infra_billing_records: [
+          {
+            amount: 12.5,
+            currency: 'USD',
+            id: 'billing-node-active',
+            node_id: nodeId,
+            note: 'monthly vps',
+            period: '2026-06',
+            provider_id: 'provider-1',
+            provider_name: 'Provider One',
+          },
+        ],
+        infra_billing_totals: [{ currency: 'USD', records: 1, total: 12.5 }],
+        latest_commands: [],
+        latest_metrics: [
+          {
+            metric_kind: 'runtime',
+            observed_at: '2026-05-27T09:30:00Z',
+            values_json: { rx_bytes: 2048, tx_bytes: 1024 },
+          },
+        ],
+        node: nodes[0],
+        traffic: {
+          download_bytes: 2048,
+          last_observed_at: '2026-05-27T09:30:00Z',
+          metric_samples: 1,
+          total_bytes: 3072,
+          upload_bytes: 1024,
+        },
+      }),
       listNodes: async () => ({
         items: nodes,
       }),
@@ -132,6 +164,10 @@ describe('NodesPage backend wiring', () => {
       screen.getByText(/2 of 3 nodes reported heartbeat; 1 node missing heartbeat data/i),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Inspect' })[0])
+    expect(await screen.findByRole('region', { name: /node live overview/i })).toBeInTheDocument()
+    expect(screen.getByText('3.00 KB')).toBeInTheDocument()
+    expect(screen.getByText('Provider One')).toBeInTheDocument()
     const resumeButtons = screen.getAllByRole('button', { name: 'Resume' })
     expect(resumeButtons[0]).toBeDisabled()
     expect(resumeButtons[1]).toBeEnabled()

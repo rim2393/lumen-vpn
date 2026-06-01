@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import status
 from pydantic import SecretStr
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -16,6 +16,7 @@ from app.core.security import (
     require_secret,
 )
 from app.domains.audit.models import AuditEvent
+from app.domains.infra_billing.models import InfraBillingRecord, InfraProvider
 from app.domains.licenses.service import enforce_free_node_policy
 from app.domains.nodes.models import (
     Node,
@@ -28,16 +29,23 @@ from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
     NodeBulkActionRequest,
     NodeCommandCreateRequest,
+    NodeCommandHistoryRecord,
     NodeCommandResultRequest,
+    NodeCommandStatusCount,
     NodeCreateRequest,
     NodeEventCreateRequest,
     NodeHeartbeatRequest,
+    NodeInfraBillingCurrencyTotal,
+    NodeInfraBillingRecord,
+    NodeLatestMetricRecord,
     NodeMetricCreateRequest,
+    NodeOverviewResponse,
     NodePauseRequest,
     NodeQuarantineRequest,
     NodeReorderRequest,
     NodeResumeRequest,
     NodeStatus,
+    NodeTrafficSummary,
     NodeUpdateRequest,
     PreflightStatus,
     PreflightUpdateRequest,
@@ -57,6 +65,24 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "token",
         "subscription_url",
         "runtime_config",
+    }
+)
+DOWNLOAD_BYTE_KEYS = frozenset(
+    {
+        "download_bytes",
+        "rx_bytes",
+        "bytes_received",
+        "inbound_bytes",
+        "downlink_bytes",
+    }
+)
+UPLOAD_BYTE_KEYS = frozenset(
+    {
+        "upload_bytes",
+        "tx_bytes",
+        "bytes_sent",
+        "outbound_bytes",
+        "uplink_bytes",
     }
 )
 SUPPORTED_NODE_COMMAND_TYPES = frozenset(
@@ -295,6 +321,162 @@ async def list_nodes(session: AsyncSession) -> list[Node]:
                 .order_by(Node.sort_order.asc(), Node.created_at.desc())
             )
         ).scalars()
+    )
+
+
+def _node_response(node: Node):
+    from app.domains.nodes.schemas import NodeResponse
+
+    return NodeResponse(
+        id=node.id,
+        name=node.name,
+        region=node.region,
+        public_address=node.public_address,
+        status=node.status,
+        sort_order=node.sort_order,
+        capabilities=node.capabilities,
+        last_seen_at=node.last_seen_at,
+    )
+
+
+def _sum_first_matching(values: dict[str, float], keys: frozenset[str]) -> float | None:
+    normalized = {key.lower(): value for key, value in values.items()}
+    for key in keys:
+        value = normalized.get(key)
+        if value is not None:
+            return float(value)
+    return None
+
+
+def _traffic_summary(metrics: list[NodeMetric]) -> NodeTrafficSummary:
+    download_total = 0.0
+    upload_total = 0.0
+    has_download = False
+    has_upload = False
+    last_observed_at = metrics[0].observed_at if metrics else None
+
+    for metric in metrics:
+        download_value = _sum_first_matching(metric.values_json, DOWNLOAD_BYTE_KEYS)
+        if download_value is not None:
+            download_total += download_value
+            has_download = True
+        upload_value = _sum_first_matching(metric.values_json, UPLOAD_BYTE_KEYS)
+        if upload_value is not None:
+            upload_total += upload_value
+            has_upload = True
+
+    download_bytes = download_total if has_download else None
+    upload_bytes = upload_total if has_upload else None
+    total_bytes = (
+        (download_bytes or 0.0) + (upload_bytes or 0.0)
+        if has_download or has_upload
+        else None
+    )
+    return NodeTrafficSummary(
+        download_bytes=download_bytes,
+        upload_bytes=upload_bytes,
+        total_bytes=total_bytes,
+        metric_samples=len(metrics),
+        last_observed_at=last_observed_at,
+    )
+
+
+async def get_node_overview(session: AsyncSession, *, node_id: UUID) -> NodeOverviewResponse:
+    node = await get_node(session, node_id=node_id)
+    metrics = list(
+        (
+            await session.execute(
+                select(NodeMetric)
+                .where(NodeMetric.node_id == node_id)
+                .order_by(NodeMetric.observed_at.desc())
+                .limit(500)
+            )
+        ).scalars()
+    )
+    latest_by_kind: dict[str, NodeMetric] = {}
+    for metric in metrics:
+        latest_by_kind.setdefault(metric.metric_kind, metric)
+
+    command_count_rows = (
+        await session.execute(
+            select(NodeCommand.status, func.count(NodeCommand.id))
+            .where(NodeCommand.node_id == node_id)
+            .group_by(NodeCommand.status)
+        )
+    ).all()
+    latest_commands = list(
+        (
+            await session.execute(
+                select(NodeCommand)
+                .where(NodeCommand.node_id == node_id)
+                .order_by(NodeCommand.created_at.desc())
+                .limit(10)
+            )
+        ).scalars()
+    )
+    billing_rows = (
+        await session.execute(
+            select(InfraBillingRecord, InfraProvider.name)
+            .join(InfraProvider, InfraBillingRecord.provider_id == InfraProvider.id)
+            .where(InfraBillingRecord.node_id == node_id)
+            .order_by(InfraBillingRecord.period.desc(), InfraBillingRecord.created_at.desc())
+        )
+    ).all()
+
+    totals_by_currency: dict[str, NodeInfraBillingCurrencyTotal] = {}
+    billing_records: list[NodeInfraBillingRecord] = []
+    for record, provider_name in billing_rows:
+        billing_records.append(
+            NodeInfraBillingRecord(
+                id=record.id,
+                provider_id=record.provider_id,
+                provider_name=provider_name,
+                amount=record.amount,
+                currency=record.currency,
+                period=record.period,
+                note=record.note,
+            )
+        )
+        current = totals_by_currency.get(record.currency)
+        if current is None:
+            totals_by_currency[record.currency] = NodeInfraBillingCurrencyTotal(
+                currency=record.currency,
+                total=float(record.amount),
+                records=1,
+            )
+        else:
+            current.total += float(record.amount)
+            current.records += 1
+
+    return NodeOverviewResponse(
+        node=_node_response(node),
+        latest_metrics=[
+            NodeLatestMetricRecord(
+                metric_kind=metric.metric_kind,
+                values_json=metric.values_json,
+                observed_at=metric.observed_at,
+            )
+            for metric in latest_by_kind.values()
+        ],
+        traffic=_traffic_summary(metrics),
+        command_status_counts=[
+            NodeCommandStatusCount(status=status, count=int(count))
+            for status, count in command_count_rows
+        ],
+        latest_commands=[
+            NodeCommandHistoryRecord(
+                id=command.id,
+                command_type=command.command_type,
+                status=command.status,
+                error_code=command.error_code,
+                claimed_at=command.claimed_at,
+                completed_at=command.completed_at,
+                created_at=command.created_at,
+            )
+            for command in latest_commands
+        ],
+        infra_billing_records=billing_records,
+        infra_billing_totals=list(totals_by_currency.values()),
     )
 
 

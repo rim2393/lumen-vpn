@@ -49,6 +49,7 @@ export const resourceQueryKeys = {
   nodes: ['resource', 'nodes'] as const,
   nodeCommands: (nodeId: string) => ['resource', 'nodes', nodeId, 'commands'] as const,
   nodeMetrics: (nodeId: string) => ['resource', 'nodes', nodeId, 'metrics'] as const,
+  nodeOverview: (nodeId: string) => ['resource', 'nodes', nodeId, 'overview'] as const,
   profiles: ['resource', 'profiles'] as const,
   profileGlobalInbounds: ['resource', 'profiles', 'inbounds'] as const,
   profileComputedConfig: (profileId: string) =>
@@ -147,6 +148,16 @@ export function useNodeMetricsData(nodeId: string | undefined) {
     enabled: Boolean(nodeId),
     queryFn: () => apiClient.listNodeMetrics(nodeId as string),
     queryKey: resourceQueryKeys.nodeMetrics(nodeId ?? ''),
+  })
+}
+
+export function useNodeOverviewData(nodeId: string | undefined) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    enabled: Boolean(nodeId),
+    queryFn: () => apiClient.getNodeOverview(nodeId as string),
+    queryKey: resourceQueryKeys.nodeOverview(nodeId ?? ''),
   })
 }
 

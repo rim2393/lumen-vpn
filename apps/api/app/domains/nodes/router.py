@@ -27,6 +27,7 @@ from app.domains.nodes.schemas import (
     NodeMetricCreateRequest,
     NodeMetricListResponse,
     NodeMetricResponse,
+    NodeOverviewResponse,
     NodePauseRequest,
     NodeQuarantineRequest,
     NodeReorderRequest,
@@ -45,6 +46,7 @@ from app.domains.nodes.service import (
     delete_node,
     enqueue_node_command,
     exchange_install_token,
+    get_node_overview,
     get_provisioning_job,
     issue_install_token,
     list_node_commands,
@@ -314,6 +316,15 @@ async def list_metrics(
 ) -> NodeMetricListResponse:
     metrics = await list_node_metrics(session, node_id=node_id, limit=limit)
     return NodeMetricListResponse(items=[node_metric_response(metric) for metric in metrics])
+
+
+@router.get("/{node_id}/overview", response_model=NodeOverviewResponse)
+async def read_node_overview(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeOverviewResponse:
+    return await get_node_overview(session, node_id=node_id)
 
 
 @router.post(

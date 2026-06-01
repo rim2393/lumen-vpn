@@ -207,6 +207,7 @@ export function createHttpLumenApiClient({
     listApiKeys: () => request('/api/admin/api-keys'),
     listHosts: () => request('/api/v1/hosts'),
     listNodes: () => request('/api/v1/nodes'),
+    getNodeOverview: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/overview`),
     listNodeCommands: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/commands`),
     listNodeMetrics: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/metrics`),
     listProfiles: () => request('/api/v1/profiles'),

@@ -7,6 +7,7 @@ import {
   useDeleteNode,
   useNodeCommandsData,
   useNodeMetricsData,
+  useNodeOverviewData,
   useNodesPageData,
   usePauseNode,
   useQuarantineNode,
@@ -168,6 +169,23 @@ function formatCapabilities(capabilities: Record<string, string>) {
   }
 
   return entries.map(([key, value]) => `${key}=${value}`).join(', ')
+}
+
+function formatBytes(value: number | null) {
+  if (value === null) {
+    return 'Not reported'
+  }
+  if (value < 1024) {
+    return `${value.toFixed(0)} B`
+  }
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let normalized = value / 1024
+  let unitIndex = 0
+  while (normalized >= 1024 && unitIndex < units.length - 1) {
+    normalized /= 1024
+    unitIndex += 1
+  }
+  return `${normalized.toFixed(normalized >= 10 ? 1 : 2)} ${units[unitIndex]}`
 }
 
 function parseCapabilities(value: string) {
@@ -417,6 +435,7 @@ export function NodesPage() {
   const effectiveNodeId = selectedNode?.id
   const commandsQuery = useNodeCommandsData(effectiveNodeId)
   const metricsQuery = useNodeMetricsData(effectiveNodeId)
+  const overviewQuery = useNodeOverviewData(effectiveNodeId)
   const nodeStateSummary = useMemo(
     () => ({
       heartbeatMissing: nodes.filter(hasMissingHeartbeat).length,
@@ -574,6 +593,7 @@ export function NodesPage() {
       if (effectiveNodeId === node.id) {
         await commandsQuery.refetch()
         await metricsQuery.refetch()
+        await overviewQuery.refetch()
       }
     } catch (error) {
       setActionError(`${label} failed for ${node.name}: ${getErrorMessage(error)}`)
@@ -922,6 +942,72 @@ export function NodesPage() {
                 {t(getNodeState(selectedNode.status).label)}
               </StatusBadge>
             </div>
+            {overviewQuery.isLoading ? <LoadingState label="Loading node overview..." /> : null}
+            {overviewQuery.isError ? (
+              <ErrorState title="Node overview unavailable" error={overviewQuery.error} />
+            ) : null}
+            {overviewQuery.data ? (
+              <>
+                <section className="summary-grid" aria-label={t('Node live overview')}>
+                  <div>
+                    <span>{t('Download')}</span>
+                    <strong>{formatBytes(overviewQuery.data.traffic.download_bytes)}</strong>
+                  </div>
+                  <div>
+                    <span>{t('Upload')}</span>
+                    <strong>{formatBytes(overviewQuery.data.traffic.upload_bytes)}</strong>
+                  </div>
+                  <div>
+                    <span>{t('Total traffic')}</span>
+                    <strong>{formatBytes(overviewQuery.data.traffic.total_bytes)}</strong>
+                  </div>
+                  <div>
+                    <span>{t('Metric samples')}</span>
+                    <strong>{overviewQuery.data.traffic.metric_samples}</strong>
+                  </div>
+                  {overviewQuery.data.infra_billing_totals.length === 0 ? (
+                    <div>
+                      <span>{t('Node infra cost')}</span>
+                      <strong>{t('No node-linked records')}</strong>
+                    </div>
+                  ) : (
+                    overviewQuery.data.infra_billing_totals.map((total) => (
+                      <div key={total.currency}>
+                        <span>{t('Node infra cost')} {total.currency}</span>
+                        <strong>{total.total.toFixed(2)}</strong>
+                      </div>
+                    ))
+                  )}
+                </section>
+                {overviewQuery.data.traffic.total_bytes === null ? (
+                  <p className="auth-card__note">
+                    {t('Byte counters have not been reported by this node yet.')}
+                  </p>
+                ) : null}
+                <DataTable
+                  caption={t('Command history summary')}
+                  columns={[t('Status'), t('Count')]}
+                  rows={overviewQuery.data.command_status_counts.map((item) => ({
+                    cells: [t(formatStatus(item.status)), item.count],
+                    id: item.status,
+                  }))}
+                />
+                <DataTable
+                  caption={t('Node infra billing history')}
+                  columns={[t('Provider'), t('Period'), t('Amount'), t('Currency'), t('Note')]}
+                  rows={overviewQuery.data.infra_billing_records.map((record) => ({
+                    cells: [
+                      record.provider_name,
+                      record.period,
+                      record.amount.toFixed(2),
+                      record.currency,
+                      record.note ?? '-',
+                    ],
+                    id: record.id,
+                  }))}
+                />
+              </>
+            ) : null}
             <form className="screen-form" onSubmit={handleCommandSubmit}>
               <label htmlFor="node-command-type">
                 {t('Command type')}
