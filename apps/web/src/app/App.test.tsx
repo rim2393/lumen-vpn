@@ -30,6 +30,7 @@ describe('Lumen admin routing', () => {
             name: 'live-node-01',
             public_address: '85.192.60.8',
             region: 'EU',
+            sort_order: 0,
             status: 'active',
           },
         ],

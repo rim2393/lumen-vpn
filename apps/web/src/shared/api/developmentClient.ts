@@ -27,6 +27,7 @@ import type {
   InfraProviderCreateRequest,
   InfraProviderRecord,
   LumenApiClient,
+  NodeBulkActionRequest,
   NodePluginCreateRequest,
   NodePluginRecord,
   NodePluginUpdateRequest,
@@ -35,6 +36,8 @@ import type {
   NodeListResponse,
   NodeRecord,
   NodeResponse,
+  NodeReorderRequest,
+  NodeUpdateRequest,
   PortCheckRequest,
   PortCheckResponse,
   ProtocolAdapterListResponse,
@@ -100,6 +103,7 @@ function asNodeResponse(node: NodeRecord): NodeResponse {
     name: node.name,
     public_address: `${node.name}.lumen.local`,
     region: node.region,
+    sort_order: 0,
     status: node.status === 'healthy' ? 'active' : node.status === 'offline' ? 'offline' : 'failed',
   }
 }
@@ -277,6 +281,29 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     }
   }
 
+  function createDevelopmentNodeCommand(
+    nodeId: string,
+    request: NodeCommandCreateRequest,
+  ): NodeCommandRecord {
+    const now = new Date().toISOString()
+    const command: NodeCommandRecord = {
+      claimed_at: null,
+      command_type: request.command_type,
+      completed_at: null,
+      created_at: now,
+      error_code: null,
+      error_message: null,
+      id: `cmd_${nodeCommands.length + 1}`,
+      node_id: nodeId,
+      payload_json: request.payload_json ?? {},
+      result_json: null,
+      status: 'queued',
+      updated_at: now,
+    }
+    nodeCommands.unshift(command)
+    return command
+  }
+
   return {
     bulkHosts: async (action: string, request: HostBulkActionRequest) => {
       const selected = hosts.filter((host) => request.ids.includes(host.id))
@@ -406,25 +433,34 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       return profile
     },
     createProvisioningJob: async (request) => buildDevelopmentProvisioningJob(request),
-    createNodeCommand: async (nodeId: string, request: NodeCommandCreateRequest) => {
-      const now = new Date().toISOString()
-      const command: NodeCommandRecord = {
-        claimed_at: null,
-        command_type: request.command_type,
-        completed_at: null,
-        created_at: now,
-        error_code: null,
-        error_message: null,
-        id: `cmd_${nodeCommands.length + 1}`,
-        node_id: nodeId,
-        payload_json: request.payload_json ?? {},
-        result_json: null,
-        status: 'queued',
-        updated_at: now,
-      }
-      nodeCommands.unshift(command)
-      return command
+    createNodeCommand: async (nodeId: string, request: NodeCommandCreateRequest) =>
+      createDevelopmentNodeCommand(nodeId, request),
+    updateNode: async (nodeId: string, request: NodeUpdateRequest) => {
+      const node = asNodeResponse({ ...nodeRecords[0], id: nodeId })
+      return { ...node, ...request, id: nodeId }
     },
+    deleteNode: async (nodeId: string) =>
+      asNodeResponse({ ...nodeRecords[0], id: nodeId, status: 'offline' }),
+    reorderNodes: async (_request: NodeReorderRequest) => asNodeListResponse(),
+    bulkNodes: async (_request: NodeBulkActionRequest) => asNodeListResponse(),
+    restartNode: async (nodeId: string) =>
+      createDevelopmentNodeCommand(nodeId, {
+        command_type: 'node.restart',
+        payload_json: { reason: 'development client' },
+      }),
+    restartAllNodes: async () => ({
+      items: nodeRecords.map((node) =>
+        createDevelopmentNodeCommand(node.id, {
+          command_type: 'node.restart',
+          payload_json: { reason: 'development client' },
+        }),
+      ),
+    }),
+    resetNodeTraffic: async (nodeId: string) =>
+      createDevelopmentNodeCommand(nodeId, {
+        command_type: 'node.traffic.reset',
+        payload_json: { reason: 'development client' },
+      }),
     createSquad: async (request: SquadCreateRequest): Promise<SquadRecord> => {
       const squad: SquadRecord = {
         id: `squad_${request.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,

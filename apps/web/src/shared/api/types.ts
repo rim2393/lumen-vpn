@@ -230,6 +230,7 @@ export type NodeResponse = {
   name: string
   public_address: string
   region: string
+  sort_order: number
   status: NodeStatus
 }
 
@@ -286,6 +287,26 @@ export type NodeResumeRequest = {
 
 export type NodeQuarantineRequest = {
   reason: string
+}
+
+export type NodeUpdateRequest = Partial<{
+  capabilities: Record<string, string>
+  name: string
+  public_address: string
+  region: string
+  sort_order: number
+  status: NodeStatus
+}>
+
+export type NodeReorderRequest = {
+  items: Array<{ id: string; sort_order: number }>
+}
+
+export type NodeBulkActionRequest = {
+  action: 'enable' | 'disable' | 'pause' | 'resume' | 'quarantine' | 'restart' | 'reset_traffic' | 'delete'
+  ids: string[]
+  reason?: string | null
+  target_status?: NodeStatus | null
 }
 
 export type ProvisioningJobKind = 'node.provision'
@@ -981,6 +1002,13 @@ export type LumenApiClient = {
     nodeId: string,
     request: NodeCommandCreateRequest,
   ) => Promise<NodeCommandRecord>
+  updateNode: (nodeId: string, request: NodeUpdateRequest) => Promise<NodeResponse>
+  deleteNode: (nodeId: string) => Promise<NodeResponse>
+  reorderNodes: (request: NodeReorderRequest) => Promise<NodeListResponse>
+  bulkNodes: (request: NodeBulkActionRequest) => Promise<NodeListResponse>
+  restartNode: (nodeId: string) => Promise<NodeCommandRecord>
+  restartAllNodes: () => Promise<NodeCommandListResponse>
+  resetNodeTraffic: (nodeId: string) => Promise<NodeCommandRecord>
   createSquad: (request: SquadCreateRequest) => Promise<SquadRecord>
   createSubscription: (request: SubscriptionCreateRequest) => Promise<SubscriptionRecord>
   createSubscriptionTemplate: (

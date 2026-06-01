@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import status
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -26,6 +26,7 @@ from app.domains.nodes.models import (
 )
 from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
+    NodeBulkActionRequest,
     NodeCommandCreateRequest,
     NodeCommandResultRequest,
     NodeCreateRequest,
@@ -34,8 +35,10 @@ from app.domains.nodes.schemas import (
     NodeMetricCreateRequest,
     NodePauseRequest,
     NodeQuarantineRequest,
+    NodeReorderRequest,
     NodeResumeRequest,
     NodeStatus,
+    NodeUpdateRequest,
     PreflightStatus,
     PreflightUpdateRequest,
     ProvisioningJobCreateRequest,
@@ -66,6 +69,8 @@ SUPPORTED_NODE_COMMAND_TYPES = frozenset(
         "node.pause",
         "node.quarantine",
         "node.resume",
+        "node.restart",
+        "node.traffic.reset",
         "outbound.apply",
         "outbound.remove",
     }
@@ -190,6 +195,9 @@ def _clear_pending_control_action(node: Node, command: NodeCommand) -> None:
 
 
 def _apply_completed_control_action(node: Node, command: NodeCommand) -> None:
+    if node.status == NodeStatus.DELETED.value:
+        _clear_pending_control_action(node, command)
+        return
     if command.command_type == "node.pause":
         target = command.payload_json.get("status") or NodeStatus.PAUSED.value
         node.status = str(target)
@@ -198,6 +206,8 @@ def _apply_completed_control_action(node: Node, command: NodeCommand) -> None:
         node.status = str(target)
     elif command.command_type == "node.quarantine":
         node.status = NodeStatus.QUARANTINED.value
+    elif command.command_type == "node.restart":
+        node.status = NodeStatus.OFFLINE.value
     _clear_pending_control_action(node, command)
 
 
@@ -277,7 +287,15 @@ async def create_provisioning_job(
 
 
 async def list_nodes(session: AsyncSession) -> list[Node]:
-    return list((await session.execute(select(Node).order_by(Node.created_at.desc()))).scalars())
+    return list(
+        (
+            await session.execute(
+                select(Node)
+                .where(Node.status != NodeStatus.DELETED.value)
+                .order_by(Node.sort_order.asc(), Node.created_at.desc())
+            )
+        ).scalars()
+    )
 
 
 async def get_node(session: AsyncSession, *, node_id: UUID) -> Node:
@@ -314,11 +332,191 @@ async def create_manual_node(
         region=request.region,
         public_address=request.public_address,
         status=NodeStatus.OFFLINE.value,
+        sort_order=request.sort_order,
         capabilities=request.capabilities,
     )
     session.add(node)
     await session.flush()
     return node
+
+
+async def update_node(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    request: NodeUpdateRequest,
+) -> Node:
+    node = await get_node(session, node_id=node_id)
+    data = request.model_dump(exclude_unset=True)
+    if "capabilities" in data and data["capabilities"] is not None:
+        ensure_no_inline_secret_keys(data["capabilities"], field_name="capabilities")
+    if "name" in data and data["name"] != node.name:
+        existing = (
+            await session.execute(select(Node).where(Node.name == data["name"]))
+        ).scalar_one_or_none()
+        if existing is not None and existing.id != node.id:
+            raise APIError(
+                code="node_name_exists",
+                message="A node with this name already exists.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+    for field, value in data.items():
+        if value is not None:
+            if field == "status" and isinstance(value, NodeStatus):
+                value = value.value
+            setattr(node, field, value)
+    await session.flush()
+    return node
+
+
+async def reorder_nodes(
+    session: AsyncSession,
+    *,
+    request: NodeReorderRequest,
+) -> list[Node]:
+    node_ids = [item.id for item in request.items]
+    nodes_by_id = {
+        node.id: node
+        for node in (await session.execute(select(Node).where(Node.id.in_(node_ids))))
+        .scalars()
+        .all()
+    }
+    missing = [str(item.id) for item in request.items if item.id not in nodes_by_id]
+    if missing:
+        raise APIError(
+            code="node_not_found",
+            message="One or more nodes were not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=missing,
+        )
+    for item in request.items:
+        nodes_by_id[item.id].sort_order = item.sort_order
+    await session.flush()
+    return await list_nodes(session)
+
+
+async def delete_node(session: AsyncSession, *, node_id: UUID, reason: str | None = None) -> Node:
+    node = await get_node(session, node_id=node_id)
+    if node.status != NodeStatus.DELETED.value:
+        command = await enqueue_node_command(
+            session,
+            node_id=node_id,
+            request=NodeCommandCreateRequest(
+                command_type="node.pause",
+                payload_json={
+                    "status": NodeStatus.PAUSED.value,
+                    "reason": reason or "operator deleted node",
+                    "deleteRequested": True,
+                },
+            ),
+        )
+        _set_pending_control_action(node, command)
+    node.status = NodeStatus.DELETED.value
+    await session.flush()
+    return node
+
+
+async def restart_node(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    reason: str | None = None,
+) -> NodeCommand:
+    node = await get_node(session, node_id=node_id)
+    command = await enqueue_node_command(
+        session,
+        node_id=node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.restart",
+            payload_json={"reason": reason or "operator requested restart"},
+        ),
+    )
+    _set_pending_control_action(node, command)
+    await session.flush()
+    return command
+
+
+async def reset_node_traffic(
+    session: AsyncSession,
+    *,
+    node_id: UUID,
+    reason: str | None = None,
+) -> NodeCommand:
+    await get_node(session, node_id=node_id)
+    await session.execute(delete(NodeMetric).where(NodeMetric.node_id == node_id))
+    command = await enqueue_node_command(
+        session,
+        node_id=node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.traffic.reset",
+            payload_json={"reason": reason or "operator reset node traffic counters"},
+        ),
+    )
+    await session.flush()
+    return command
+
+
+async def bulk_node_action(
+    session: AsyncSession,
+    *,
+    request: NodeBulkActionRequest,
+) -> list[Node]:
+    affected: list[Node] = []
+    for node_id in request.ids:
+        if request.action == "enable":
+            affected.append(
+                await update_node(
+                    session,
+                    node_id=node_id,
+                    request=NodeUpdateRequest(status=NodeStatus.OFFLINE),
+                )
+            )
+        elif request.action == "disable":
+            affected.append(
+                await pause_node(
+                    session,
+                    node_id=node_id,
+                    request=NodePauseRequest(reason=request.reason),
+                )
+            )
+        elif request.action == "pause":
+            affected.append(
+                await pause_node(
+                    session,
+                    node_id=node_id,
+                    request=NodePauseRequest(reason=request.reason),
+                )
+            )
+        elif request.action == "resume":
+            affected.append(
+                await resume_node(
+                    session,
+                    node_id=node_id,
+                    request=NodeResumeRequest(
+                        target_status=request.target_status or NodeStatus.OFFLINE,
+                    ),
+                )
+            )
+        elif request.action == "quarantine":
+            affected.append(
+                await quarantine_node(
+                    session,
+                    node_id=node_id,
+                    request=NodeQuarantineRequest(
+                        reason=request.reason or "operator bulk quarantine",
+                    ),
+                )
+            )
+        elif request.action == "restart":
+            await restart_node(session, node_id=node_id, reason=request.reason)
+            affected.append(await get_node(session, node_id=node_id))
+        elif request.action == "reset_traffic":
+            await reset_node_traffic(session, node_id=node_id, reason=request.reason)
+            affected.append(await get_node(session, node_id=node_id))
+        elif request.action == "delete":
+            affected.append(await delete_node(session, node_id=node_id, reason=request.reason))
+    await session.flush()
+    return affected
 
 
 async def update_preflight_state(
@@ -470,6 +668,7 @@ async def record_node_heartbeat(
     now = utc_now()
     previous_status = NodeStatus(node.status)
     enforced_statuses = {
+        NodeStatus.DELETED,
         NodeStatus.PAUSED,
         NodeStatus.LICENSE_PAUSED,
         NodeStatus.QUARANTINED,

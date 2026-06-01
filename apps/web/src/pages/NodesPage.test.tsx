@@ -74,6 +74,7 @@ describe('NodesPage backend wiring', () => {
       name: 'edge-quarantined',
       public_address: '203.0.113.12',
       region: 'ap',
+      sort_order: 2,
       status: 'offline' as const,
     }))
     const nodes: NodeResponse[] = [
@@ -84,6 +85,7 @@ describe('NodesPage backend wiring', () => {
         name: 'edge-active',
         public_address: '203.0.113.10',
         region: 'eu',
+        sort_order: 0,
         status: 'active',
       },
       {
@@ -93,6 +95,7 @@ describe('NodesPage backend wiring', () => {
         name: 'edge-paused',
         public_address: '203.0.113.11',
         region: 'us',
+        sort_order: 1,
         status: 'license_paused',
       },
       {
@@ -102,6 +105,7 @@ describe('NodesPage backend wiring', () => {
         name: 'edge-quarantined',
         public_address: '203.0.113.12',
         region: 'ap',
+        sort_order: 2,
         status: 'quarantined',
       },
     ]
@@ -151,6 +155,7 @@ describe('NodesPage backend wiring', () => {
         name: 'edge-active-unseen',
         public_address: '203.0.113.13',
         region: 'eu',
+        sort_order: 0,
         status: 'active',
       },
     ]

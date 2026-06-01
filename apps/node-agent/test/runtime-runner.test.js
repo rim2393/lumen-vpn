@@ -1186,3 +1186,138 @@ test("run once applies node policy artifact from outbound apply", async () => {
     rmSync(policyDir, { recursive: true, force: true });
   }
 });
+
+test("run once executes node restart as a deferred systemd restart", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+  const spawned = [];
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const calls = [];
+
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "restart-node-01",
+        LUMEN_STATE_DIR: stateDir,
+        LUMEN_DRY_RUN: "false"
+      },
+      spawnImpl: (binary, args, options) => {
+        spawned.push({ binary, args, options });
+        return { unref() {} };
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-restart-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_RESTART,
+            status: "claimed",
+            payload_json: { reason: "operator requested restart" },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-restart-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_RESTART,
+            status: JSON.parse(options.body).status,
+            payload_json: { reason: "operator requested restart" },
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(result.command.status, "succeeded");
+    assert.equal(spawned[0].binary, "sh");
+    assert.match(spawned[0].args.join(" "), /systemctl restart lumen-node-agent/);
+    const completed = JSON.parse(calls[2].options.body);
+    assert.equal(completed.result_json.outputs.implementationStatus, "node-agent-restart-scheduled");
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("run once executes node traffic reset against runtime telemetry state", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+  const telemetryStateFile = join(stateDir, "runtime", "telemetry-state.json");
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const calls = [];
+
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "reset-node-01",
+        LUMEN_STATE_DIR: stateDir,
+        LUMEN_DRY_RUN: "false",
+        LUMEN_RUNTIME_TELEMETRY_STATE_FILE: telemetryStateFile
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-reset-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_TRAFFIC_RESET,
+            status: "claimed",
+            payload_json: { reason: "operator reset traffic" },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-reset-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.NODE_TRAFFIC_RESET,
+            status: JSON.parse(options.body).status,
+            payload_json: { reason: "operator reset traffic" },
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(result.command.status, "succeeded");
+    const telemetryState = JSON.parse(readFileSync(telemetryStateFile, "utf8"));
+    assert.deepEqual(telemetryState.offsets, {});
+    const completed = JSON.parse(calls[2].options.body);
+    assert.equal(completed.result_json.outputs.implementationStatus, "node-traffic-reset");
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});

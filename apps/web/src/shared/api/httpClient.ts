@@ -18,9 +18,12 @@ import type {
   TelegramLoginPayload,
   WebAuthnOptionsApiResponse,
   NodeCommandCreateRequest,
+  NodeBulkActionRequest,
   NodePauseRequest,
   NodeQuarantineRequest,
+  NodeReorderRequest,
   NodeResumeRequest,
+  NodeUpdateRequest,
   PortCheckRequest,
   ProfileBulkActionRequest,
   ProtocolProfileCreateRequest,
@@ -141,6 +144,18 @@ export function createHttpLumenApiClient({
       request('/api/v1/nodes/provisioning-jobs', { body: payload, method: 'POST' }),
     createNodeCommand: (nodeId: string, payload: NodeCommandCreateRequest) =>
       request(`/api/v1/nodes/${nodeId}/commands`, { body: payload, method: 'POST' }),
+    updateNode: (nodeId: string, payload: NodeUpdateRequest) =>
+      request(`/api/v1/nodes/${nodeId}`, { body: payload, method: 'PATCH' }),
+    deleteNode: (nodeId: string) => request(`/api/v1/nodes/${nodeId}`, { method: 'DELETE' }),
+    reorderNodes: (payload: NodeReorderRequest) =>
+      request('/api/v1/nodes/reorder', { body: payload, method: 'POST' }),
+    bulkNodes: (payload: NodeBulkActionRequest) =>
+      request('/api/v1/nodes/bulk', { body: payload, method: 'POST' }),
+    restartNode: (nodeId: string) =>
+      request(`/api/v1/nodes/${nodeId}/restart`, { method: 'POST' }),
+    restartAllNodes: () => request('/api/v1/nodes/restart-all', { method: 'POST' }),
+    resetNodeTraffic: (nodeId: string) =>
+      request(`/api/v1/nodes/${nodeId}/reset-traffic`, { method: 'POST' }),
     createSquad: (payload: SquadCreateRequest) =>
       request('/api/v1/squads', { body: payload, method: 'POST' }),
     createSubscription: (payload: SubscriptionCreateRequest) =>

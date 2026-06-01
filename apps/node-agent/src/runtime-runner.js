@@ -1,5 +1,6 @@
+import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   COMMAND_RESULT_VERSION,
   COMMAND_TYPES,
@@ -47,7 +48,7 @@ import {
 import { applyTuicConfig, createTuicApplyPlan, ensureManagedTuicProcess } from "./tuic-runtime.js";
 import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
 import { applyNodePolicy, createNodePolicyApplyPlan } from "./policy-runtime.js";
-import { reportRuntimeTelemetry } from "./runtime-telemetry.js";
+import { DEFAULT_TELEMETRY_STATE_FILE, reportRuntimeTelemetry } from "./runtime-telemetry.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
@@ -65,7 +66,9 @@ const APPLY_FAILURE_CODES = Object.freeze({
   "openvpn-shadowsocks.apply": "openvpn_shadowsocks_apply_failed",
   "tuic.apply": "tuic_apply_failed",
   "wireguard.apply": "wireguard_apply_failed",
-  "node-policy.apply": "node_policy_apply_failed"
+  "node-policy.apply": "node_policy_apply_failed",
+  "node-agent.restart": "node_restart_failed",
+  "node-traffic.reset": "node_traffic_reset_failed"
 });
 
 const APPLY_DRY_RUN_STATUS = Object.freeze({
@@ -78,7 +81,9 @@ const APPLY_DRY_RUN_STATUS = Object.freeze({
   "openvpn-shadowsocks.apply": "openvpn-shadowsocks-dry-run",
   "tuic.apply": "tuic-dry-run",
   "wireguard.apply": "wireguard-dry-run",
-  "node-policy.apply": "node-policy-dry-run"
+  "node-policy.apply": "node-policy-dry-run",
+  "node-agent.restart": "node-restart-dry-run",
+  "node-traffic.reset": "node-traffic-reset-dry-run"
 });
 
 const APPLY_PENDING_STATUS = Object.freeze({
@@ -91,7 +96,9 @@ const APPLY_PENDING_STATUS = Object.freeze({
   "openvpn-shadowsocks.apply": "openvpn-shadowsocks-apply-pending",
   "tuic.apply": "tuic-apply-pending",
   "wireguard.apply": "wireguard-apply-pending",
-  "node-policy.apply": "node-policy-apply-pending"
+  "node-policy.apply": "node-policy-apply-pending",
+  "node-agent.restart": "node-restart-pending",
+  "node-traffic.reset": "node-traffic-reset-pending"
 });
 
 function readOptionalTrimmed(path) {
@@ -108,6 +115,38 @@ function readOptionalTrimmed(path) {
 
 function writeSecret(path, value) {
   writeFileSync(path, `${value}\n`, { mode: 0o600 });
+}
+
+function scheduleNodeAgentRestart(input = {}) {
+  const spawnImpl = input.spawnImpl ?? spawn;
+  const command = input.env?.LUMEN_NODE_AGENT_RESTART_COMMAND ??
+    "sleep 3; systemctl restart lumen-node-agent";
+  const child = spawnImpl("sh", ["-lc", `nohup sh -c ${JSON.stringify(command)} >/dev/null 2>&1 &`], {
+    detached: true,
+    stdio: "ignore"
+  });
+  if (typeof child?.unref === "function") {
+    child.unref();
+  }
+  return Object.freeze({
+    implementationStatus: "node-agent-restart-scheduled",
+    command: "systemctl restart lumen-node-agent"
+  });
+}
+
+function resetRuntimeTrafficState(input = {}) {
+  const env = input.env ?? {};
+  const stateFile = env.LUMEN_RUNTIME_TELEMETRY_STATE_FILE ?? DEFAULT_TELEMETRY_STATE_FILE;
+  mkdirSync(dirname(stateFile), { recursive: true, mode: 0o700 });
+  writeFileSync(
+    stateFile,
+    `${JSON.stringify({ emitted: {}, offsets: {}, resetAt: new Date().toISOString() }, null, 2)}\n`,
+    { mode: 0o600 }
+  );
+  return Object.freeze({
+    implementationStatus: "node-traffic-reset",
+    stateFile
+  });
 }
 
 function readJsonFile(path) {
@@ -400,6 +439,12 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
       const policy = await applyNodePolicy(commandResult.runtimeAction.plan, input);
       return withResultOutputs(commandResult, policy);
     }
+    if (commandResult.runtimeAction.type === "node-agent.restart") {
+      return withResultOutputs(commandResult, scheduleNodeAgentRestart(input));
+    }
+    if (commandResult.runtimeAction.type === "node-traffic.reset") {
+      return withResultOutputs(commandResult, resetRuntimeTrafficState(input));
+    }
     if (commandResult.runtimeAction.type === "tcp-diagnostic.start") {
       if (input.enableLiveDiagnostic !== true) {
         return failedCommandResult(command, new Error("live diagnostic listener is disabled"), "live_diagnostic_disabled");
@@ -622,6 +667,26 @@ export function applyNodeCommand(command, currentState, input = {}) {
           reason: envelope.payload.reason
         });
         outputs = { mode: nextState.mode, reason: envelope.payload.reason };
+        break;
+      case COMMAND_TYPES.NODE_RESTART:
+        outputs = {
+          command: envelope.command,
+          dryRun: input.dryRun ?? true,
+          implementationStatus: "node-restart-pending",
+          mode: state.mode,
+          reason: envelope.payload.reason ?? null
+        };
+        runtimeAction = Object.freeze({ type: "node-agent.restart" });
+        break;
+      case COMMAND_TYPES.NODE_TRAFFIC_RESET:
+        outputs = {
+          command: envelope.command,
+          dryRun: input.dryRun ?? true,
+          implementationStatus: "node-traffic-reset-pending",
+          mode: state.mode,
+          reason: envelope.payload.reason ?? null
+        };
+        runtimeAction = Object.freeze({ type: "node-traffic.reset" });
         break;
       case COMMAND_TYPES.DESIRED_STATE_VALIDATE:
         nextState = transitionValidateState(state, envelope, { startedAt, finishedAt });

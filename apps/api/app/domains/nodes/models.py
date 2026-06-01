@@ -14,6 +14,7 @@ class Node(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     region: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     public_address: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="provisioning")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     capabilities: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

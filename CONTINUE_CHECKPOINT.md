@@ -1,11 +1,12 @@
 # Continuation Checkpoint
 
-Last audited: 2026-06-01 18:39 Europe/Moscow.
+Last audited: 2026-06-01 19:05 Europe/Moscow.
 
 ## Current Working Copy
 
 - Repo: `D:\android-app-new\_work\full-revna-like-projekt`
-- Main branch state: clean after `5e007ee Repair OpenVPN auth traversal on managed restore`.
+- Main branch state: dirty with node-management parity slice ready for commit after
+  local verification.
 - Current signed production manifest: `v0.1.55`.
 - OpenVPN-over-Shadowsocks backend/node runtime is live-validated on production
   through the official closed-image, public signed manifest, public panel
@@ -51,6 +52,15 @@ Last audited: 2026-06-01 18:39 Europe/Moscow.
 - 2026-06-01 Clash/Mihomo Android pass:
   - supported Clash aliases now become concrete runtime profiles: `hy2` -> Hysteria2, TUIC hyphen fields -> runtime keys, SOCKS4/SOCKS4A version preserved, packet-encoding normalized.
   - `clash://install-config?url=<inline-yaml>` now decodes form-encoded spaces only for structured inline Clash payloads while keeping normal subscription URL token handling unchanged.
+- 2026-06-01 Remnawave parity P0 node-management pass:
+  - added `docs/REMNAWAVE_PARITY_AUDIT.md` as the screen/API/function parity ledger.
+  - backend nodes API now includes update, soft delete, reorder, restart,
+    restart-all, reset-traffic and bulk node actions.
+  - node-agent command envelope now supports real `node.restart` and
+    `node.traffic.reset` commands.
+  - web Nodes page exposes the new actions and uses pause/resume commands for
+    enable/disable instead of status-only UI mutations.
+  - Alembic head advanced to `0009_node_management_parity`.
 
 ## Verification Done
 
@@ -71,11 +81,15 @@ Last audited: 2026-06-01 18:39 Europe/Moscow.
   146 passed and 2 skipped; node-agent full `node --test`, 97 passed; scoped
   ruff on changed API files passed; protocol-registry, subscription-schema,
   lumen-edge, and subscription-renderers package tests passed.
+- Node-management parity local gates: API scoped pytest from `apps/api` passed
+  (`6 passed`), scoped API ruff passed, node-agent focused command tests passed
+  (`30 passed`), web `NodesPage.test.tsx` passed, and web production build
+  passed.
 - Live prod evidence after `v0.1.40`: panel `LUMEN_VERSION=v0.1.40`, node-agent image pinned to `v0.1.40`, HTTP-proxy profile apply succeeded with `dryRun=false`, Xray config contains `blackhole`, `protocol=["bittorrent"]`, sniffing on all active inbounds, and `xray -test` passed.
 - Live prod evidence after `v0.1.41`: panel `LUMEN_VERSION=v0.1.41`, node-agent image pinned to `v0.1.41`, `shadowsocks-2022` profile apply succeeded with `dryRun=false`, node policy applied, generated sing-box Shadowsocks config contains the policy block route, `sing-box check -c` passed against the live config, and TCP `24081` listened on the node.
 - Live prod evidence after `v0.1.49`: panel `LUMEN_VERSION=v0.1.49`, node-agent image pinned to `v0.1.49`, public installer persisted host IP forwarding, direct OpenVPN UDP profile apply succeeded with `dryRun=false`, node listened on UDP `24103`, OpenVPN auth files were readable/executable by the dropped `nobody` user without exposing raw credentials, NAT had exactly one `10.90.3.0/24` MASQUERADE rule after repeated apply, and a disposable OpenVPN client connected from the panel VPS using the rendered subscription.
 - Live prod evidence after `v0.1.55`: panel `LUMEN_VERSION=v0.1.55`, node-agent image pinned to `v0.1.55`, public subscription endpoint forwards `device_id`/`hwid` to the API, OpenVPN-over-Shadowsocks manifest includes `rendererHints.method=aes-256-gcm`, node listens on public TCP `28443` for `ssserver` and loopback TCP `127.0.0.1:24194` for OpenVPN, restore starts both bridge processes after container recreation, parent runtime directories are traversable by the dropped OpenVPN user, and a disposable Alpine client downloaded the public `sub.*` Happ/OpenVPN profile, started `sslocal`, connected OpenVPN through Shadowsocks, and reached `Initialization Sequence Completed`.
-- Alembic heads: single head `0008_infra_billing`.
+- Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
 

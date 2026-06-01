@@ -15,6 +15,7 @@ from app.domains.nodes.schemas import (
     InstallTokenExchangeRequest,
     InstallTokenExchangeResponse,
     InstallTokenIssueResponse,
+    NodeBulkActionRequest,
     NodeCommandCreateRequest,
     NodeCommandListResponse,
     NodeCommandResponse,
@@ -28,16 +29,20 @@ from app.domains.nodes.schemas import (
     NodeMetricResponse,
     NodePauseRequest,
     NodeQuarantineRequest,
+    NodeReorderRequest,
     NodeResponse,
     NodeResumeRequest,
+    NodeUpdateRequest,
     PreflightUpdateRequest,
     ProvisioningJobCreateRequest,
     ProvisioningJobResponse,
 )
 from app.domains.nodes.service import (
+    bulk_node_action,
     claim_next_node_command,
     complete_node_command,
     create_manual_node,
+    delete_node,
     enqueue_node_command,
     exchange_install_token,
     get_provisioning_job,
@@ -49,7 +54,10 @@ from app.domains.nodes.service import (
     record_node_event,
     record_node_heartbeat,
     record_node_metric,
+    reset_node_traffic,
+    restart_node,
     resume_node,
+    update_node,
     update_preflight_state,
 )
 from app.domains.nodes.service import (
@@ -60,6 +68,9 @@ from app.domains.nodes.service import (
 )
 from app.domains.nodes.service import (
     list_nodes as list_node_records,
+)
+from app.domains.nodes.service import (
+    reorder_nodes as reorder_node_records,
 )
 
 router = APIRouter()
@@ -76,6 +87,7 @@ def node_response(node: Node) -> NodeResponse:
         region=node.region,
         public_address=node.public_address,
         status=node.status,
+        sort_order=node.sort_order,
         capabilities=node.capabilities,
         last_seen_at=node.last_seen_at,
     )
@@ -395,6 +407,42 @@ async def list_nodes(
     return NodeListResponse(items=[node_response(node) for node in nodes])
 
 
+@router.post("/bulk", response_model=NodeListResponse)
+async def bulk_update_nodes(
+    request: NodeBulkActionRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeListResponse:
+    nodes = await bulk_node_action(session, request=request)
+    await session.commit()
+    return NodeListResponse(items=[node_response(node) for node in nodes])
+
+
+@router.post("/reorder", response_model=NodeListResponse)
+async def reorder_nodes(
+    request: NodeReorderRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeListResponse:
+    nodes = await reorder_node_records(session, request=request)
+    await session.commit()
+    return NodeListResponse(items=[node_response(node) for node in nodes])
+
+
+@router.post("/restart-all", response_model=NodeCommandListResponse)
+async def restart_all_nodes(
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeCommandListResponse:
+    nodes = await list_node_records(session)
+    commands = [
+        await restart_node(session, node_id=node.id, reason="operator requested restart all")
+        for node in nodes
+    ]
+    await session.commit()
+    return NodeCommandListResponse(items=[node_command_response(command) for command in commands])
+
+
 @router.post("", response_model=NodeResponse, status_code=status.HTTP_201_CREATED)
 async def create_node(
     request: NodeCreateRequest,
@@ -407,6 +455,29 @@ async def create_node(
     return node_response(node)
 
 
+@router.patch("/{node_id}", response_model=NodeResponse)
+async def update_existing_node(
+    node_id: UUID,
+    request: NodeUpdateRequest,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeResponse:
+    node = await update_node(session, node_id=node_id, request=request)
+    await session.commit()
+    return node_response(node)
+
+
+@router.delete("/{node_id}", response_model=NodeResponse)
+async def delete_existing_node(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeResponse:
+    node = await delete_node(session, node_id=node_id)
+    await session.commit()
+    return node_response(node)
+
+
 @router.get("/{node_id}", response_model=NodeResponse)
 async def get_node(
     node_id: UUID,
@@ -415,3 +486,25 @@ async def get_node(
 ) -> NodeResponse:
     node = await get_node_record(session, node_id=node_id)
     return node_response(node)
+
+
+@router.post("/{node_id}/restart", response_model=NodeCommandResponse)
+async def restart_existing_node(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeCommandResponse:
+    command = await restart_node(session, node_id=node_id)
+    await session.commit()
+    return node_command_response(command)
+
+
+@router.post("/{node_id}/reset-traffic", response_model=NodeCommandResponse)
+async def reset_existing_node_traffic(
+    node_id: UUID,
+    _: NodeManager,
+    session: DatabaseSession,
+) -> NodeCommandResponse:
+    command = await reset_node_traffic(session, node_id=node_id)
+    await session.commit()
+    return node_command_response(command)

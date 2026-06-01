@@ -8,12 +8,15 @@ import type {
   HostUpdateRequest,
   InfraBillingRecordCreateRequest,
   InfraProviderCreateRequest,
+  NodeBulkActionRequest,
   NodePluginCreateRequest,
   NodePluginUpdateRequest,
   NodeCommandCreateRequest,
   NodePauseRequest,
   NodeQuarantineRequest,
+  NodeReorderRequest,
   NodeResumeRequest,
+  NodeUpdateRequest,
   ProtocolProfileCreateRequest,
   ProtocolProfileUpdateRequest,
   ProfileBulkActionRequest,
@@ -192,6 +195,93 @@ export function useQuarantineNode() {
       apiClient.quarantineNode(id, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+    },
+  })
+}
+
+export function useUpdateNode() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: NodeUpdateRequest }) =>
+      apiClient.updateNode(id, request),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeCommands(variables.id) })
+    },
+  })
+}
+
+export function useDeleteNode() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteNode(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+    },
+  })
+}
+
+export function useReorderNodes() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: NodeReorderRequest) => apiClient.reorderNodes(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+    },
+  })
+}
+
+export function useBulkNodes() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: NodeBulkActionRequest) => apiClient.bulkNodes(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+    },
+  })
+}
+
+export function useRestartNode() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.restartNode(id),
+    onSuccess: (_data, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeCommands(id) })
+    },
+  })
+}
+
+export function useRestartAllNodes() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: apiClient.restartAllNodes,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodes })
+    },
+  })
+}
+
+export function useResetNodeTraffic() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.resetNodeTraffic(id),
+    onSuccess: (_data, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeCommands(id) })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeMetrics(id) })
     },
   })
 }

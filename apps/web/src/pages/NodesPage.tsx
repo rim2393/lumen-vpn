@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CirclePause, HeartPulse, Plus, RefreshCw, ShieldAlert } from 'lucide-react'
 import {
+  useBulkNodes,
   useCreateNodeCommand,
   useCreateNodeProvisioningJob,
+  useDeleteNode,
   useNodeCommandsData,
   useNodeMetricsData,
   useNodesPageData,
   usePauseNode,
   useQuarantineNode,
+  useReorderNodes,
+  useResetNodeTraffic,
+  useRestartAllNodes,
+  useRestartNode,
   useResumeNode,
 } from '../shared/api/resourceHooks'
 import type { NodeResponse, ProvisioningJobResponse } from '../shared/api/types'
@@ -346,6 +352,12 @@ export function NodesPage() {
   const pauseNode = usePauseNode()
   const resumeNode = useResumeNode()
   const quarantineNode = useQuarantineNode()
+  const deleteNode = useDeleteNode()
+  const reorderNodes = useReorderNodes()
+  const bulkNodes = useBulkNodes()
+  const restartNode = useRestartNode()
+  const restartAllNodes = useRestartAllNodes()
+  const resetNodeTraffic = useResetNodeTraffic()
   const nodes = useMemo(() => query.data?.items ?? [], [query.data?.items])
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : undefined
   const effectiveNodeId = selectedNode?.id
@@ -499,16 +511,26 @@ export function NodesPage() {
         title={spec.title}
         description="Register relay nodes through backend provisioning jobs, track heartbeat state, and avoid inline SSH secrets."
         actions={
-          <button
-            type="button"
-            className="button button--secondary"
-            aria-label={t('Refresh nodes')}
-            disabled={query.isFetching}
-            onClick={() => void query.refetch()}
-          >
-            <RefreshCw size={18} aria-hidden="true" />
-            {t('Refresh')}
-          </button>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              aria-label={t('Refresh nodes')}
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              <RefreshCw size={18} aria-hidden="true" />
+              {t('Refresh')}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={restartAllNodes.isPending || nodes.length === 0}
+              onClick={() => void restartAllNodes.mutateAsync()}
+            >
+              {t('Restart all')}
+            </button>
+          </div>
         }
       />
 
@@ -571,6 +593,30 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
+                        disabled={
+                          normalizeStatus(node.status) === 'active'
+                            ? pauseNode.isPending
+                            : resumeNode.isPending
+                        }
+                        onClick={() => {
+                          if (normalizeStatus(node.status) === 'active') {
+                            void pauseNode.mutateAsync({
+                              id: node.id,
+                              request: { reason: 'operator disabled node', license_enforced: false },
+                            })
+                            return
+                          }
+                          void resumeNode.mutateAsync({
+                            id: node.id,
+                            request: { clear_quarantine: isQuarantined(node), target_status: 'offline' },
+                          })
+                        }}
+                      >
+                        {normalizeStatus(node.status) === 'active' ? t('Disable') : t('Enable')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
                         disabled={!canPauseNode(node) || pauseNode.isPending}
                         onClick={() =>
                           void pauseNode.mutateAsync({
@@ -609,6 +655,34 @@ export function NodesPage() {
                         }
                       >
                         {t('Quarantine')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        disabled={restartNode.isPending}
+                        onClick={() => void restartNode.mutateAsync(node.id)}
+                      >
+                        {t('Restart')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        disabled={resetNodeTraffic.isPending}
+                        onClick={() => void resetNodeTraffic.mutateAsync(node.id)}
+                      >
+                        {t('Reset traffic')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        disabled={deleteNode.isPending}
+                        onClick={() => {
+                          if (globalThis.confirm(`Delete node ${node.name}? This pauses runtime traffic first.`)) {
+                            void deleteNode.mutateAsync(node.id)
+                          }
+                        }}
+                      >
+                        {t('Delete')}
                       </button>
                     </div>,
                   ],
@@ -696,6 +770,63 @@ export function NodesPage() {
                 id: metric.id,
               }))}
             />
+          </article>
+        ) : null}
+
+        {query.isSuccess && nodes.length > 0 ? (
+          <article className="panel panel--wide">
+            <div className="panel__header">
+              <div>
+                <p className="eyebrow">Bulk operations</p>
+                <h2>Node management</h2>
+              </div>
+              <StatusBadge>real API</StatusBadge>
+            </div>
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={reorderNodes.isPending}
+                onClick={() =>
+                  void reorderNodes.mutateAsync({
+                    items: nodes.map((node, index) => ({
+                      id: node.id,
+                      sort_order: nodes.length - index,
+                    })),
+                  })
+                }
+              >
+                {t('Reverse order')}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={bulkNodes.isPending}
+                onClick={() =>
+                  void bulkNodes.mutateAsync({
+                    action: 'reset_traffic',
+                    ids: nodes.map((node) => node.id),
+                    reason: 'operator bulk reset traffic',
+                  })
+                }
+              >
+                {t('Reset all traffic')}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={bulkNodes.isPending}
+                onClick={() =>
+                  void bulkNodes.mutateAsync({
+                    action: 'pause',
+                    ids: nodes.map((node) => node.id),
+                    reason: 'operator bulk pause',
+                  })
+                }
+              >
+                {t('Pause all')}
+              </button>
+            </div>
           </article>
         ) : null}
 

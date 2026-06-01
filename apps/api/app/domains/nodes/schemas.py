@@ -5,27 +5,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
-class NodeCreateRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=128)
-    region: str = Field(min_length=1, max_length=64)
-    public_address: str = Field(min_length=1, max_length=255)
-    capabilities: dict[str, str] = Field(default_factory=dict)
-
-
-class NodeResponse(BaseModel):
-    id: UUID
-    name: str
-    region: str
-    public_address: str
-    status: str
-    capabilities: dict[str, str]
-    last_seen_at: datetime | None
-
-
-class NodeListResponse(BaseModel):
-    items: list[NodeResponse]
-
-
 class NodeStatus(StrEnum):
     PROVISIONING = "provisioning"
     INSTALLING = "installing"
@@ -36,6 +15,64 @@ class NodeStatus(StrEnum):
     PAUSED = "paused"
     LICENSE_PAUSED = "license_paused"
     QUARANTINED = "quarantined"
+
+
+class NodeCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    region: str = Field(min_length=1, max_length=64)
+    public_address: str = Field(min_length=1, max_length=255)
+    sort_order: int = 0
+    capabilities: dict[str, str] = Field(default_factory=dict)
+
+
+class NodeUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    region: str | None = Field(default=None, min_length=1, max_length=64)
+    public_address: str | None = Field(default=None, min_length=1, max_length=255)
+    status: NodeStatus | None = None
+    sort_order: int | None = None
+    capabilities: dict[str, str] | None = None
+
+
+class NodeReorderItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    sort_order: int
+
+
+class NodeReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[NodeReorderItem] = Field(min_length=1)
+
+
+class NodeBulkActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[UUID] = Field(min_length=1)
+    action: str = Field(
+        pattern="^(enable|disable|pause|resume|quarantine|restart|reset_traffic|delete)$"
+    )
+    reason: str | None = Field(default=None, max_length=512)
+    target_status: NodeStatus | None = None
+
+
+class NodeResponse(BaseModel):
+    id: UUID
+    name: str
+    region: str
+    public_address: str
+    status: str
+    sort_order: int
+    capabilities: dict[str, str]
+    last_seen_at: datetime | None
+
+
+class NodeListResponse(BaseModel):
+    items: list[NodeResponse]
 
 
 class ProvisioningJobKind(StrEnum):

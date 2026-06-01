@@ -1685,6 +1685,55 @@ async def test_node_pause_resume_and_quarantine_enqueue_commands(
     assert node_response.json()["status"] == "license_paused"
 
 
+async def test_node_management_parity_routes_enqueue_real_commands(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    node_id = await seeded_node_id(foundation_app)
+
+    update_response = await foundation_app.client.patch(
+        f"/api/v1/nodes/{node_id}",
+        json={"sort_order": 25, "region": "eu-updated"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["sort_order"] == 25
+    assert update_response.json()["region"] == "eu-updated"
+
+    reorder_response = await foundation_app.client.post(
+        "/api/v1/nodes/reorder",
+        json={"items": [{"id": node_id, "sort_order": 1}]},
+    )
+    assert reorder_response.status_code == 200
+    assert reorder_response.json()["items"][0]["sort_order"] == 1
+
+    restart_response = await foundation_app.client.post(f"/api/v1/nodes/{node_id}/restart")
+    assert restart_response.status_code == 200
+    assert restart_response.json()["command_type"] == "node.restart"
+
+    reset_response = await foundation_app.client.post(f"/api/v1/nodes/{node_id}/reset-traffic")
+    assert reset_response.status_code == 200
+    assert reset_response.json()["command_type"] == "node.traffic.reset"
+
+    bulk_response = await foundation_app.client.post(
+        "/api/v1/nodes/bulk",
+        json={"ids": [node_id], "action": "restart", "reason": "bulk restart"},
+    )
+    assert bulk_response.status_code == 200
+    assert bulk_response.json()["items"][0]["id"] == node_id
+
+    commands_response = await foundation_app.client.get(f"/api/v1/nodes/{node_id}/commands")
+    assert commands_response.status_code == 200
+    command_types = [item["command_type"] for item in commands_response.json()["items"]]
+    assert command_types[:3] == ["node.restart", "node.traffic.reset", "node.restart"]
+
+    delete_response = await foundation_app.client.delete(f"/api/v1/nodes/{node_id}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "deleted"
+
+    list_response = await foundation_app.client.get("/api/v1/nodes")
+    assert list_response.status_code == 200
+    assert all(item["id"] != node_id for item in list_response.json()["items"])
+
+
 async def test_node_command_result_requires_claimed_command(
     foundation_app: FoundationRouteApp,
 ) -> None:
