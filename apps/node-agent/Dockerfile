@@ -5,13 +5,15 @@ ARG SING_BOX_VERSION=1.13.12
 ARG AMNEZIAWG_TOOLS_VERSION=1.0.20260223
 ARG SHADOWSOCKS_RUST_VERSION=1.24.0
 ARG V2RAY_PLUGIN_VERSION=1.3.2
+ARG SIMPLE_OBFS_VERSION=v0.0.5
 
 ENV NODE_ENV=production
 ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
 WORKDIR /srv/lumen-node-agent
 
-RUN apk add --no-cache ca-certificates curl gcompat iproute2 iptables tar unzip wireguard-tools wireguard-tools-wg-quick xz \
+RUN apk add --no-cache ca-certificates curl gcompat iproute2 iptables libev pcre tar unzip wireguard-tools wireguard-tools-wg-quick xz \
+  && apk add --no-cache --virtual .simple-obfs-build-deps asciidoc autoconf automake build-base git libev-dev libtool linux-headers openssl-dev pcre-dev xmlto zlib-dev \
   && mkdir -p /usr/local/share/xray \
   && curl -fsSL -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip" \
   && unzip -j /tmp/xray.zip xray geoip.dat geosite.dat -d /usr/local/share/xray \
@@ -30,7 +32,15 @@ RUN apk add --no-cache ca-certificates curl gcompat iproute2 iptables tar unzip 
   && mkdir -p /tmp/v2ray-plugin \
   && tar -xzf /tmp/v2ray-plugin.tar.gz -C /tmp/v2ray-plugin \
   && install -m 0755 "$(find /tmp/v2ray-plugin -type f -name 'v2ray-plugin*' | head -n 1)" /usr/local/bin/v2ray-plugin \
-  && rm -rf /tmp/xray.zip /tmp/sing-box.tar.gz /tmp/amneziawg-tools.zip /tmp/shadowsocks-rust.tar.xz /tmp/shadowsocks-rust /tmp/v2ray-plugin.tar.gz /tmp/v2ray-plugin "/tmp/sing-box-${SING_BOX_VERSION}-linux-amd64"
+  && git clone --depth 1 --branch "${SIMPLE_OBFS_VERSION}" https://github.com/shadowsocks/simple-obfs.git /tmp/simple-obfs \
+  && cd /tmp/simple-obfs \
+  && git submodule update --init --recursive \
+  && ./autogen.sh \
+  && ./configure --prefix=/usr/local \
+  && make -j"$(nproc)" \
+  && install -m 0755 src/obfs-server /usr/local/bin/obfs-server \
+  && apk del .simple-obfs-build-deps \
+  && rm -rf /tmp/xray.zip /tmp/sing-box.tar.gz /tmp/amneziawg-tools.zip /tmp/shadowsocks-rust.tar.xz /tmp/shadowsocks-rust /tmp/v2ray-plugin.tar.gz /tmp/v2ray-plugin /tmp/simple-obfs "/tmp/sing-box-${SING_BOX_VERSION}-linux-amd64"
 
 COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src

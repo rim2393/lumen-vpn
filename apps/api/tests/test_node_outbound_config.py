@@ -268,6 +268,41 @@ def test_shadowsocks_v2ray_plugin_payload_uses_managed_ssserver_runtime():
     assert "clientsRef" not in config
 
 
+def test_shadowsocks_obfs_payload_uses_managed_ssserver_runtime():
+    runtime_password = "ss-obfs-live-" + "password"
+    payload = build_node_outbound_payload(
+        _profile(
+            "shadowsocks-obfs",
+            {
+                "method": "aes-256-gcm",
+                "obfs": "http",
+                "obfs_host": "cdn.example.test",
+            },
+        ),
+        _inbounds(
+            8391,
+            protocol="shadowsocks",
+            config_json={"method": "aes-256-gcm"},
+        ),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "password": "unused-generic-password",
+                "shadowsocks_password": runtime_password,
+            }
+        ],
+    )
+
+    assert "xrayConfig" not in payload
+    config = payload["shadowsocksPluginConfig"]
+    assert config["listen_port"] == 8391
+    assert config["method"] == "aes-256-gcm"
+    assert config["password"] == runtime_password
+    assert config["plugin"] == "obfs-server"
+    assert config["plugin_opts"] == "obfs=http;obfs-host=cdn.example.test"
+    assert "clientsRef" not in config
+
+
 def test_socks_payload_uses_concrete_runtime_accounts():
     payload = build_node_outbound_payload(
         _profile("socks5"),

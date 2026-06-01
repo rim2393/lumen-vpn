@@ -1399,7 +1399,7 @@ _DEFAULT_NODE_TLS_KEY_PATH = "/var/lib/lumen-node/runtime/tls/live.key"
 def _adapter_family(adapter: str) -> str:
     if adapter == "shadowsocks-2022":
         return "sing-box-shadowsocks"
-    if adapter == "shadowsocks-v2ray-plugin":
+    if adapter in {"shadowsocks-v2ray-plugin", "shadowsocks-obfs"}:
         return "shadowsocks-plugin"
     protocol = _inbound_protocol(adapter)
     if protocol in {"hysteria2", "tuic", "wireguard"}:
@@ -1588,8 +1588,18 @@ def _computed_shadowsocks_plugin_config(
     config.setdefault("listen_port", port or 8388)
     config.setdefault("method", "aes-256-gcm")
     config.setdefault("network", "tcp")
-    config["plugin"] = "v2ray-plugin"
-    config.setdefault("plugin_opts", "server")
+    if profile.adapter == "shadowsocks-obfs":
+        config["plugin"] = "obfs-server"
+        config.setdefault("obfs", "http")
+        config.setdefault("obfs_host", "www.bing.com")
+        obfs = str(config.get("obfs") or "http")
+        obfs_host = str(config.get("obfs_host") or "www.bing.com")
+        config["plugin_opts"] = str(
+            config.get("plugin_opts") or f"obfs={obfs};obfs-host={obfs_host}"
+        )
+    else:
+        config["plugin"] = "v2ray-plugin"
+        config.setdefault("plugin_opts", "server")
     clients = runtime_clients or []
     if clients:
         config["password"] = str(clients[0]["shadowsocks_password"])

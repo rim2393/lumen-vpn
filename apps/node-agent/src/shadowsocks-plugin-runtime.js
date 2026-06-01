@@ -16,7 +16,7 @@ export const SHADOWSOCKS_PLUGIN_RELOAD_MODE_PROCESS = "process";
 
 const execFileAsync = promisify(nodeExecFile);
 const FORBIDDEN_UNRESOLVED_FIELDS = new Set(["clientsRef", "credentialsRef"]);
-const ALLOWED_PLUGINS = new Set(["v2ray-plugin"]);
+const ALLOWED_PLUGINS = new Set(["v2ray-plugin", "obfs-server"]);
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -79,6 +79,13 @@ function renderServerConfig(config) {
     plugin: config.plugin,
     plugin_opts: config.plugin_opts
   };
+}
+
+function pluginValidationArgs(plugin) {
+  if (plugin === "v2ray-plugin") {
+    return ["--version"];
+  }
+  return ["--help"];
 }
 
 export function createShadowsocksPluginApplyPlan(input = {}) {
@@ -161,9 +168,15 @@ export async function ensureManagedShadowsocksPluginProcess(input = {}) {
     return null;
   }
   const binary = env.LUMEN_SHADOWSOCKS_SERVER_BINARY ?? DEFAULT_SHADOWSOCKS_SERVER_BINARY;
+  const runtimeConfig = JSON.parse(readFileSync(configPath, "utf8"));
   const logPath = env.LUMEN_SHADOWSOCKS_PLUGIN_LOG_FILE ?? DEFAULT_SHADOWSOCKS_PLUGIN_LOG_FILE;
   const pidFile = env.LUMEN_SHADOWSOCKS_PLUGIN_PID_FILE ?? DEFAULT_SHADOWSOCKS_PLUGIN_PID_FILE;
   await runExecFile(input.execFileImpl, binary, ["--version"]);
+  await runExecFile(
+    input.execFileImpl,
+    runtimeConfig.plugin,
+    pluginValidationArgs(runtimeConfig.plugin)
+  );
   const pid = readPid(pidFile);
   if (isPidRunning(pid)) {
     return Object.freeze({
@@ -199,6 +212,11 @@ export async function applyShadowsocksPluginConfig(plan, input = {}) {
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
   writeFileSync(configPath, `${JSON.stringify(runtimeConfig, null, 2)}\n`, { mode: 0o600 });
   await runExecFile(input.execFileImpl, binary, ["--version"]);
+  await runExecFile(
+    input.execFileImpl,
+    runtimeConfig.plugin,
+    pluginValidationArgs(runtimeConfig.plugin)
+  );
   const logPath = env.LUMEN_SHADOWSOCKS_PLUGIN_LOG_FILE ?? DEFAULT_SHADOWSOCKS_PLUGIN_LOG_FILE;
   const pidFile = env.LUMEN_SHADOWSOCKS_PLUGIN_PID_FILE ?? DEFAULT_SHADOWSOCKS_PLUGIN_PID_FILE;
   stopPid(pidFile);

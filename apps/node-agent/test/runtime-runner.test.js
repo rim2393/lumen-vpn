@@ -624,7 +624,10 @@ test("run once applies managed Shadowsocks v2ray-plugin config from outbound app
     });
 
     assert.equal(result.command.status, "succeeded");
-    assert.deepEqual(execCalls[0], ["ssserver", ["--version"]]);
+    assert.deepEqual(execCalls, [
+      ["ssserver", ["--version"]],
+      ["v2ray-plugin", ["--version"]]
+    ]);
     assert.deepEqual(spawned[0], ["ssserver", ["-c", configPath]]);
     const config = JSON.parse(readFileSync(configPath, "utf8"));
     assert.equal(config.server_port, 18474);
@@ -632,6 +635,111 @@ test("run once applies managed Shadowsocks v2ray-plugin config from outbound app
     assert.equal(config.password, "ss-plugin-password");
     assert.equal(config.plugin, "v2ray-plugin");
     assert.equal(config.plugin_opts, "server;path=/ss;host=cdn.example");
+    const resultBody = JSON.parse(calls.find((call) => call.url.endsWith("/result")).options.body);
+    assert.equal(resultBody.result_json.outputs.implementationStatus, "shadowsocks-plugin-managed-process-started");
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("run once applies managed Shadowsocks simple-obfs config from outbound apply", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+  const configPath = join(stateDir, "runtime", "shadowsocks-obfs", "config.json");
+  const logPath = join(stateDir, "runtime", "shadowsocks-obfs", "ssserver.log");
+  const pidFile = join(stateDir, "runtime", "shadowsocks-obfs", "ssserver.pid");
+  const execCalls = [];
+  const spawned = [];
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const calls = [];
+
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "node-1",
+        LUMEN_STATE_DIR: stateDir,
+        LUMEN_DRY_RUN: "false",
+        LUMEN_SHADOWSOCKS_PLUGIN_CONFIG_FILE: configPath,
+        LUMEN_SHADOWSOCKS_PLUGIN_LOG_FILE: logPath,
+        LUMEN_SHADOWSOCKS_PLUGIN_PID_FILE: pidFile,
+        LUMEN_SHADOWSOCKS_PLUGIN_RELOAD_MODE: "process"
+      },
+      execFileImpl: async (command, args) => {
+        execCalls.push([command, args]);
+        return { stdout: "", stderr: "" };
+      },
+      spawnImpl: (command, args) => {
+        spawned.push([command, args]);
+        return {
+          pid: 4444,
+          unref() {}
+        };
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-ss-obfs",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: "claimed",
+            payload_json: {
+              adapter: "shadowsocks-obfs",
+              profileId: "profile-ss-obfs",
+              shadowsocksPluginConfig: {
+                listen: "::",
+                listen_port: 18475,
+                network: "tcp",
+                method: "aes-256-gcm",
+                password: "ss-obfs-password",
+                plugin: "obfs-server",
+                plugin_opts: "obfs=http;obfs-host=cdn.example"
+              }
+            },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-ss-obfs",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: JSON.parse(options.body).status,
+            payload_json: {},
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(result.command.status, "succeeded");
+    assert.deepEqual(execCalls, [
+      ["ssserver", ["--version"]],
+      ["obfs-server", ["--help"]]
+    ]);
+    assert.deepEqual(spawned[0], ["ssserver", ["-c", configPath]]);
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    assert.equal(config.server_port, 18475);
+    assert.equal(config.method, "aes-256-gcm");
+    assert.equal(config.password, "ss-obfs-password");
+    assert.equal(config.plugin, "obfs-server");
+    assert.equal(config.plugin_opts, "obfs=http;obfs-host=cdn.example");
     const resultBody = JSON.parse(calls.find((call) => call.url.endsWith("/result")).options.body);
     assert.equal(resultBody.result_json.outputs.implementationStatus, "shadowsocks-plugin-managed-process-started");
   } finally {
