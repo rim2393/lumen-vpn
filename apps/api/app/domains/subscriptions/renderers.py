@@ -556,7 +556,7 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
         if protocol.get("flow"):
             base["flow"] = protocol["flow"]
         add_mihomo_transport_fields(base, protocol)
-        add_mihomo_tls_fields(base, security)
+        add_mihomo_tls_fields(base, security, protocol.get("rendererHints", {}))
         return base
 
     if protocol_type == "vmess":
@@ -570,13 +570,13 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
             }
         )
         add_mihomo_transport_fields(base, protocol)
-        add_mihomo_tls_fields(base, security)
+        add_mihomo_tls_fields(base, security, protocol.get("rendererHints", {}))
         return base
 
     if protocol_type == "trojan":
         base.update({"password": credentials.password, "udp": True, "tls": True})
         add_mihomo_transport_fields(base, protocol)
-        add_mihomo_tls_fields(base, security)
+        add_mihomo_tls_fields(base, security, protocol.get("rendererHints", {}))
         return base
 
     if protocol_type == "shadowsocks":
@@ -627,7 +627,7 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
                 "tls": True,
             }
         )
-        add_mihomo_tls_fields(base, security)
+        add_mihomo_tls_fields(base, security, protocol.get("rendererHints", {}))
         return base
 
     if protocol_type == "wireguard":
@@ -670,7 +670,12 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
     return None
 
 
-def add_mihomo_tls_fields(output: dict[str, Any], security: dict[str, Any]) -> None:
+def add_mihomo_tls_fields(
+    output: dict[str, Any],
+    security: dict[str, Any],
+    hints: dict[str, Any] | None = None,
+) -> None:
+    hints = hints or {}
     if security.get("serverName"):
         output["servername"] = security["serverName"]
         output["sni"] = security["serverName"]
@@ -680,7 +685,9 @@ def add_mihomo_tls_fields(output: dict[str, Any], security: dict[str, Any]) -> N
     if security.get("alpn"):
         output["alpn"] = security["alpn"]
     if security.get("type") == "reality":
-        reality = {"public-key": security.get("publicKey")}
+        reality = {
+            "public-key": hints.get("mihomoX25519PublicKey") or security.get("publicKey")
+        }
         if security.get("shortId") is not None:
             reality["short-id"] = security.get("shortId")
         output["reality-opts"] = {key: value for key, value in reality.items() if value is not None}

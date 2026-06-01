@@ -1,4 +1,5 @@
 import base64
+import hashlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -534,6 +535,159 @@ async def test_subscription_manifest_route_renders_vless_profile_protocol(
         assert event.actor_subject == "public-subscription"
         assert event.metadata_json["public_id"] == create_response.json()["public_id"]
         assert event.metadata_json["target"] == "manifest"
+
+
+async def test_subscription_manifest_applies_host_visibility_and_client_hints(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="host-policy-profile",
+            node_id=node.id,
+            adapter="vless-reality-xhttp",
+            status="active",
+            config_json={
+                "security": {
+                    "type": "reality",
+                    "serverName": "profile-front.example.test",
+                    "publicKey": "profile-x25519-key",
+                    "shortId": "aabbccdd",
+                    "fingerprint": "chrome",
+                }
+            },
+            port_reservations=[
+                {"address": "0.0.0.0", "port": 443, "protocol": "tcp"},  # noqa: S104
+            ],
+            credentials_ref="vault://subscriptions/host-policy/client",
+        )
+        session.add(profile)
+        await session.flush()
+        hidden_host = Host(
+            name="aa-hidden-host",
+            hostname="hidden.example.test",
+            hidden=True,
+            node_id=node.id,
+            protocol_profile_id=profile.id,
+            status="active",
+        )
+        excluded_host = Host(
+            name="ab-excluded-host",
+            hostname="excluded.example.test",
+            node_id=node.id,
+            protocol_profile_id=profile.id,
+            status="active",
+            subscription_excluded=True,
+        )
+        host_a = Host(
+            name="host-a",
+            hostname="visible-a.example.test",
+            final_mask="masked-a.example.test",
+            mihomo_x25519_public_key="mihomo-a-x25519",
+            node_id=node.id,
+            path="/xhttp-a",
+            port=2443,
+            protocol_profile_id=profile.id,
+            security="reality",
+            shuffle_host=True,
+            sni="front-a.example.test",
+            status="active",
+            tags=["visible", "a"],
+            xhttp_json={"mode": "packet-up"},
+        )
+        host_b = Host(
+            name="host-b",
+            hostname="visible-b.example.test",
+            final_mask="masked-b.example.test",
+            mihomo_x25519_public_key="mihomo-b-x25519",
+            node_id=node.id,
+            path="/xhttp-b",
+            port=3443,
+            protocol_profile_id=profile.id,
+            security="reality",
+            shuffle_host=True,
+            sni="front-b.example.test",
+            status="active",
+            tags=["visible", "b"],
+            xhttp_json={"mode": "stream-up"},
+        )
+        session.add_all([hidden_host, excluded_host, host_a, host_b])
+        await session.commit()
+        visible_hosts = [host_a, host_b]
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "vless-reality-xhttp",
+                "adapter": "vless-reality-xhttp",
+                "profile_id": str(profile.id),
+                "format": "mihomo",
+            },
+            "config_hash": "sha256:host-policy",
+        },
+    )
+    assert create_response.status_code == 201
+    public_id = create_response.json()["public_id"]
+    expected_host = visible_hosts[
+        int.from_bytes(hashlib.sha256(public_id.encode("utf-8")).digest()[:8], "big")
+        % len(visible_hosts)
+    ]
+
+    manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/manifest",
+    )
+    assert manifest_response.status_code == 200
+    protocol = manifest_response.json()["nodes"][0]["protocols"][0]
+    assert protocol["endpoint"]["host"] == expected_host.final_mask
+    assert protocol["endpoint"]["port"] == expected_host.port
+    assert protocol["endpoint"]["transport"] == "xhttp"
+    assert protocol["security"]["serverName"] == expected_host.sni
+    assert protocol["security"]["type"] == "reality"
+    assert protocol["path"] == expected_host.path
+    assert protocol["mode"] == expected_host.xhttp_json["mode"]
+    assert protocol["rendererHints"]["finalMask"] == expected_host.final_mask
+    assert protocol["rendererHints"]["mihomoX25519PublicKey"] == (
+        expected_host.mihomo_x25519_public_key
+    )
+    assert "hidden.example.test" not in str(manifest_response.json())
+    assert "excluded.example.test" not in str(manifest_response.json())
+
+    mihomo_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=mihomo",
+    )
+    assert mihomo_response.status_code == 200
+    assert f'server: "{expected_host.final_mask}"' in mihomo_response.text
+    assert f'sni: "{expected_host.sni}"' in mihomo_response.text
+    assert f'public-key: "{expected_host.mihomo_x25519_public_key}"' in mihomo_response.text
+    assert expected_host.path in mihomo_response.text
+    assert "hidden.example.test" not in mihomo_response.text
+    assert "excluded.example.test" not in mihomo_response.text
+
+    explicit_excluded_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "vless-reality-xhttp",
+                "adapter": "vless-reality-xhttp",
+                "profile_id": str(profile.id),
+                "host_id": str(excluded_host.id),
+            },
+            "config_hash": "sha256:excluded-host",
+        },
+    )
+    assert explicit_excluded_response.status_code == 201
+    blocked_render = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{explicit_excluded_response.json()['public_id']}/manifest",
+    )
+    assert blocked_render.status_code == 422
+    assert blocked_render.json()["error"]["code"] == "subscription_host_not_renderable"
 
 
 async def test_public_subscription_renderers_emit_client_compatible_formats(

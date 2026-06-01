@@ -54,12 +54,13 @@ and live panel/node evidence where the feature touches runtime behavior.
   - auto-sync/runtime apply semantics after profile or host changes.
 - Hosts:
   - release and live-smoke the locally closed full field model/API/UI/computed
-    Xray override slice for path, SNI, security, mux, sockopt, xHTTP,
-    subscription exclusions, internal squad exclusions, final mask/shuffle,
-    Mihomo X25519, Xray template, tags and remarks;
-  - wire subscription exclusions, final masks, random host ordering and Mihomo
-    X25519 into public subscription renderers where each target client supports
-    them;
+    Xray override and public subscription renderer slice for path, SNI,
+    security, mux, sockopt, xHTTP, subscription exclusions, internal squad
+    exclusions, final mask/shuffle, Mihomo X25519, Xray template, tags and
+    remarks;
+  - continue target-specific polishing for any client formats that expose extra
+    host metadata beyond current raw URI, Lumen JSON, Mihomo, sing-box and Xray
+    JSON coverage;
   - bulk enable/disable/delete/set inbound/set port against real API;
   - detail editor parity;
   - reorder and validation.

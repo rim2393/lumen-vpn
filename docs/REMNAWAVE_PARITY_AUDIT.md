@@ -13,7 +13,7 @@ counts, placeholder actions and DB-only buttons do not count.
 | Nodes | Admin UI had pause/resume/quarantine, but missed update/delete/reorder/restart/reset traffic/restart-all/bulk surfaces. | Closed for P0 node-management slice in `v0.1.59`; broader Remnawave Nodes parity still needs screen-by-screen UX polish. |
 | Nodes | Several node actions changed control-plane state without a matching live node-agent command. | Closed for restart/reset-traffic in `v0.1.59`; future node actions must keep the same API -> command -> live evidence rule. |
 | Profiles and hosts | CRUD exists, but profile/host changes do not auto-sync node runtime except explicit profile apply. | Open |
-| Hosts | Host model is narrower than required Remnawave parity fields: path, SNI, security, mux, sockopt, xHTTP, exclusions, final mask and Mihomo X25519. | Closed locally for storage/API/UI/computed Xray override in the host parity slice; live closure pending release/deploy. Subscription-renderer use of exclusions/final masks/Mihomo X25519 remains a follow-up. |
+| Hosts | Host model is narrower than required Remnawave parity fields: path, SNI, security, mux, sockopt, xHTTP, exclusions, final mask and Mihomo X25519. | Closed locally for storage/API/UI/computed Xray override plus public subscription manifest/renderers. Live closure pending release/deploy. |
 | Subscriptions | Admin API lacks delete/clone/raw/connection keys/subpage config and lookup by username or short UUID. | Closed locally for delete/clone/raw preview/connection-key read/lookup in the subscription admin slice; live closure pending `v0.1.63` deploy evidence. Subpage config remains split into the dedicated Subscription Page settings surface. |
 | Subscriptions | Create UI covers only a narrow part of the backend subscription contract and still has a static `server_name` default. | Partially closed: static `server_name` removed, `expires_at` and `config_hash` added; richer subscription setting UX remains a follow-up. |
 | Settings | Auth providers with `unimplemented` status are deliberately read-only; this is not Remnawave-level parity until the real callback/config flow exists. | Closed locally for `generic_oauth2`: it now uses real env/file-backed OAuth2/OIDC config, login discovery/start/callback flow, and settings validation. Live closure pending release/deploy after VPS reachability returns. |
@@ -114,6 +114,15 @@ Closure evidence:
 - Computed Xray inbound generation now applies host-level path/SNI/security,
   xHTTP, mux and sockopt overrides to `streamSettings`; these fields are not
   stored-only for runtime config preview/apply payload generation.
+- Public subscription manifest generation now rejects explicit hidden/excluded
+  hosts, auto-selects only active subscription-visible hosts for a profile/node,
+  applies deterministic host shuffle, uses `final_mask` as the client-visible
+  endpoint host, keeps host SNI/security as TLS/Reality metadata, and forwards
+  Mihomo-specific X25519 public keys through renderer hints.
+- Mihomo/Clash-family exports now use the host-level Mihomo X25519 key in
+  `reality-opts.public-key` while other clients keep the protocol security
+  public key.
 - Local gates for this slice: scoped API ruff passed; control-plane route tests
-  passed (`24 passed`); web TypeScript passed. Live closure still requires
-  official release/update and production smoke.
+  passed (`24 passed`); subscription route tests passed (`18 passed`); web
+  TypeScript passed. Live closure still requires official release/update and
+  production smoke.

@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -226,7 +227,13 @@ async def build_subscription_manifest(
 
     delivery = subscription.delivery_profile
     profile = await _get_optional_profile(session, delivery.get("profile_id"))
-    host = await _get_optional_host(session, delivery.get("host_id"))
+    host = await _resolve_manifest_host(
+        session,
+        delivery=delivery,
+        profile=profile,
+        node=node,
+        subscription_public_id=subscription.public_id,
+    )
     protocol_type = delivery.get("protocol") or (profile.adapter if profile is not None else None)
     if protocol_type is None or not str(protocol_type).startswith(RENDERABLE_PROTOCOL_PREFIXES):
         raise APIError(
@@ -239,8 +246,8 @@ async def build_subscription_manifest(
             details=["delivery_profile.protocol"],
         )
     adapter = delivery.get("adapter") or (profile.adapter if profile is not None else protocol_type)
-    endpoint_host = host.hostname if host is not None else node.public_address
-    endpoint_port = _manifest_port(delivery=delivery, profile=profile)
+    endpoint_host = _manifest_endpoint_host(host=host, node=node)
+    endpoint_port = _manifest_port(delivery=delivery, profile=profile, host=host)
     credentials_ref = _manifest_credentials_ref(
         profile=profile,
         subscription=subscription,
@@ -307,6 +314,7 @@ async def build_subscription_manifest(
                             "host": endpoint_host,
                             "port": endpoint_port,
                             "transport": delivery.get("transport")
+                            or _host_transport(host)
                             or _default_transport(protocol_type),
                             "network": delivery.get("network") or "public",
                         },
@@ -314,10 +322,15 @@ async def build_subscription_manifest(
                             profile=profile,
                             delivery=delivery,
                             protocol_type=protocol_type,
+                            host=host,
                         ),
                         "flow": delivery.get("flow"),
-                        "path": delivery.get("path") or _profile_config_string(profile, "path"),
-                        "mode": delivery.get("mode") or _profile_config_string(profile, "mode"),
+                        "path": delivery.get("path")
+                        or _host_string(host, "path")
+                        or _profile_config_string(profile, "path"),
+                        "mode": delivery.get("mode")
+                        or _host_xhttp_string(host, "mode")
+                        or _profile_config_string(profile, "mode"),
                         "serviceName": delivery.get("service_name")
                         or delivery.get("serviceName")
                         or _profile_config_string(profile, "serviceName")
@@ -335,6 +348,7 @@ async def build_subscription_manifest(
                         "capabilities": _manifest_capabilities(protocol_type),
                         "rendererHints": _manifest_renderer_hints(
                             delivery=delivery,
+                            host=host,
                             profile=profile,
                             profile_title=profile_title,
                         ),
@@ -720,6 +734,92 @@ async def _get_optional_host(session: AsyncSession, host_id: str | None) -> Host
     return host
 
 
+async def _resolve_manifest_host(
+    session: AsyncSession,
+    *,
+    delivery: dict[str, str],
+    profile: ProtocolProfile | None,
+    node: Node,
+    subscription_public_id: str,
+) -> Host | None:
+    explicit_host = await _get_optional_host(session, delivery.get("host_id"))
+    if explicit_host is not None:
+        _ensure_host_can_be_served(explicit_host, explicit=True)
+        return explicit_host
+    if profile is None:
+        return None
+    result = await session.execute(
+        select(Host)
+        .where(Host.node_id == node.id)
+        .where(Host.protocol_profile_id == profile.id)
+        .where(Host.status == "active")
+        .order_by(Host.created_at.asc(), Host.name.asc())
+    )
+    candidates = [
+        host for host in result.scalars().all() if _host_is_subscription_visible(host)
+    ]
+    if not candidates:
+        return None
+    if any(host.shuffle_host for host in candidates):
+        index = _stable_index(subscription_public_id, len(candidates))
+        return candidates[index]
+    return candidates[0]
+
+
+def _ensure_host_can_be_served(host: Host, *, explicit: bool) -> None:
+    if _host_is_subscription_visible(host):
+        return
+    raise APIError(
+        code="subscription_host_not_renderable",
+        message="Subscription host is disabled, hidden, or excluded from subscriptions.",
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        details=[str(host.id), "delivery_profile.host_id" if explicit else "host"],
+    )
+
+
+def _host_is_subscription_visible(host: Host) -> bool:
+    return (
+        host.status == "active"
+        and not host.hidden
+        and not host.subscription_excluded
+    )
+
+
+def _stable_index(value: str, modulo: int) -> int:
+    digest = hashlib.sha256(value.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") % modulo
+
+
+def _manifest_endpoint_host(*, host: Host | None, node: Node) -> str:
+    if host is None:
+        return node.public_address
+    return _host_string(host, "final_mask") or host.hostname
+
+
+def _host_string(host: Host | None, key: str) -> str | None:
+    value = getattr(host, key, None) if host is not None else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _host_xhttp_string(host: Host | None, key: str) -> str | None:
+    if host is None or not isinstance(host.xhttp_json, dict):
+        return None
+    value = host.xhttp_json.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _host_transport(host: Host | None) -> str | None:
+    if host is None:
+        return None
+    if host.xhttp_json:
+        return "xhttp"
+    return None
+
+
 async def _subscription_page_settings(session: AsyncSession) -> dict[str, object]:
     setting = (
         await session.execute(
@@ -741,11 +841,19 @@ def _manifest_port(
     *,
     delivery: dict[str, str],
     profile: ProtocolProfile | None,
+    host: Host | None,
 ) -> int:
     if "port" in delivery:
         return _manifest_int(
             delivery["port"],
             field_name="delivery_profile.port",
+            min_value=1,
+            max_value=65535,
+        )
+    if host is not None and host.port is not None:
+        return _manifest_int(
+            host.port,
+            field_name="host.port",
             min_value=1,
             max_value=65535,
         )
@@ -820,15 +928,21 @@ def _manifest_security(
     profile: ProtocolProfile | None,
     delivery: dict[str, str],
     protocol_type: str,
+    host: Host | None,
 ) -> dict[str, object]:
     config = profile.config_json if profile is not None else {}
     security = config.get("security") if isinstance(config.get("security"), dict) else {}
     security_type = str(
-        security.get("type") or delivery.get("security") or _default_security(protocol_type)
+        _host_string(host, "security")
+        or security.get("type")
+        or delivery.get("security")
+        or _default_security(protocol_type)
     )
     return {
         "type": security_type,
-        "serverName": security.get("serverName") or delivery.get("server_name"),
+        "serverName": _host_string(host, "sni")
+        or security.get("serverName")
+        or delivery.get("server_name"),
         "publicKey": security.get("publicKey") or delivery.get("public_key"),
         "shortId": security.get("shortId") or delivery.get("short_id"),
         "fingerprint": security.get("fingerprint") or delivery.get("fingerprint"),
@@ -892,6 +1006,7 @@ def _manifest_capabilities(protocol_type: str) -> list[str]:
 def _manifest_renderer_hints(
     *,
     delivery: dict[str, str],
+    host: Host | None,
     profile: ProtocolProfile | None,
     profile_title: str,
 ) -> dict[str, object]:
@@ -906,6 +1021,9 @@ def _manifest_renderer_hints(
         "allowedIps": delivery.get("allowed_ips"),
         "mtu": delivery.get("mtu"),
         "persistentKeepalive": delivery.get("persistent_keepalive"),
+        "finalMask": _host_string(host, "final_mask"),
+        "mihomoX25519PublicKey": _host_string(host, "mihomo_x25519_public_key"),
+        "shuffleHost": host.shuffle_host if host is not None else None,
     }
     profile_config = profile.config_json if profile is not None else {}
     profile_metadata = (
