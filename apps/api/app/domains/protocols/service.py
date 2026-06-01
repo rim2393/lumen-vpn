@@ -1345,6 +1345,8 @@ _NODE_CONFIG_KEY_BY_FAMILY = {
     "wireguard": "wireguardConfig",
     "xray": "xrayConfig",
 }
+_DEFAULT_NODE_TLS_CERT_PATH = "/var/lib/lumen-node/runtime/tls/live.crt"
+_DEFAULT_NODE_TLS_KEY_PATH = "/var/lib/lumen-node/runtime/tls/live.key"
 
 
 def _adapter_family(adapter: str) -> str:
@@ -1365,6 +1367,31 @@ def _first_inbound_port(inbounds: list[ProfileInboundResponse]) -> int | None:
 def _profile_config_dict(profile: ProtocolProfile) -> dict[str, object]:
     config = deepcopy(profile.config_json)
     return config if isinstance(config, dict) else {}
+
+
+def _ensure_node_tls_paths(config: dict[str, object]) -> None:
+    if isinstance(config.get("tls"), dict):
+        tls = dict(config["tls"])  # type: ignore[index]
+    else:
+        tls = {}
+    if isinstance(tls.get("cert"), str) and isinstance(tls.get("key"), str):
+        config["tls"] = tls
+        return
+    if isinstance(tls.get("acme"), dict):
+        config["tls"] = tls
+        return
+    tls.setdefault("cert", _DEFAULT_NODE_TLS_CERT_PATH)
+    tls.setdefault("key", _DEFAULT_NODE_TLS_KEY_PATH)
+    config["tls"] = tls
+
+
+def _ensure_tuic_tls_paths(config: dict[str, object]) -> None:
+    if isinstance(config.get("certificate"), str) and isinstance(config.get("private_key"), str):
+        return
+    if isinstance(config.get("acme"), dict):
+        return
+    config.setdefault("certificate", _DEFAULT_NODE_TLS_CERT_PATH)
+    config.setdefault("private_key", _DEFAULT_NODE_TLS_KEY_PATH)
 
 
 async def list_profile_runtime_clients(
@@ -1430,7 +1457,7 @@ def _computed_hysteria2_config(
 ) -> dict[str, object]:
     config = _profile_config_dict(profile)
     config.setdefault("listen", f":{port}" if port else ":443")
-    config.setdefault("tls", config.get("tls") or {})
+    _ensure_node_tls_paths(config)
     clients = runtime_clients or []
     if clients:
         config["auth"] = {
@@ -1452,6 +1479,7 @@ def _computed_tuic_config(
     config = _profile_config_dict(profile)
     config.setdefault("server", f":{port}" if port else ":443")
     config.setdefault("congestion_control", config.get("congestion_control") or "bbr")
+    _ensure_tuic_tls_paths(config)
     clients = runtime_clients or []
     if clients:
         config["users"] = {

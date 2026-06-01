@@ -26,8 +26,8 @@ import { createNodeAgentRuntimeConfig, loadNodeAgentConfigFromEnv } from "./runt
 import { readSecretFromEnv } from "./secret-input.js";
 import { createTcpDiagnosticListenerPlan, startTcpDiagnosticListener, stopLiveListener } from "./live-listeners.js";
 import { applyXrayConfig, createXrayApplyPlan, ensureManagedXrayProcess } from "./xray-runtime.js";
-import { applyHysteria2Config, createHysteria2ApplyPlan } from "./hysteria2-runtime.js";
-import { applyTuicConfig, createTuicApplyPlan } from "./tuic-runtime.js";
+import { applyHysteria2Config, createHysteria2ApplyPlan, ensureManagedHysteria2Process } from "./hysteria2-runtime.js";
+import { applyTuicConfig, createTuicApplyPlan, ensureManagedTuicProcess } from "./tuic-runtime.js";
 import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
 import { applyNodePolicy, createNodePolicyApplyPlan } from "./policy-runtime.js";
 
@@ -341,7 +341,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
       const hysteria2 = await applyHysteria2Config(commandResult.runtimeAction.plan, {
         dryRun: input.dryRun,
         env: input.env,
-        execFileImpl: input.execFileImpl
+        execFileImpl: input.execFileImpl,
+        spawnImpl: input.spawnImpl
       });
       const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
       return withResultOutputs(commandResult, policy ? { ...hysteria2, nodePolicy: policy } : hysteria2);
@@ -350,7 +351,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
       const tuic = await applyTuicConfig(commandResult.runtimeAction.plan, {
         dryRun: input.dryRun,
         env: input.env,
-        execFileImpl: input.execFileImpl
+        execFileImpl: input.execFileImpl,
+        spawnImpl: input.spawnImpl
       });
       const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
       return withResultOutputs(commandResult, policy ? { ...tuic, nodePolicy: policy } : tuic);
@@ -648,14 +650,18 @@ export async function runNodeAgentOnce(input = {}) {
   const currentState = loadProvisioningState(paths, enrollment.config);
   let runtimeRestore = null;
   try {
-    runtimeRestore = await ensureManagedXrayProcess({
+    const restoreInput = {
       env: input.env ?? {},
       execFileImpl: input.execFileImpl,
       spawnImpl: input.spawnImpl
-    });
+    };
+    const xray = await ensureManagedXrayProcess(restoreInput);
+    const hysteria2 = await ensureManagedHysteria2Process(restoreInput);
+    const tuic = await ensureManagedTuicProcess(restoreInput);
+    runtimeRestore = Object.freeze({ xray, hysteria2, tuic });
   } catch (error) {
     runtimeRestore = Object.freeze({
-      implementationStatus: "xray-managed-process-restore-failed",
+      implementationStatus: "managed-process-restore-failed",
       error: error.message
     });
   }

@@ -6,7 +6,8 @@ import { join } from "node:path";
 import {
   DEFAULT_TUIC_RELOAD_ARGV,
   applyTuicConfig,
-  createTuicApplyPlan
+  createTuicApplyPlan,
+  renderTuicSingBoxConfig
 } from "../src/tuic-runtime.js";
 
 function validConfig() {
@@ -68,6 +69,51 @@ test("applyTuicConfig writes the config and runs the reload command when applied
     const written = JSON.parse(readFileSync(configPath, "utf-8"));
     assert.equal(written.server, "[::]:443");
     assert.deepEqual(calls[0], ["systemctl", ["restart", "tuic-server"]]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("renderTuicSingBoxConfig emits a runnable sing-box inbound", () => {
+  const rendered = renderTuicSingBoxConfig(validConfig());
+  assert.equal(rendered.inbounds[0].type, "tuic");
+  assert.equal(rendered.inbounds[0].listen_port, 443);
+  assert.equal(rendered.inbounds[0].users[0].uuid, "11111111-1111-1111-1111-111111111111");
+  assert.equal(rendered.inbounds[0].users[0].password, "lumen-managed-secret");
+  assert.equal(rendered.inbounds[0].tls.certificate_path, "/etc/tuic/cert.pem");
+});
+
+test("applyTuicConfig process mode validates and starts managed sing-box", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lumen-tuic-process-"));
+  const configPath = join(dir, "config.json");
+  const logPath = join(dir, "sing-box.log");
+  const pidFile = join(dir, "sing-box.pid");
+  const calls = [];
+  const spawned = [];
+  const plan = createTuicApplyPlan({ config: validConfig(), configPath });
+  try {
+    const result = await applyTuicConfig(plan, {
+      dryRun: false,
+      env: {
+        LUMEN_TUIC_RELOAD_MODE: "process",
+        LUMEN_TUIC_LOG_FILE: logPath,
+        LUMEN_TUIC_PID_FILE: pidFile,
+        LUMEN_TUIC_BINARY: "sing-box-test"
+      },
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+      },
+      spawnImpl: (command, args) => {
+        spawned.push([command, args]);
+        return { pid: 12346, unref() {} };
+      }
+    });
+    assert.equal(result.implementationStatus, "tuic-managed-process-started");
+    assert.deepEqual(calls[0], ["sing-box-test", ["check", "-c", configPath]]);
+    assert.deepEqual(spawned[0], ["sing-box-test", ["run", "-c", configPath]]);
+    const written = JSON.parse(readFileSync(configPath, "utf-8"));
+    assert.equal(written.inbounds[0].type, "tuic");
+    assert.equal(readFileSync(pidFile, "utf-8").trim(), "12346");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

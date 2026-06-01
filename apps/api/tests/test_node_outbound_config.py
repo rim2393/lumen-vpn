@@ -46,11 +46,22 @@ def test_hysteria2_profile_builds_hysteria2_payload():
     assert config["clientsRef"] == "vault://subscriptions/p/creds"
 
 
+def test_hysteria2_profile_defaults_to_node_runtime_tls_paths():
+    payload = build_node_outbound_payload(_profile("hysteria2"), _inbounds(443))
+    config = payload["hysteria2Config"]
+    assert config["tls"] == {
+        "cert": "/var/lib/lumen-node/runtime/tls/live.crt",
+        "key": "/var/lib/lumen-node/runtime/tls/live.key",
+    }
+
+
 def test_tuic_profile_builds_tuic_payload():
     payload = build_node_outbound_payload(_profile("tuic-v5"), _inbounds(8443))
     assert "tuicConfig" in payload
     assert payload["tuicConfig"]["server"] == ":8443"
     assert payload["tuicConfig"]["congestion_control"] == "bbr"
+    assert payload["tuicConfig"]["certificate"] == "/var/lib/lumen-node/runtime/tls/live.crt"
+    assert payload["tuicConfig"]["private_key"] == "/var/lib/lumen-node/runtime/tls/live.key"
     assert payload["tuicConfig"]["clientsRef"] == "vault://subscriptions/p/creds"
 
 

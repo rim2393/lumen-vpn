@@ -6,7 +6,8 @@ import { join } from "node:path";
 import {
   DEFAULT_HYSTERIA2_RELOAD_ARGV,
   applyHysteria2Config,
-  createHysteria2ApplyPlan
+  createHysteria2ApplyPlan,
+  renderHysteria2SingBoxConfig
 } from "../src/hysteria2-runtime.js";
 
 function validConfig() {
@@ -66,6 +67,50 @@ test("applyHysteria2Config writes the config and runs the reload command when ap
     const written = JSON.parse(readFileSync(configPath, "utf-8"));
     assert.equal(written.listen, ":443");
     assert.deepEqual(calls[0], ["systemctl", ["restart", "hysteria-server"]]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("renderHysteria2SingBoxConfig emits a runnable sing-box inbound", () => {
+  const rendered = renderHysteria2SingBoxConfig(validConfig());
+  assert.equal(rendered.inbounds[0].type, "hysteria2");
+  assert.equal(rendered.inbounds[0].listen_port, 443);
+  assert.equal(rendered.inbounds[0].users[0].password, "lumen-managed-secret");
+  assert.equal(rendered.inbounds[0].tls.certificate_path, "/etc/hysteria/cert.pem");
+});
+
+test("applyHysteria2Config process mode validates and starts managed sing-box", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lumen-hy2-process-"));
+  const configPath = join(dir, "config.json");
+  const logPath = join(dir, "sing-box.log");
+  const pidFile = join(dir, "sing-box.pid");
+  const calls = [];
+  const spawned = [];
+  const plan = createHysteria2ApplyPlan({ config: validConfig(), configPath });
+  try {
+    const result = await applyHysteria2Config(plan, {
+      dryRun: false,
+      env: {
+        LUMEN_HYSTERIA2_RELOAD_MODE: "process",
+        LUMEN_HYSTERIA2_LOG_FILE: logPath,
+        LUMEN_HYSTERIA2_PID_FILE: pidFile,
+        LUMEN_HYSTERIA2_BINARY: "sing-box-test"
+      },
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+      },
+      spawnImpl: (command, args) => {
+        spawned.push([command, args]);
+        return { pid: 12345, unref() {} };
+      }
+    });
+    assert.equal(result.implementationStatus, "hysteria2-managed-process-started");
+    assert.deepEqual(calls[0], ["sing-box-test", ["check", "-c", configPath]]);
+    assert.deepEqual(spawned[0], ["sing-box-test", ["run", "-c", configPath]]);
+    const written = JSON.parse(readFileSync(configPath, "utf-8"));
+    assert.equal(written.inbounds[0].type, "hysteria2");
+    assert.equal(readFileSync(pidFile, "utf-8").trim(), "12345");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
