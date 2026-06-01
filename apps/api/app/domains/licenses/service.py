@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import APIError
 from app.domains.licenses.models import License
-from app.domains.licenses.schemas import LicenseCreateRequest
+from app.domains.licenses.schemas import LicenseCreateRequest, LicenseUpdateRequest
 from app.domains.nodes.models import Node
 
 SIGNED_ENTITLEMENT_METADATA_KEY = "signed_entitlement"
@@ -148,6 +148,30 @@ async def create_license(
         },
     )
     session.add(license_record)
+    await session.flush()
+    return license_record
+
+
+async def update_license(
+    session: AsyncSession,
+    *,
+    license_id: UUID,
+    request: LicenseUpdateRequest,
+) -> License:
+    license_record = await get_license(session, license_id=license_id)
+    fields = request.model_fields_set
+    if "customer_ref" in fields:
+        license_record.customer_ref = request.customer_ref
+    if "status" in fields and request.status is not None:
+        license_record.status = request.status
+    if "max_devices" in fields and request.max_devices is not None:
+        license_record.max_devices = request.max_devices
+    if "starts_at" in fields:
+        license_record.starts_at = request.starts_at
+    if "expires_at" in fields:
+        license_record.expires_at = request.expires_at
+    if "metadata_json" in fields and request.metadata_json is not None:
+        license_record.metadata_json = request.metadata_json
     await session.flush()
     return license_record
 

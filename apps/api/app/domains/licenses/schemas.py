@@ -15,6 +15,17 @@ class LicenseCreateRequest(BaseModel):
     metadata_json: dict[str, str] = Field(default_factory=dict)
 
 
+class LicenseUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer_ref: str | None = Field(default=None, max_length=128)
+    status: str | None = Field(default=None, min_length=1, max_length=32)
+    max_devices: int | None = Field(default=None, ge=0)
+    starts_at: datetime | None = None
+    expires_at: datetime | None = None
+    metadata_json: dict[str, str] | None = None
+
+
 class LicenseResponse(BaseModel):
     id: UUID
     customer_ref: str | None

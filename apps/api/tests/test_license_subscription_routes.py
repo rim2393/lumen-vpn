@@ -130,6 +130,41 @@ async def test_license_routes_create_list_and_get(route_app: RouteTestApp) -> No
     assert get_response.json()["id"] == created["id"]
 
 
+async def test_license_route_patch_syncs_pending_license(route_app: RouteTestApp) -> None:
+    create_response = await route_app.client.post(
+        "/api/v1/licenses",
+        json={
+            "license_key": "route-license-key-to-sync",
+            "customer_ref": "pending-customer",
+            "metadata_json": {"source": "manual"},
+        },
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+
+    patch_response = await route_app.client.patch(
+        f"/api/v1/licenses/{created['id']}",
+        json={
+            "status": "active",
+            "max_devices": 12,
+            "customer_ref": "synced-customer",
+            "metadata_json": {"source": "manual", "sync_status": "synced"},
+        },
+    )
+
+    assert patch_response.status_code == 200
+    patched = patch_response.json()
+    assert patched["status"] == "active"
+    assert patched["max_devices"] == 12
+    assert patched["customer_ref"] == "synced-customer"
+    assert patched["metadata_json"] == {
+        "source": "manual",
+        "sync_status": "synced",
+    }
+    assert "license_key" not in patched
+    assert "license_key_hash" not in patched
+
+
 async def test_license_route_duplicate_key_returns_api_error(route_app: RouteTestApp) -> None:
     payload = {"license_key": "duplicate-route-license"}
     first_response = await route_app.client.post("/api/v1/licenses", json=payload)

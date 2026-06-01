@@ -13,12 +13,13 @@ from app.core.errors import APIError
 from app.db.base import Base
 from app.db.session import create_engine, create_sessionmaker
 from app.domains.licenses.models import License
-from app.domains.licenses.schemas import LicenseCreateRequest
+from app.domains.licenses.schemas import LicenseCreateRequest, LicenseUpdateRequest
 from app.domains.licenses.service import (
     create_license,
     get_license,
     hash_license_key,
     list_licenses,
+    update_license,
 )
 from app.domains.nodes.models import Node
 from app.domains.subscriptions.models import Subscription
@@ -127,6 +128,42 @@ async def test_get_license_missing_returns_api_error(
 
     assert missing.value.code == "license_not_found"
     assert missing.value.status_code == 404
+
+
+async def test_update_license_syncs_status_limits_and_metadata(
+    db_session: AsyncSession,
+) -> None:
+    license_record = await create_license(
+        db_session,
+        request=LicenseCreateRequest(
+            license_key=SecretStr("plain-license-key-to-sync"),
+            customer_ref="pending-customer",
+            metadata_json={"source": "manual"},
+        ),
+    )
+
+    starts_at = datetime.now(UTC) - timedelta(minutes=1)
+    expires_at = datetime.now(UTC) + timedelta(days=30)
+    updated = await update_license(
+        db_session,
+        license_id=license_record.id,
+        request=LicenseUpdateRequest(
+            customer_ref="synced-customer",
+            status="active",
+            max_devices=7,
+            starts_at=starts_at,
+            expires_at=expires_at,
+            metadata_json={"source": "manual", "sync_status": "synced"},
+        ),
+    )
+
+    assert updated.id == license_record.id
+    assert updated.customer_ref == "synced-customer"
+    assert updated.status == "active"
+    assert updated.max_devices == 7
+    assert updated.starts_at == starts_at
+    assert updated.expires_at == expires_at
+    assert updated.metadata_json == {"source": "manual", "sync_status": "synced"}
 
 
 async def test_create_subscription_generates_public_id_and_list_get_roundtrip(

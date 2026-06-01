@@ -11,6 +11,7 @@ from app.domains.licenses.schemas import (
     LicenseCreateRequest,
     LicenseListResponse,
     LicenseResponse,
+    LicenseUpdateRequest,
 )
 from app.domains.licenses.service import (
     create_license as create_license_record,
@@ -20,6 +21,9 @@ from app.domains.licenses.service import (
 )
 from app.domains.licenses.service import (
     list_licenses as list_license_records,
+)
+from app.domains.licenses.service import (
+    update_license as update_license_record,
 )
 
 router = APIRouter()
@@ -68,4 +72,20 @@ async def get_license(
     session: DatabaseSession,
 ) -> LicenseResponse:
     license_record = await get_license_record(session, license_id=license_id)
+    return license_response(license_record)
+
+
+@router.patch("/{license_id}", response_model=LicenseResponse)
+async def update_license(
+    license_id: UUID,
+    request: LicenseUpdateRequest,
+    _: LicenseManager,
+    session: DatabaseSession,
+) -> LicenseResponse:
+    license_record = await update_license_record(
+        session,
+        license_id=license_id,
+        request=request,
+    )
+    await session.commit()
     return license_response(license_record)
