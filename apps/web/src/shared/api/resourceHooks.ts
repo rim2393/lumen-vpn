@@ -1034,6 +1034,14 @@ export function useUsersPageData() {
   })
 }
 
+export function useLookupUsers() {
+  const apiClient = useApiClient()
+
+  return useMutation({
+    mutationFn: (query: string) => apiClient.lookupUsers(query),
+  })
+}
+
 export function useUserDetailData(userId: string | undefined) {
   const apiClient = useApiClient()
 

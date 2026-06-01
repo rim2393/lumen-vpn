@@ -147,6 +147,12 @@ export type UserListResponse = {
   items: UserRecord[]
 }
 
+export type UserLookupResponse = {
+  items: UserRecord[]
+  query: string
+  strategy: string
+}
+
 export type UserBulkActionRequest = {
   expires_at?: string | null
   status?: string | null
@@ -1136,6 +1142,7 @@ export type LumenApiClient = {
   ) => Promise<ToolSnippetRecord>
   deleteToolSnippet: (snippetId: string) => Promise<ToolSnippetListResponse>
   listUsers: () => Promise<UserListResponse>
+  lookupUsers: (query: string) => Promise<UserLookupResponse>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   listLoginMethods: () => Promise<LoginMethodsResponse>
   startOAuth: (provider: string, redirect?: string) => Promise<OAuthStartResponse>

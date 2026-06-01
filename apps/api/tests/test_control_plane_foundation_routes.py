@@ -538,6 +538,22 @@ async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRout
     assert tag_users_response.status_code == 200
     assert [item["id"] for item in tag_users_response.json()["items"]] == [user_id]
 
+    unified_lookup_response = await foundation_app.client.get(
+        "/api/v1/users/lookup",
+        params={"query": "vpn-user"},
+    )
+    assert unified_lookup_response.status_code == 200
+    assert unified_lookup_response.json()["strategy"] == "username_telegram_or_short_uuid"
+    assert [item["id"] for item in unified_lookup_response.json()["items"]] == [user_id]
+
+    unified_tag_lookup_response = await foundation_app.client.get(
+        "/api/v1/users/lookup",
+        params={"query": "tag:default"},
+    )
+    assert unified_tag_lookup_response.status_code == 200
+    assert unified_tag_lookup_response.json()["strategy"] == "tag"
+    assert [item["id"] for item in unified_tag_lookup_response.json()["items"]] == [user_id]
+
     bulk_user_response = await foundation_app.client.post(
         "/api/v1/users/bulk/reset-traffic",
         json={"user_ids": [user_id]},

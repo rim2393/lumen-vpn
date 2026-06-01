@@ -132,6 +132,44 @@ async def resolve_user(session: AsyncSession, query: str) -> User:
     return await get_user_by_short_uuid(session, normalized)
 
 
+async def lookup_users(session: AsyncSession, query: str) -> tuple[list[User], str]:
+    normalized = query.strip()
+    if not normalized:
+        raise APIError(
+            code="user_lookup_empty",
+            message="User lookup query cannot be empty.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    if normalized.startswith("tag:"):
+        tag = normalized.removeprefix("tag:").strip()
+        return await list_users_by_tag(session, tag), "tag"
+    users = await list_users(session)
+    tag_matches = [user for user in users if normalized in user.tags]
+    if tag_matches:
+        return tag_matches, "tag"
+    try:
+        return [await resolve_user(session, normalized)], _lookup_strategy(normalized)
+    except APIError as exc:
+        if exc.code != "user_not_found":
+            raise
+    return [], "none"
+
+
+def _lookup_strategy(query: str) -> str:
+    try:
+        UUID(query)
+        return "uuid"
+    except ValueError:
+        pass
+    if "@" in query:
+        return "email"
+    if query.isdigit():
+        return "numeric_or_telegram"
+    if len(query.replace("-", "")) >= 4:
+        return "username_telegram_or_short_uuid"
+    return "username_or_telegram"
+
+
 async def list_user_tags(session: AsyncSession) -> UserTagListResponse:
     users = await list_users(session)
     tags = sorted({tag for user in users for tag in user.tags})

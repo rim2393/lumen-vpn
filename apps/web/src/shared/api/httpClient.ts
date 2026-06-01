@@ -232,6 +232,7 @@ export function createHttpLumenApiClient({
     deleteToolSnippet: (snippetId: string) =>
       request(`/api/v1/tools/snippets/${snippetId}`, { method: 'DELETE' }),
     listUsers: () => request('/api/v1/users'),
+    lookupUsers: (query: string) => request(`/api/v1/users/lookup?query=${encodeURIComponent(query)}`),
     getSession: async () => {
       try {
         return await request('/api/auth/session')

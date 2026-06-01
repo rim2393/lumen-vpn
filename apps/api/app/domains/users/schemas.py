@@ -76,6 +76,12 @@ class UserListResponse(BaseModel):
     items: list[UserResponse]
 
 
+class UserLookupResponse(BaseModel):
+    items: list[UserResponse]
+    query: str
+    strategy: str
+
+
 class UserTagListResponse(BaseModel):
     items: list[str]
 

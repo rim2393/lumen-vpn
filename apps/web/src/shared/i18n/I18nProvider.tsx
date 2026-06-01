@@ -15,6 +15,10 @@ const ru: Record<string, string> = {
   'Delete this subscription record?': 'Удалить эту запись подписки?',
   Clone: 'Клонировать',
   Lookup: 'Поиск',
+  'Lookup by UUID, short UUID, username, email, numeric ID, Telegram ID, or tag.':
+    'Поиск по UUID, short UUID, username, email, numeric ID, Telegram ID или тегу.',
+  'Lookup query': 'Строка поиска',
+  'Lookup strategy': 'Стратегия поиска',
   'Matched subscriptions': 'Найденные подписки',
   'No subscriptions matched this query.': 'Подписок по этому запросу не найдено.',
   'Connection keys': 'Ключи подключений',
@@ -366,6 +370,8 @@ const ru: Record<string, string> = {
     'Лимиты хранятся в backend и используются при выдаче подписок.',
   'Loading users...': 'Загрузка пользователей...',
   'No users found': 'Пользователи не найдены',
+  'Enter a user lookup query.': 'Введите строку поиска пользователя.',
+  'Find user': 'Найти пользователя',
   none: 'нет',
   'Real VPN customer accounts with traffic, device limits, expiry, status and bulk controls.':
     'Реальные VPN-аккаунты клиентов с трафиком, лимитом устройств, сроком, статусом и массовыми действиями.',
@@ -388,6 +394,7 @@ const ru: Record<string, string> = {
   Username: 'Имя пользователя',
   'User could not be created.': 'Не удалось создать пользователя.',
   'User could not be deleted.': 'Не удалось удалить пользователя.',
+  'User lookup failed.': 'Поиск пользователя не удался.',
   'User could not be updated.': 'Не удалось обновить пользователя.',
   'User directory': 'Каталог пользователей',
   'Users unavailable': 'Пользователи недоступны',

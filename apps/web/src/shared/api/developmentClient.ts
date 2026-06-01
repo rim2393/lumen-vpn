@@ -981,6 +981,31 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       }),
     }),
     listUsers: async (): Promise<UserListResponse> => ({ items: users }),
+    lookupUsers: async (query: string) => {
+      const normalizedQuery = query.trim().toLowerCase()
+      if (!normalizedQuery) {
+        return { items: [], query, strategy: 'none' }
+      }
+      const tag = normalizedQuery.startsWith('tag:') ? normalizedQuery.slice(4).trim() : normalizedQuery
+      const tagMatches = users.filter((user) => user.tags.some((item) => item.toLowerCase() === tag))
+      if (tagMatches.length > 0) {
+        return { items: tagMatches, query, strategy: 'tag' }
+      }
+      const items = users.filter((user) => {
+        const shortId = user.id.replace(/-/g, '').toLowerCase()
+        const numericId = String(user.metadata_json.numeric_id ?? user.metadata_json.id ?? '').toLowerCase()
+        return [
+          user.id,
+          shortId,
+          user.email,
+          user.username,
+          user.display_name,
+          user.telegram_id,
+          numericId,
+        ].some((value) => String(value ?? '').toLowerCase().includes(normalizedQuery))
+      })
+      return { items, query, strategy: items.length === 0 ? 'none' : 'identity' }
+    },
     login: async () => ({
       challengeToken: 'dev-mfa-challenge',
       expiresAt: '2026-05-27T00:05:00.000Z',

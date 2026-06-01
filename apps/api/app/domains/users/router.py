@@ -13,6 +13,7 @@ from app.domains.users.schemas import (
     UserCreateRequest,
     UserDetailResponse,
     UserListResponse,
+    UserLookupResponse,
     UserResponse,
     UserTagListResponse,
     UserUpdateRequest,
@@ -32,6 +33,7 @@ from app.domains.users.service import get_user_detail as get_user_detail_record
 from app.domains.users.service import list_user_tags as list_user_tag_records
 from app.domains.users.service import list_users as list_user_records
 from app.domains.users.service import list_users_by_tag as list_users_by_tag_records
+from app.domains.users.service import lookup_users as lookup_user_records
 from app.domains.users.service import resolve_user as resolve_user_record
 from app.domains.users.service import update_user as update_user_record
 
@@ -73,6 +75,20 @@ async def list_tags(
     session: DbSession,
 ) -> UserTagListResponse:
     return await list_user_tag_records(session)
+
+
+@router.get("/lookup", response_model=UserLookupResponse)
+async def lookup_users(
+    query: str,
+    _: UserManager,
+    session: DbSession,
+) -> UserLookupResponse:
+    users, strategy = await lookup_user_records(session, query)
+    return UserLookupResponse(
+        items=[user_to_response(user) for user in users],
+        query=query,
+        strategy=strategy,
+    )
 
 
 @router.get("/by-username/{username}", response_model=UserResponse)

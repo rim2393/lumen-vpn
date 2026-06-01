@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, RefreshCw, RotateCcw, Save, Trash2 } from 'lucide-react'
+import { Ban, RefreshCw, RotateCcw, Save, Search, Trash2 } from 'lucide-react'
 import {
   useBulkUsers,
   useCreateUser,
   useDeleteUser,
+  useLookupUsers,
   useUpdateUser,
   useUsersPageData,
 } from '../shared/api/resourceHooks'
@@ -46,8 +47,10 @@ export function UsersPage() {
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
   const bulkUsers = useBulkUsers()
+  const lookupUsers = useLookupUsers()
   const users = query.data?.items ?? []
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [lookupQuery, setLookupQuery] = useState('')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -107,6 +110,17 @@ export function UsersPage() {
       action,
       request: { status, user_ids: Array.from(selectedIds) },
     })
+  }
+
+  async function handleLookup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const queryText = lookupQuery.trim()
+    if (!queryText) {
+      setFormError(t('Enter a user lookup query.'))
+      return
+    }
+    setFormError(null)
+    await lookupUsers.mutateAsync(queryText)
   }
 
   return (
@@ -253,6 +267,58 @@ export function UsersPage() {
             }))}
           />
         </article>
+        <ScreenForm onSubmit={handleLookup}>
+          <div>
+            <p className="eyebrow">{t('Lookup')}</p>
+            <h2>{t('Find user')}</h2>
+            <p>{t('Lookup by UUID, short UUID, username, email, numeric ID, Telegram ID, or tag.')}</p>
+          </div>
+          <label htmlFor="user-lookup-query">
+            {t('Lookup query')}
+            <input
+              id="user-lookup-query"
+              value={lookupQuery}
+              onChange={(event) => setLookupQuery(event.target.value)}
+              placeholder="email@example.com, tag:trial, 12345"
+            />
+          </label>
+          <SubmitButton pending={lookupUsers.isPending}>
+            <Search size={16} aria-hidden="true" />
+            {t('Find user')}
+          </SubmitButton>
+          <FormError
+            message={
+              lookupUsers.isError
+                ? getErrorMessage(lookupUsers.error, t('User lookup failed.'))
+                : null
+            }
+          />
+          {lookupUsers.data ? (
+            <div className="resource-list">
+              <div className="resource-list__item">
+                <span>{t('Lookup strategy')}</span>
+                <small>{lookupUsers.data.strategy}</small>
+              </div>
+              {lookupUsers.data.items.length === 0 ? (
+                <div className="resource-list__item">
+                  <span>{t('No users found')}</span>
+                  <small>{lookupUsers.data.query}</small>
+                </div>
+              ) : (
+                lookupUsers.data.items.map((user) => (
+                  <div className="resource-list__item" key={user.id}>
+                    <span>
+                      <Link className="text-link" to={`/users/${user.id}`}>
+                        {formatUserName(user)}
+                      </Link>
+                    </span>
+                    <small>{user.email}</small>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
+        </ScreenForm>
         <ScreenForm onSubmit={handleCreate}>
           <div>
             <p className="eyebrow">{t('Create user')}</p>
