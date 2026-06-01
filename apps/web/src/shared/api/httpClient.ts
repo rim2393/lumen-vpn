@@ -140,6 +140,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/hosts', { body: payload, method: 'POST' }),
     createProfile: (payload: ProtocolProfileCreateRequest) =>
       request('/api/v1/profiles', { body: payload, method: 'POST' }),
+    applyProfileToNode: (profileId: string) =>
+      request(`/api/v1/profiles/${profileId}/apply-to-node`, { method: 'POST' }),
     createProvisioningJob: (payload: ProvisioningJobCreateRequest) =>
       request('/api/v1/nodes/provisioning-jobs', { body: payload, method: 'POST' }),
     createNodeCommand: (nodeId: string, payload: NodeCommandCreateRequest) =>

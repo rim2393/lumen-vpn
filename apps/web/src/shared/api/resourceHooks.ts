@@ -360,6 +360,24 @@ export function useBulkProfiles() {
   })
 }
 
+export function useApplyProfileToNode() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (profileId: string) => apiClient.applyProfileToNode(profileId),
+    onSuccess: (_response, profileId) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({
+        queryKey: resourceQueryKeys.profileComputedConfig(profileId),
+      })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileInbounds(profileId) })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeCommands(_response.node_id) })
+    },
+  })
+}
+
 export function useUpdateProfile() {
   const apiClient = useApiClient()
   const queryClient = useQueryClient()

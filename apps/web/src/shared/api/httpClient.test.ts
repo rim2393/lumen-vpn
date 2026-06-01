@@ -102,4 +102,43 @@ describe('createHttpLumenApiClient', () => {
     expect(new URL(String(fetcher.mock.calls[1][0])).pathname).toBe('/api/v1/auth/refresh')
     expect(fetcher.mock.calls[1][1]).toMatchObject({ credentials: 'include', method: 'POST' })
   })
+
+  it('queues profile apply through the production profile endpoint', async () => {
+    const fetcher = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = input instanceof URL ? input.pathname : new URL(String(input)).pathname
+      expect(init?.method).toBe('POST')
+      expect(init?.headers).toMatchObject({ Authorization: 'Bearer lumen_at_session' })
+      expect(url).toBe('/api/v1/profiles/profile-live/apply-to-node')
+
+      return jsonResponse({
+        adapter: 'vless-reality',
+        command_id: 'cmd-live-apply',
+        command_type: 'outbound.apply',
+        node_id: 'node-live',
+        status: 'queued',
+      })
+    })
+
+    const client = createHttpLumenApiClient({
+      baseUrl: 'https://panel.example.test',
+      fetcher,
+      getSession: () => ({
+        accessToken: 'lumen_at_session',
+        email: 'admin@test.lumentah.tel',
+        expiresAt: '2026-05-28T12:00:00Z',
+        name: 'Admin',
+        refreshToken: 'lumen_rt_session',
+        role: 'admin',
+        scopes: ['node:manage'],
+        userId: 'admin',
+      }),
+    })
+
+    await expect(client.applyProfileToNode('profile-live')).resolves.toMatchObject({
+      command_id: 'cmd-live-apply',
+      command_type: 'outbound.apply',
+      node_id: 'node-live',
+      status: 'queued',
+    })
+  })
 })

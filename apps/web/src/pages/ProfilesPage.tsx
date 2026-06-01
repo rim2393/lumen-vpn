@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Plus,
   RefreshCw,
+  Send,
   Settings2,
   Table2,
   Search,
@@ -25,6 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import {
   useCreateProfile,
+  useApplyProfileToNode,
   useDeleteProfile,
   useGlobalProfileInbounds,
   useHostsPageData,
@@ -95,6 +97,7 @@ export function ProfilesPage() {
   const updateProfile = useUpdateProfile()
   const deleteProfile = useDeleteProfile()
   const bulkProfiles = useBulkProfiles()
+  const applyProfileToNode = useApplyProfileToNode()
   const profiles = profilesQuery.data?.items ?? []
   const adapters = adaptersQuery.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
@@ -113,13 +116,15 @@ export function ProfilesPage() {
   const [form, setForm] = useState<ProfileFormState>(defaultForm)
   const [formError, setFormError] = useState<string | null>(null)
   const [portCheckMessage, setPortCheckMessage] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [focusedInboundProfileId, setFocusedInboundProfileId] = useState<string | null>(null)
   const navigate = useNavigate()
   const isMutating =
     createProfile.isPending ||
     updateProfile.isPending ||
     deleteProfile.isPending ||
-    bulkProfiles.isPending
+    bulkProfiles.isPending ||
+    applyProfileToNode.isPending
   const selectionBusy = isMutating
   const confirmDanger = (message: string) => window.confirm(message)
   const profileHosts = useMemo(() => groupHostsByProfile(hosts), [hosts])
@@ -381,6 +386,7 @@ export function ProfilesPage() {
     setForm(profileToForm(profile))
     setFormError(null)
     setPortCheckMessage(null)
+    setActionMessage(null)
   }
 
   function startClone(profile: ProtocolProfileRecord) {
@@ -394,6 +400,7 @@ export function ProfilesPage() {
     setForm(cloneForm)
     setFormError(null)
     setPortCheckMessage(null)
+    setActionMessage(null)
   }
 
   function setProfileSelected(profileId: string) {
@@ -441,6 +448,7 @@ export function ProfilesPage() {
     })
     setFormError(null)
     setPortCheckMessage(null)
+    setActionMessage(null)
   }
 
   function closeProfileEditor() {
@@ -508,6 +516,22 @@ export function ProfilesPage() {
   function handleDelete(profile: ProtocolProfileRecord) {
     if (window.confirm(t('Delete profile confirmation', { name: profile.name }))) {
       void deleteProfile.mutateAsync(profile.id)
+    }
+  }
+
+  async function handleApplyProfileToNode(profile: ProtocolProfileRecord) {
+    setFormError(null)
+    setActionMessage(null)
+    try {
+      const response = await applyProfileToNode.mutateAsync(profile.id)
+      setActionMessage(
+        t('Profile apply command queued', {
+          command: response.command_id,
+          node: response.node_id,
+        }),
+      )
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('Profile apply command failed.'))
     }
   }
 
@@ -742,6 +766,8 @@ export function ProfilesPage() {
                   {t('Showing')} {filteredProfiles.length} {t('of')} {profiles.length} {t('Profiles')}
                 </p>
               </div>
+              {actionMessage ? <p className="auth-card__note">{actionMessage}</p> : null}
+              {formError && !showEditor ? <FormError message={formError} /> : null}
               {profiles.length === 0 ? (
                 <EmptyState
                   title={t('No profiles created')}
@@ -761,6 +787,7 @@ export function ProfilesPage() {
                       onEdit={startEdit}
                       onDuplicate={startClone}
                       onExport={(profile) => downloadJson(`${profile.name}-profile.json`, profileExport(profile))}
+                      onApply={handleApplyProfileToNode}
                       onSelect={setProfileSelected}
                       onSelectRow={toggleSelectedProfile}
                       selectionBusy={selectionBusy}
@@ -795,6 +822,7 @@ export function ProfilesPage() {
                         onEdit={startEdit}
                         onDuplicate={startClone}
                         onExport={() => downloadJson(`${profile.name}-profile.json`, profileExport(profile))}
+                        onApply={handleApplyProfileToNode}
                         onSelect={setProfileSelected}
                         onSelectRow={toggleSelectedProfile}
                         onFocusInbounds={setProfileForInboundFocus}
@@ -856,6 +884,7 @@ export function ProfilesPage() {
                 nodeName={selectedNode?.name ?? selectedProfile?.node_id ?? null}
                 onDelete={handleDelete}
                 onEdit={startEdit}
+                onApply={handleApplyProfileToNode}
                 onToggle={(profile) =>
                   void updateProfile.mutateAsync({
                     id: profile.id,
@@ -894,6 +923,7 @@ function ProfileInventoryTable({
   onDuplicate,
   onExport,
   onFocusInbounds,
+  onApply,
   onSelect,
   onSelectRow,
   selectionBusy,
@@ -913,6 +943,7 @@ function ProfileInventoryTable({
   onDuplicate: (profile: ProtocolProfileRecord) => void
   onExport: (profile: ProtocolProfileRecord) => void
   onFocusInbounds: (profileId: string) => void
+  onApply: (profile: ProtocolProfileRecord) => void
   onSelect: (profileId: string) => void
   onSelectRow: (profileId: string) => void
   selectionBusy: boolean
@@ -1004,6 +1035,16 @@ function ProfileInventoryTable({
             <button
               type="button"
               className="button button--secondary"
+              aria-label={t('Apply {name} to node', { name: profile.name })}
+              onClick={() => onApply(profile)}
+              disabled={selectionBusy || profile.status !== 'active'}
+            >
+              <Send size={16} aria-hidden="true" />
+              {t('Apply')}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
               aria-label={t('Export {name}', { name: profile.name })}
               onClick={() => onExport(profile)}
               disabled={selectionBusy}
@@ -1072,6 +1113,7 @@ function ProfileCard({
   onEdit,
   onDuplicate,
   onExport,
+  onApply,
   onSelect,
   onSelectRow,
   onToggle,
@@ -1089,6 +1131,7 @@ function ProfileCard({
   onDelete: (profile: ProtocolProfileRecord) => void
   onEdit: (profile: ProtocolProfileRecord) => void
   onExport: () => void
+  onApply: (profile: ProtocolProfileRecord) => void
   onDuplicate: (profile: ProtocolProfileRecord) => void
   onSelect: (profileId: string) => void
   onSelectRow: (profileId: string) => void
@@ -1154,6 +1197,16 @@ function ProfileCard({
         >
           <Edit3 size={16} aria-hidden="true" />
           {t('Edit')}
+        </button>
+        <button
+          type="button"
+          className="button button--secondary"
+          aria-label={t('Apply {name} to node', { name: profile.name })}
+          onClick={() => onApply(profile)}
+          disabled={selectionBusy || profile.status !== 'active'}
+        >
+          <Send size={16} aria-hidden="true" />
+          {t('Apply')}
         </button>
         <button
           type="button"
@@ -1235,6 +1288,7 @@ function ProfileDetailPanel({
   nodeName,
   onDelete,
   onEdit,
+  onApply,
   onToggle,
   onGoToNode,
   profile,
@@ -1257,6 +1311,7 @@ function ProfileDetailPanel({
   nodeName: string | null
   onDelete: (profile: ProtocolProfileRecord) => void
   onEdit: (profile: ProtocolProfileRecord) => void
+  onApply: (profile: ProtocolProfileRecord) => void
   onToggle: (profile: ProtocolProfileRecord) => void
   onGoToNode: () => void
   profile: ProtocolProfileRecord | undefined
@@ -1314,6 +1369,15 @@ function ProfileDetailPanel({
         <button type="button" className="button button--secondary" onClick={() => onToggle(profile)}>
           <Ban size={16} aria-hidden="true" />
           {profile.status === 'active' ? t('Disable') : t('Enable')}
+        </button>
+        <button
+          type="button"
+          className="button button--secondary"
+          disabled={profile.status !== 'active'}
+          onClick={() => onApply(profile)}
+        >
+          <Send size={16} aria-hidden="true" />
+          {t('Apply')}
         </button>
         <button type="button" className="button button--secondary" onClick={() => void copyJson(rawProfileExport)}>
           <FileJson size={16} aria-hidden="true" />

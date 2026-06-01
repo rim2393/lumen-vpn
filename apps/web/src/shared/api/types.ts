@@ -578,6 +578,14 @@ export type ProfileBulkActionRequest = {
   status?: string | null
 }
 
+export type ProfileApplyToNodeResponse = {
+  adapter: string
+  command_id: string
+  command_type: string
+  node_id: string
+  status: string
+}
+
 export type SubscriptionRecord = {
   config_hash: string | null
   delivery_profile: Record<string, string>
@@ -995,6 +1003,7 @@ export type LumenApiClient = {
   createApiKey: (request: ApiKeyCreateRequest) => Promise<ApiKeyCreateResponse>
   createHost: (request: HostCreateRequest) => Promise<HostRecord>
   createProfile: (request: ProtocolProfileCreateRequest) => Promise<ProtocolProfileRecord>
+  applyProfileToNode: (profileId: string) => Promise<ProfileApplyToNodeResponse>
   createProvisioningJob: (
     request: ProvisioningJobCreateRequest,
   ) => Promise<ProvisioningJobResponse>

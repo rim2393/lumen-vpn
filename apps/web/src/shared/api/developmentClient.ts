@@ -432,6 +432,26 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       profiles.unshift(profile)
       return profile
     },
+    applyProfileToNode: async (profileId: string) => {
+      const profile = profiles.find((item) => item.id === profileId)
+      if (!profile) {
+        throw new Error(`Profile ${profileId} was not found`)
+      }
+      const command = createDevelopmentNodeCommand(profile.node_id, {
+        command_type: 'outbound.apply',
+        payload_json: {
+          adapter: profile.adapter,
+          profileId: profile.id,
+        },
+      })
+      return {
+        adapter: profile.adapter,
+        command_id: command.id,
+        command_type: command.command_type,
+        node_id: command.node_id,
+        status: command.status,
+      }
+    },
     createProvisioningJob: async (request) => buildDevelopmentProvisioningJob(request),
     createNodeCommand: async (nodeId: string, request: NodeCommandCreateRequest) =>
       createDevelopmentNodeCommand(nodeId, request),

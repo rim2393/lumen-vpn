@@ -15,6 +15,8 @@ counts, placeholder actions and DB-only buttons do not count.
 | Profiles and hosts | CRUD exists, but profile/host changes do not auto-sync node runtime except explicit profile apply. | Open |
 | Hosts | Host model is narrower than required Remnawave parity fields: path, SNI, security, mux, sockopt, xHTTP, exclusions, final mask and Mihomo X25519. | Open |
 | Subscriptions | Admin API lacks delete/clone/raw/connection keys/subpage config and lookup by username or short UUID. | Open |
+| Subscriptions | Create UI covers only a narrow part of the backend subscription contract and still has a static `server_name` default. | Open |
+| Settings | Auth providers with `unimplemented` status are deliberately read-only; this is not Remnawave-level parity until the real callback/config flow exists. | Open |
 | Tools | Several tools are inspector-only; drop connections, top users, node user IPs and full HApp routing encryption remain incomplete. | Open |
 | Settings | Settings are generic key/value; typed Remnawave/Lumen groups with validation are incomplete. | Open |
 | OpenAPI | Checked-in OpenAPI seed is stale and does not include the current admin/node/tools surfaces. | Open |
@@ -46,3 +48,19 @@ Closure evidence:
   `process.exit(0)` and the real container `StartedAt` changed from
   `2026-06-01T16:39:20.843014313Z` to
   `2026-06-01T16:40:27.775375566Z`.
+
+## Profiles/Hosts Follow-Up Findings
+
+- Profiles UI now exposes explicit Apply controls in the table, card view and
+  detail panel. The action calls the real backend endpoint
+  `POST /api/v1/profiles/{profile_id}/apply-to-node`, which queues the node
+  `outbound.apply` command instead of only editing a database row.
+- Hosts P0 gap: the create flow can still derive `node_id=""` when no node is
+  selected. The UI must block submit with a clear error before the API 422.
+- Hosts P1 gaps: bulk set-port and host editor port validation need strict
+  `1..65535` checks and user-facing errors before mutation.
+- Users/subscriptions/settings audit findings: user lifecycle/device controls
+  are wired to real endpoints; subscription create UI is too narrow for the
+  backend contract; subscription delivery profile still has a static
+  `server_name` default; auth-provider parity is incomplete while providers are
+  `unimplemented`/read-only.
