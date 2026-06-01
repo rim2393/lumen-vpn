@@ -73,7 +73,7 @@ evidence here is wrong or stale.
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
 | U-001 | User lifecycle base controls | PARTIAL | Existing endpoints/UI manage basic lifecycle | Existing audit says wired; full evidence incomplete |
-| U-002 | Lookup by UUID, username, short UUID, email, numeric id, Telegram id, tag | OPEN | Backend lookup endpoint and UI search support all identifiers with tests | Not started |
+| U-002 | Lookup by UUID, username, short UUID, email, numeric id, Telegram id, tag | DONE | Backend lookup endpoint and UI search support all identifiers with tests | `0e03b24`, `v0.1.72`, release run `26781436509`, installer/deploy run `26781533403`, manifest `rim2393/lumen_vpn@bb4e2d1`; web `tsc` passed; `ruff` passed; focused backend pytest passed; prod health OK and live `/users` shows unified lookup UI with UUID/Telegram/tag guidance. |
 | U-003 | User detail: nodes, subscriptions, request history, metadata, devices/HWID | OPEN | Detail screen uses real DB/API state only | Not started |
 | U-004 | User actions: enable, disable, revoke, reset traffic | OPEN | Actions mutate real state and queue node/runtime work where required | Not started |
 | U-005 | Tags and bulk actions: delete/status/revoke/reset/update/squads/extend expiration | OPEN | Bulk API/UI with tests and audit events | Not started |
