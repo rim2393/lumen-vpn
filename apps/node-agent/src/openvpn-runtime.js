@@ -6,6 +6,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  statSync,
   writeFileSync
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -136,8 +137,31 @@ function chownRuntimePath(path, uid = OPENVPN_DROPPED_PRIVILEGE_UID, gid = OPENV
   }
 }
 
+function ensureDroppedUserCanTraverse(path) {
+  const normalized = path.replaceAll("\\", "/");
+  if (!normalized.startsWith("/var/lib/lumen-node/")) {
+    return;
+  }
+  let current = dirname(normalized);
+  while (current.startsWith("/var/lib/lumen-node")) {
+    try {
+      const mode = statSync(current).mode & 0o777;
+      chmodSync(current, mode | 0o111);
+    } catch (error) {
+      if (!["ENOENT", "EINVAL", "ENOSYS", "EPERM"].includes(error?.code)) {
+        throw error;
+      }
+    }
+    if (current === "/var/lib/lumen-node") {
+      break;
+    }
+    current = dirname(current);
+  }
+}
+
 function hardenAuthRuntimePermissions(paths) {
   const runtimeDir = dirname(paths.usersPath);
+  ensureDroppedUserCanTraverse(runtimeDir);
   chownRuntimePath(runtimeDir);
   chmodSync(runtimeDir, 0o700);
   chownRuntimePath(paths.authScriptPath);
