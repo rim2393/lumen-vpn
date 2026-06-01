@@ -1,13 +1,12 @@
 # Continuation Checkpoint
 
-Last audited: 2026-06-01 19:05 Europe/Moscow.
+Last audited: 2026-06-01 19:41 Europe/Moscow.
 
 ## Current Working Copy
 
 - Repo: `D:\android-app-new\_work\full-revna-like-projekt`
-- Main branch state: dirty with node-management parity slice ready for commit after
-  local verification.
-- Current signed production manifest: `v0.1.55`.
+- Main branch state: clean after live node-management restart validation.
+- Current signed production manifest: `v0.1.59`.
 - OpenVPN-over-Shadowsocks backend/node runtime is live-validated on production
   through the official closed-image, public signed manifest, public panel
   upgrade, and public node installer flow.
@@ -62,9 +61,10 @@ Last audited: 2026-06-01 19:05 Europe/Moscow.
     enable/disable instead of status-only UI mutations.
   - Alembic head advanced to `0009_node_management_parity`.
   - restart semantics corrected for the actual Docker node-agent deployment:
-    `node.restart` now schedules `kill -TERM 1`, letting Docker
-    `restart: unless-stopped` restart the real container instead of attempting
-    a non-existent in-container systemd service.
+    attempts to restart through systemd and then shell `kill` against PID 1
+    were rejected by live VPS evidence. The working implementation in
+    `v0.1.59` schedules `process.exit(0)` after command result submission, so
+    Docker `restart: unless-stopped` restarts the real container.
 
 ## Verification Done
 
@@ -89,10 +89,14 @@ Last audited: 2026-06-01 19:05 Europe/Moscow.
   (`6 passed`), scoped API ruff passed, node-agent focused command tests passed
   (`30 passed`), web `NodesPage.test.tsx` passed, and web production build
   passed.
+- Node-management restart fix gate after the live Docker PID 1 issue:
+  node-agent full `node --test`, 99 passed.
 - Live prod evidence after `v0.1.40`: panel `LUMEN_VERSION=v0.1.40`, node-agent image pinned to `v0.1.40`, HTTP-proxy profile apply succeeded with `dryRun=false`, Xray config contains `blackhole`, `protocol=["bittorrent"]`, sniffing on all active inbounds, and `xray -test` passed.
 - Live prod evidence after `v0.1.41`: panel `LUMEN_VERSION=v0.1.41`, node-agent image pinned to `v0.1.41`, `shadowsocks-2022` profile apply succeeded with `dryRun=false`, node policy applied, generated sing-box Shadowsocks config contains the policy block route, `sing-box check -c` passed against the live config, and TCP `24081` listened on the node.
 - Live prod evidence after `v0.1.49`: panel `LUMEN_VERSION=v0.1.49`, node-agent image pinned to `v0.1.49`, public installer persisted host IP forwarding, direct OpenVPN UDP profile apply succeeded with `dryRun=false`, node listened on UDP `24103`, OpenVPN auth files were readable/executable by the dropped `nobody` user without exposing raw credentials, NAT had exactly one `10.90.3.0/24` MASQUERADE rule after repeated apply, and a disposable OpenVPN client connected from the panel VPS using the rendered subscription.
 - Live prod evidence after `v0.1.55`: panel `LUMEN_VERSION=v0.1.55`, node-agent image pinned to `v0.1.55`, public subscription endpoint forwards `device_id`/`hwid` to the API, OpenVPN-over-Shadowsocks manifest includes `rendererHints.method=aes-256-gcm`, node listens on public TCP `28443` for `ssserver` and loopback TCP `127.0.0.1:24194` for OpenVPN, restore starts both bridge processes after container recreation, parent runtime directories are traversable by the dropped OpenVPN user, and a disposable Alpine client downloaded the public `sub.*` Happ/OpenVPN profile, started `sslocal`, connected OpenVPN through Shadowsocks, and reached `Initialization Sequence Completed`.
+- Live prod evidence after `v0.1.57`/`v0.1.58`: panel/node upgrade path worked, node `reset-traffic` completed with `implementationStatus=node-traffic-reset`, but restart evidence proved shell-based `kill -TERM 1` and `kill -KILL 1` did not actually restart the running container. These versions are not accepted for node restart closure.
+- Live prod evidence after `v0.1.59`: panel `LUMEN_VERSION=v0.1.59`, web/api/subscription images pinned to `v0.1.59` and healthy, node-agent image pinned to `v0.1.59`, `node.traffic.reset` completed with `implementationStatus=node-traffic-reset`, `node.restart` completed with `implementationStatus=node-agent-restart-scheduled` and command `process.exit(0)`, and the real container restarted from `StartedAt=2026-06-01T16:39:20.843014313Z` to `StartedAt=2026-06-01T16:40:27.775375566Z` while staying on image digest `sha256:4425bdcab9a051352b3743e984005323f095adf9c16feaf91b2959b269bb58ab`.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
