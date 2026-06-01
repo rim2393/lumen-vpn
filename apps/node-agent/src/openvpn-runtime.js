@@ -1,4 +1,13 @@
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  chownSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { execFile as nodeExecFile, spawn } from "node:child_process";
@@ -11,6 +20,8 @@ export const DEFAULT_OPENVPN_AUTH_SCRIPT = "/var/lib/lumen-node/runtime/openvpn/
 export const DEFAULT_OPENVPN_USERS_FILE = "/var/lib/lumen-node/runtime/openvpn/users.txt";
 export const DEFAULT_OPENVPN_BINARY = "openvpn";
 export const OPENVPN_RELOAD_MODE_PROCESS = "process";
+export const OPENVPN_DROPPED_PRIVILEGE_UID = 65534;
+export const OPENVPN_DROPPED_PRIVILEGE_GID = 65534;
 
 const execFileAsync = promisify(nodeExecFile);
 const FORBIDDEN_UNRESOLVED_FIELDS = new Set(["clientsRef", "credentialsRef"]);
@@ -113,6 +124,26 @@ function cidrToNetworkAndMask(cidr) {
 function writeRuntimeFile(path, content, mode = 0o600) {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   writeFileSync(path, content.endsWith("\n") ? content : `${content}\n`, { mode });
+}
+
+function chownRuntimePath(path, uid = OPENVPN_DROPPED_PRIVILEGE_UID, gid = OPENVPN_DROPPED_PRIVILEGE_GID) {
+  try {
+    chownSync(path, uid, gid);
+  } catch (error) {
+    if (!["EINVAL", "ENOSYS", "EPERM"].includes(error?.code)) {
+      throw error;
+    }
+  }
+}
+
+function hardenAuthRuntimePermissions(paths) {
+  const runtimeDir = dirname(paths.usersPath);
+  chownRuntimePath(runtimeDir);
+  chmodSync(runtimeDir, 0o700);
+  chownRuntimePath(paths.authScriptPath);
+  chmodSync(paths.authScriptPath, 0o500);
+  chownRuntimePath(paths.usersPath);
+  chmodSync(paths.usersPath, 0o400);
 }
 
 function renderAuthScript(usersFile) {
@@ -295,6 +326,7 @@ function writeOpenVpnRuntimeFiles(config, configPath, env) {
   writeRuntimeFile(paths.usersPath, renderUsersFile(config.users));
   writeRuntimeFile(paths.authScriptPath, renderAuthScript(paths.usersPath), 0o700);
   writeRuntimeFile(configPath, renderOpenVpnServerConfig(config, paths));
+  hardenAuthRuntimePermissions(paths);
   return paths;
 }
 
