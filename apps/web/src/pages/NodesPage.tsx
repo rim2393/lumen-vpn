@@ -706,7 +706,7 @@ export function NodesPage() {
                         <>
                           <br />
                           <small>
-                            {t('Pending control command')}: {pendingControl.commandType ?? 'unknown'}{' '}
+                            {t('Pending control command')}: {pendingControl.commandType ?? t('unknown')}{' '}
                             {pendingControl.targetStatus ? `-> ${pendingControl.targetStatus}` : ''}
                           </small>
                         </>
@@ -879,7 +879,7 @@ export function NodesPage() {
                         className="button button--secondary"
                         disabled={hasPendingControl || deleteNode.isPending}
                         onClick={() => {
-                          if (globalThis.confirm(`Delete node ${node.name}? This pauses runtime traffic first.`)) {
+                          if (globalThis.confirm(t('Delete node confirmation', { name: node.name }))) {
                             void runNodeAction(
                               'Delete node',
                               node,
@@ -909,7 +909,7 @@ export function NodesPage() {
           <article className="panel panel--wide">
             <div className="panel__header">
               <div>
-                <p className="eyebrow">Node operations</p>
+                <p className="eyebrow">{t('Node operations')}</p>
                 <h2>{selectedNode.name}</h2>
               </div>
               <StatusBadge tone={getNodeState(selectedNode.status).tone}>
@@ -918,7 +918,7 @@ export function NodesPage() {
             </div>
             <form className="screen-form" onSubmit={handleCommandSubmit}>
               <label htmlFor="node-command-type">
-                Command type
+                {t('Command type')}
                 <select
                   id="node-command-type"
                   value={commandType}
@@ -932,7 +932,7 @@ export function NodesPage() {
                 </select>
               </label>
               <label htmlFor="node-command-payload">
-                Payload JSON
+                {t('Payload JSON')}
                 <textarea
                   id="node-command-payload"
                   rows={4}
@@ -949,12 +949,18 @@ export function NodesPage() {
                 className="button button--primary"
                 disabled={createCommand.isPending}
               >
-                Queue command
+                {t('Queue command')}
               </button>
             </form>
             <DataTable
-              caption="Node command queue"
-              columns={['Command', 'Status', 'Payload', 'Result', 'Created']}
+              caption={t('Node command queue')}
+              columns={[
+                t('Command'),
+                t('Status'),
+                t('Payload'),
+                t('Result'),
+                t('Created'),
+              ]}
               rows={(commandsQuery.data?.items ?? []).map((command) => ({
                 cells: [
                   command.command_type,
@@ -969,8 +975,8 @@ export function NodesPage() {
               }))}
             />
             <DataTable
-              caption="Node metrics"
-              columns={['Kind', 'Values', 'Observed']}
+              caption={t('Node metrics')}
+              columns={[t('Kind'), t('Values'), t('Observed')]}
               rows={(metricsQuery.data?.items ?? []).map((metric) => ({
                 cells: [
                   metric.metric_kind,
@@ -989,8 +995,8 @@ export function NodesPage() {
           <article className="panel panel--wide">
             <div className="panel__header">
               <div>
-                <p className="eyebrow">Bulk operations</p>
-                <h2>Node management</h2>
+                <p className="eyebrow">{t('Bulk operations')}</p>
+                <h2>{t('Node management')}</h2>
               </div>
               <StatusBadge>real API</StatusBadge>
             </div>
