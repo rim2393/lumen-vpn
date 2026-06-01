@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
 from app.domains.audit.service import record_audit_event
@@ -26,6 +27,7 @@ from app.domains.settings.service import (
 router = APIRouter()
 SettingsManager = Annotated[Principal, Depends(require_permission(Permission.USER_MANAGE))]
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
+AppSettings = Annotated[Settings, Depends(get_settings)]
 SettingKey = Annotated[str, Path(pattern=r"^[a-z0-9][a-z0-9_.-]{1,126}[a-z0-9]$")]
 
 
@@ -42,8 +44,9 @@ async def list_panel_settings(
 async def list_panel_auth_providers(
     _: SettingsManager,
     session: DatabaseSession,
+    settings: AppSettings,
 ) -> AuthProviderListResponse:
-    return AuthProviderListResponse(items=await list_auth_providers(session))
+    return AuthProviderListResponse(items=await list_auth_providers(session, settings=settings))
 
 
 @router.patch("/auth/providers/{provider}", response_model=AuthProviderResponse)
@@ -52,12 +55,14 @@ async def patch_panel_auth_provider(
     request: AuthProviderUpdateRequest,
     principal: SettingsManager,
     session: DatabaseSession,
+    settings: AppSettings,
 ) -> AuthProviderResponse:
     record = await update_auth_provider(
         session,
         provider=provider,
         request=request,
         principal=principal,
+        settings=settings,
     )
     await record_audit_event(
         session,

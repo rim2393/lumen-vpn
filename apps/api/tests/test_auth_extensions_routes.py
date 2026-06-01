@@ -34,6 +34,7 @@ def app_client(tmp_path) -> Iterator[TestClient]:
         google_oauth_client_secret=SecretStr("google-client-secret"),
         telegram_login_enabled=True,
         telegram_bot_token=SecretStr("telegram-bot-token"),
+        telegram_bot_username="lumen_test_bot",
         webauthn_enabled=True,
         webauthn_rp_id="panel.test",
         webauthn_origin="https://panel.test",

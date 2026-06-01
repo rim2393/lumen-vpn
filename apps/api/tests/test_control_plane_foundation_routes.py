@@ -241,11 +241,9 @@ async def test_auth_provider_settings_are_typed_and_audited(
     assert password_provider["enabled"] is True
     assert password_provider["metadata_json"]["mfa_required"] is True
     telegram_provider = next(item for item in providers if item["provider"] == "telegram")
-    assert telegram_provider["status"] == "unimplemented"
+    assert telegram_provider["status"] == "needs_configuration"
     assert telegram_provider["scopes"] == ["admin:login"]
-    assert telegram_provider["metadata_json"]["bot_binding"] == (
-        "disabled_until_callback_implemented"
-    )
+    assert "telegram_bot_token" in telegram_provider["metadata_json"]["missing"]
 
     patch_response = await foundation_app.client.patch(
         "/api/v1/settings/auth/providers/google",
@@ -256,7 +254,14 @@ async def test_auth_provider_settings_are_typed_and_audited(
         },
     )
     assert patch_response.status_code == 422
-    assert patch_response.json()["error"]["code"] == "auth_provider_not_live"
+    assert patch_response.json()["error"]["code"] == "auth_provider_not_configured"
+
+    generic_patch_response = await foundation_app.client.patch(
+        "/api/v1/settings/auth/providers/generic_oauth2",
+        json={"enabled": True},
+    )
+    assert generic_patch_response.status_code == 422
+    assert generic_patch_response.json()["error"]["code"] == "auth_provider_not_live"
 
     password_patch_response = await foundation_app.client.patch(
         "/api/v1/settings/auth/providers/password",
@@ -319,11 +324,9 @@ async def test_auth_provider_catalog_sanitizes_persisted_non_live_state(
         item for item in providers_response.json()["items"] if item["provider"] == "telegram"
     )
     assert telegram_provider["enabled"] is False
-    assert telegram_provider["status"] == "unimplemented"
+    assert telegram_provider["status"] == "needs_configuration"
     assert telegram_provider["scopes"] == ["admin:login"]
-    assert telegram_provider["metadata_json"]["bot_binding"] == (
-        "disabled_until_callback_implemented"
-    )
+    assert "telegram_bot_token" in telegram_provider["metadata_json"]["missing"]
 
 
 async def test_subscription_templates_and_response_rules_are_persisted(

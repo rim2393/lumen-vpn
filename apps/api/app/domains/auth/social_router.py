@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.errors import APIError
 from app.core.rbac import Principal, get_current_principal
 from app.db.session import get_db_session
 from app.domains.auth import oauth as oauth_flow
@@ -32,6 +33,7 @@ from app.domains.auth.social_service import (
     remove_identity,
 )
 from app.domains.auth.telegram import resolve_telegram_user
+from app.domains.settings.service import list_auth_providers
 
 router = APIRouter()
 CurrentPrincipal = Annotated[Principal, Depends(get_current_principal)]
@@ -57,8 +59,20 @@ def _set_cookies_if_token_pair(
 
 
 @router.get("/providers", response_model=OAuthProviderListResponse)
-async def list_oauth_providers(settings: AppSettings) -> OAuthProviderListResponse:
-    return OAuthProviderListResponse(items=oauth_flow.provider_infos(settings))
+async def list_oauth_providers(
+    session: DbSession,
+    settings: AppSettings,
+) -> OAuthProviderListResponse:
+    provider_records = {
+        _login_provider_key(item.provider): item
+        for item in await list_auth_providers(session, settings=settings)
+    }
+    items = []
+    for provider in oauth_flow.provider_infos(settings):
+        record = provider_records.get(_login_provider_key(provider.provider))
+        enabled = bool(record and record.enabled and record.status == "active" and provider.enabled)
+        items.append(provider.model_copy(update={"enabled": enabled}))
+    return OAuthProviderListResponse(items=items)
 
 
 # -- OAuth login flow ----------------------------------------------------------
@@ -71,6 +85,7 @@ async def start_oauth_login(
     settings: AppSettings,
     redirect: Annotated[str | None, Query()] = None,
 ) -> OAuthStartResponse:
+    await _ensure_login_provider_enabled(session, provider, settings=settings)
     result = await oauth_flow.begin_oauth(
         session,
         provider=provider,
@@ -91,6 +106,7 @@ async def oauth_callback(
     code: Annotated[str, Query()],
     state: Annotated[str, Query()],
 ):
+    await _ensure_login_provider_enabled(session, provider, settings=settings)
     profile, login_state = await oauth_flow.consume_oauth_callback(
         session,
         provider=provider,
@@ -146,6 +162,7 @@ async def start_oauth_link(
     settings: AppSettings,
     redirect: Annotated[str | None, Query()] = None,
 ) -> OAuthStartResponse:
+    await _ensure_login_provider_enabled(session, provider, settings=settings)
     result = await oauth_flow.begin_oauth(
         session,
         provider=provider,
@@ -188,6 +205,7 @@ async def telegram_login(
     session: DbSession,
     settings: AppSettings,
 ) -> LoginResponse:
+    await _ensure_login_provider_enabled(session, "telegram", settings=settings)
     user = await resolve_telegram_user(
         session,
         payload=request,
@@ -267,6 +285,7 @@ async def webauthn_authenticate_options(
     session: DbSession,
     settings: AppSettings,
 ) -> WebAuthnOptionsResponse:
+    await _ensure_login_provider_enabled(session, "webauthn", settings=settings)
     options, challenge_id = await webauthn_service.start_authentication(
         session, email=request.email, settings=settings
     )
@@ -281,6 +300,7 @@ async def webauthn_authenticate_verify(
     session: DbSession,
     settings: AppSettings,
 ) -> LoginResponse:
+    await _ensure_login_provider_enabled(session, "webauthn", settings=settings)
     user = await webauthn_service.finish_authentication(
         session,
         challenge_id=request.challenge_id,
@@ -318,3 +338,25 @@ async def webauthn_delete_credential(
         session, user_id=_principal_user_id(principal), credential_pk=credential_id
     )
     await session.commit()
+
+
+def _login_provider_key(provider: str) -> str:
+    return "passkey" if provider == "webauthn" else provider
+
+
+async def _ensure_login_provider_enabled(
+    session: AsyncSession,
+    provider: str,
+    *,
+    settings: Settings,
+) -> None:
+    provider_key = _login_provider_key(provider)
+    records = await list_auth_providers(session, settings=settings)
+    record = next((item for item in records if item.provider == provider_key), None)
+    if record is None or not record.enabled or record.status != "active":
+        raise APIError(
+            code="auth_provider_disabled",
+            message="This authentication provider is not enabled.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details=[provider_key],
+        )

@@ -2,6 +2,7 @@ from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.core.errors import APIError
 from app.core.rbac import Principal
 from app.domains.settings.models import PanelSetting
@@ -13,7 +14,9 @@ from app.domains.settings.schemas import (
 )
 
 AUTH_PROVIDERS_KEY = "auth.providers"
-LIVE_AUTH_PROVIDERS = frozenset({"password"})
+IMPLEMENTED_AUTH_PROVIDERS = frozenset(
+    {"password", "passkey", "telegram", "github", "google", "keycloak", "pocketid"}
+)
 RESERVED_SETTING_KEYS = frozenset({AUTH_PROVIDERS_KEY})
 DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
     {
@@ -27,24 +30,24 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
     {
         "provider": "passkey",
         "display_name": "Passkey",
-        "enabled": False,
-        "status": "unimplemented",
+        "enabled": True,
+        "status": "active",
         "scopes": ["admin:login"],
-        "metadata_json": {"webauthn": "disabled_until_registered"},
+        "metadata_json": {"runtime": "webauthn"},
     },
     {
         "provider": "telegram",
         "display_name": "Telegram",
         "enabled": False,
-        "status": "unimplemented",
+        "status": "needs_configuration",
         "scopes": ["admin:login"],
-        "metadata_json": {"bot_binding": "disabled_until_callback_implemented"},
+        "metadata_json": {"runtime": "telegram-widget"},
     },
     {
         "provider": "github",
         "display_name": "GitHub",
         "enabled": False,
-        "status": "unimplemented",
+        "status": "needs_configuration",
         "scopes": ["read:user", "user:email"],
         "metadata_json": {},
     },
@@ -52,7 +55,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "google",
         "display_name": "Google",
         "enabled": False,
-        "status": "unimplemented",
+        "status": "needs_configuration",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -60,7 +63,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "pocketid",
         "display_name": "Pocket ID",
         "enabled": False,
-        "status": "unimplemented",
+        "status": "needs_configuration",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -68,7 +71,7 @@ DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
         "provider": "keycloak",
         "display_name": "Keycloak",
         "enabled": False,
-        "status": "unimplemented",
+        "status": "needs_configuration",
         "scopes": ["openid", "email", "profile"],
         "metadata_json": {},
     },
@@ -142,8 +145,12 @@ async def _upsert_setting(
     await session.flush()
 
 
-async def list_auth_providers(session: AsyncSession) -> list[AuthProviderResponse]:
-    providers = await _auth_provider_records(session)
+async def list_auth_providers(
+    session: AsyncSession,
+    *,
+    settings: Settings | None = None,
+) -> list[AuthProviderResponse]:
+    providers = await _auth_provider_records(session, settings=settings)
     return [_auth_provider_response(provider) for provider in providers]
 
 
@@ -153,8 +160,10 @@ async def update_auth_provider(
     provider: str,
     request: AuthProviderUpdateRequest,
     principal: Principal,
+    settings: Settings | None = None,
 ) -> AuthProviderResponse:
-    providers = await _auth_provider_records(session)
+    settings = settings or get_settings()
+    providers = await _auth_provider_records(session, settings=settings)
     record = next((item for item in providers if item["provider"] == provider), None)
     if record is None:
         raise APIError(
@@ -163,7 +172,8 @@ async def update_auth_provider(
             status_code=status.HTTP_404_NOT_FOUND,
         )
     data = request.model_dump(exclude_unset=True)
-    if data.get("enabled") is True and provider not in LIVE_AUTH_PROVIDERS:
+    runtime = _auth_provider_runtime(provider, settings)
+    if data.get("enabled") is True and not runtime["implemented"]:
         raise APIError(
             code="auth_provider_not_live",
             message=(
@@ -171,6 +181,16 @@ async def update_auth_provider(
                 "and account-binding flow are implemented."
             ),
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details=[provider],
+        )
+    if data.get("enabled") is True and not runtime["configured"]:
+        raise APIError(
+            code="auth_provider_not_configured",
+            message=(
+                "This authentication provider has a real backend flow, but its required "
+                "environment configuration is missing."
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             details=[provider],
         )
     metadata = data.get("metadata_json")
@@ -198,7 +218,11 @@ def setting_response(setting: PanelSetting) -> SettingResponse:
     )
 
 
-async def _auth_provider_records(session: AsyncSession) -> list[dict[str, object]]:
+async def _auth_provider_records(
+    session: AsyncSession,
+    *,
+    settings: Settings | None = None,
+) -> list[dict[str, object]]:
     result = await session.execute(
         select(PanelSetting).where(PanelSetting.key == AUTH_PROVIDERS_KEY)
     )
@@ -213,16 +237,131 @@ async def _auth_provider_records(session: AsyncSession) -> list[dict[str, object
                 if isinstance(item, dict) and item.get("provider")
             }
     providers = []
+    settings = settings or get_settings()
     for default in DEFAULT_AUTH_PROVIDERS:
         provider_id = str(default["provider"])
-        merged = {**default, **persisted.get(provider_id, {})}
-        if provider_id not in LIVE_AUTH_PROVIDERS:
+        persisted_record = persisted.get(provider_id)
+        merged = {**default, **(persisted_record or {})}
+        runtime = _auth_provider_runtime(provider_id, settings)
+        if not runtime["implemented"]:
             merged["enabled"] = False
             merged["status"] = default["status"]
             merged["scopes"] = default["scopes"]
             merged["metadata_json"] = default["metadata_json"]
+        elif not runtime["configured"]:
+            merged["enabled"] = False
+            merged["status"] = "needs_configuration"
+            merged["scopes"] = default["scopes"]
+            merged["metadata_json"] = {
+                **dict(default.get("metadata_json") or {}),
+                "missing": runtime["missing"],
+            }
+        else:
+            merged["status"] = "active"
+            if persisted_record is None:
+                merged["enabled"] = bool(runtime.get("default_enabled", default["enabled"]))
+            merged["metadata_json"] = {
+                **dict(default.get("metadata_json") or {}),
+                **dict(merged.get("metadata_json") or {}),
+            }
         providers.append(merged)
     return providers
+
+
+def _auth_provider_runtime(provider: str, settings: Settings) -> dict[str, object]:
+    if provider not in IMPLEMENTED_AUTH_PROVIDERS:
+        return {"implemented": False, "configured": False, "missing": ["implementation"]}
+    if provider == "password":
+        return {"implemented": True, "configured": True, "missing": [], "default_enabled": True}
+    if provider == "passkey":
+        missing = []
+        if not settings.webauthn_enabled:
+            missing.append("webauthn_enabled")
+        if not (settings.webauthn_origin or settings.panel_public_url):
+            missing.append("panel_public_url")
+        return {
+            "implemented": True,
+            "configured": not missing,
+            "missing": missing,
+            "default_enabled": settings.webauthn_enabled,
+        }
+    if provider == "telegram":
+        missing = []
+        if not settings.telegram_login_enabled:
+            missing.append("telegram_login_enabled")
+        if not (settings.telegram_bot_token or settings.telegram_bot_token_file):
+            missing.append("telegram_bot_token")
+        if not settings.telegram_bot_username:
+            missing.append("telegram_bot_username")
+        return {
+            "implemented": True,
+            "configured": not missing,
+            "missing": missing,
+            "default_enabled": settings.telegram_login_enabled,
+        }
+    if provider == "github":
+        return _oauth_runtime(
+            enabled=settings.github_oauth_enabled,
+            client_id=settings.github_oauth_client_id,
+            secret=settings.github_oauth_client_secret,
+            secret_file=settings.github_oauth_client_secret_file,
+            issuer=True,
+        )
+    if provider == "google":
+        return _oauth_runtime(
+            enabled=settings.google_oauth_enabled,
+            client_id=settings.google_oauth_client_id,
+            secret=settings.google_oauth_client_secret,
+            secret_file=settings.google_oauth_client_secret_file,
+            issuer=True,
+        )
+    if provider == "keycloak":
+        return _oauth_runtime(
+            enabled=settings.keycloak_oauth_enabled,
+            client_id=settings.keycloak_oauth_client_id,
+            secret=settings.keycloak_oauth_client_secret,
+            secret_file=settings.keycloak_oauth_client_secret_file,
+            issuer=settings.keycloak_oauth_issuer,
+        )
+    if provider == "pocketid":
+        return _oauth_runtime(
+            enabled=settings.pocketid_oauth_enabled,
+            client_id=settings.pocketid_oauth_client_id,
+            secret=settings.pocketid_oauth_client_secret,
+            secret_file=settings.pocketid_oauth_client_secret_file,
+            issuer=settings.pocketid_oauth_issuer,
+        )
+    return {
+        "implemented": False,
+        "configured": False,
+        "missing": ["implementation"],
+        "default_enabled": False,
+    }
+
+
+def _oauth_runtime(
+    *,
+    enabled: bool,
+    client_id: str | None,
+    secret: object,
+    secret_file: str | None,
+    issuer: object,
+) -> dict[str, object]:
+    missing = []
+    if not enabled:
+        missing.append("enabled")
+    if not client_id:
+        missing.append("client_id")
+    if not (secret or secret_file):
+        missing.append("client_secret")
+    if not issuer:
+        missing.append("issuer")
+    return {
+        "implemented": True,
+        "configured": not missing,
+        "missing": missing,
+        "default_enabled": enabled,
+    }
 
 
 async def _save_auth_providers(
