@@ -22,6 +22,25 @@ class SettingListResponse(BaseModel):
     items: list[SettingResponse]
 
 
+class SettingGroupUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value_json: dict[str, object] = Field(default_factory=dict)
+
+
+class SettingGroupResponse(BaseModel):
+    key: str
+    title: str
+    description: str
+    value_json: dict[str, object]
+    updated_by: str | None
+    updated_at: datetime | None
+
+
+class SettingGroupListResponse(BaseModel):
+    items: list[SettingGroupResponse]
+
+
 class AuthProviderUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

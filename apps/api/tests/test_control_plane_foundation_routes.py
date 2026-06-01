@@ -223,6 +223,64 @@ async def test_settings_reject_reserved_auth_provider_bypass(
     assert update_response.json()["error"]["code"] == "setting_reserved_key"
 
 
+async def test_typed_setting_groups_validate_and_block_generic_bypass(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    groups_response = await foundation_app.client.get("/api/v1/settings/groups")
+    assert groups_response.status_code == 200
+    groups = groups_response.json()["items"]
+    assert {item["key"] for item in groups} >= {
+        "panel.identity",
+        "subscription.delivery",
+        "security.policy",
+        "node.defaults",
+    }
+    panel_identity = next(item for item in groups if item["key"] == "panel.identity")
+    assert panel_identity["value_json"]["product_name"] == "Lumen"
+    assert panel_identity["updated_at"] is None
+
+    update_response = await foundation_app.client.put(
+        "/api/v1/settings/groups/subscription.delivery",
+        json={
+            "value_json": {
+                "title": "Lumen production",
+                "support_url": "https://support.example.com",
+                "profile_page_url": "https://panel.example.com/subscription",
+                "update_interval_hours": 6,
+                "happ_announce": "Lumen production subscription",
+                "random_host_order": True,
+            }
+        },
+    )
+    assert update_response.status_code == 200
+    body = update_response.json()
+    assert body["key"] == "subscription.delivery"
+    assert body["value_json"]["update_interval_hours"] == 6
+    assert body["value_json"]["random_host_order"] is True
+
+    invalid_response = await foundation_app.client.put(
+        "/api/v1/settings/groups/subscription.delivery",
+        json={"value_json": {"title": "Lumen", "update_interval_hours": 0}},
+    )
+    assert invalid_response.status_code == 422
+    assert invalid_response.json()["error"]["code"] == "setting_group_invalid"
+
+    bypass_response = await foundation_app.client.put(
+        "/api/v1/settings/subscription.delivery",
+        json={"value_json": {"title": "raw bypass"}},
+    )
+    assert bypass_response.status_code == 422
+    assert bypass_response.json()["error"]["code"] == "setting_reserved_key"
+
+    audit_response = await foundation_app.client.get("/api/v1/audit/events")
+    assert audit_response.status_code == 200
+    assert any(
+        item["action"] == "setting_group.updated"
+        and item["resource_id"] == "subscription.delivery"
+        for item in audit_response.json()["items"]
+    )
+
+
 async def test_auth_provider_settings_are_typed_and_audited(
     foundation_app: FoundationRouteApp,
 ) -> None:

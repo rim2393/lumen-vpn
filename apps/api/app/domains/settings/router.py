@@ -11,6 +11,9 @@ from app.domains.settings.schemas import (
     AuthProviderListResponse,
     AuthProviderResponse,
     AuthProviderUpdateRequest,
+    SettingGroupListResponse,
+    SettingGroupResponse,
+    SettingGroupUpdateRequest,
     SettingListResponse,
     SettingResponse,
     SettingUpdateRequest,
@@ -18,9 +21,11 @@ from app.domains.settings.schemas import (
 from app.domains.settings.service import (
     get_setting,
     list_auth_providers,
+    list_setting_groups,
     list_settings,
     setting_response,
     update_auth_provider,
+    update_setting_group,
     upsert_setting,
 )
 
@@ -47,6 +52,38 @@ async def list_panel_auth_providers(
     settings: AppSettings,
 ) -> AuthProviderListResponse:
     return AuthProviderListResponse(items=await list_auth_providers(session, settings=settings))
+
+
+@router.get("/groups", response_model=SettingGroupListResponse)
+async def list_typed_setting_groups(
+    _: SettingsManager,
+    session: DatabaseSession,
+) -> SettingGroupListResponse:
+    return SettingGroupListResponse(items=await list_setting_groups(session))
+
+
+@router.put("/groups/{group_key}", response_model=SettingGroupResponse)
+async def update_typed_setting_group(
+    group_key: str,
+    request: SettingGroupUpdateRequest,
+    principal: SettingsManager,
+    session: DatabaseSession,
+) -> SettingGroupResponse:
+    group = await update_setting_group(
+        session,
+        group_key=group_key,
+        request=request,
+        principal=principal,
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="setting_group.updated",
+        resource_type="setting_group",
+        resource_id=group_key,
+    )
+    await session.commit()
+    return group
 
 
 @router.patch("/auth/providers/{provider}", response_model=AuthProviderResponse)

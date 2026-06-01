@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
 import type {
   LumenApiClient,
+  SettingGroupUpdateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
   SquadDetailResponse,
@@ -1071,6 +1072,38 @@ describe('Control plane resource screens', () => {
     await user.type(screen.getByLabelText(/^value$/i), 'api_token=bad')
     await user.click(screen.getByRole('button', { name: /save setting/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/secret-like/i)
+  })
+
+  it('updates typed settings groups through the typed API', async () => {
+    const user = userEvent.setup()
+    const updateSettingGroup = vi.fn(async (groupKey: string, request: SettingGroupUpdateRequest) => ({
+      description: 'Client-facing subscription presentation and update behavior.',
+      key: groupKey,
+      title: 'Subscription delivery',
+      updated_at: '2026-05-27T00:00:00Z',
+      updated_by: 'usr_admin',
+      value_json: request.value_json,
+    }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      updateSettingGroup,
+    }
+
+    renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('heading', { name: /settings groups/i })).toBeInTheDocument()
+    await user.clear(screen.getByLabelText(/update interval hours/i))
+    await user.type(screen.getByLabelText(/update interval hours/i), '6')
+    await user.click(screen.getAllByRole('button', { name: /save group/i })[1])
+
+    await waitFor(() => expect(updateSettingGroup).toHaveBeenCalledTimes(1))
+    expect(updateSettingGroup).toHaveBeenCalledWith('subscription.delivery', {
+      value_json: expect.objectContaining({
+        random_host_order: false,
+        title: 'Lumen VPN',
+        update_interval_hours: 6,
+      }),
+    })
   })
 
   it('does not offer enable actions for catalog-only auth providers', async () => {

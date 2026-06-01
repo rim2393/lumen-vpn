@@ -57,6 +57,9 @@ import type {
   ResourceListResponse,
   SessionInspectorResponse,
   SettingListResponse,
+  SettingGroupListResponse,
+  SettingGroupRecord,
+  SettingGroupUpdateRequest,
   SettingRecord,
   SettingUpdateRequest,
   SquadCreateRequest,
@@ -265,6 +268,77 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     }
     settings.push(next)
     return next
+  }
+
+  const settingGroups: SettingGroupRecord[] = [
+    {
+      description: 'Product name, documentation links and default locale exposed in the panel.',
+      key: 'panel.identity',
+      title: 'Panel identity',
+      updated_at: null,
+      updated_by: null,
+      value_json: {
+        default_locale: 'ru',
+        docs_url: null,
+        product_name: 'Lumen',
+        support_url: null,
+      },
+    },
+    {
+      description: 'Client-facing subscription presentation and update behavior.',
+      key: 'subscription.delivery',
+      title: 'Subscription delivery',
+      updated_at: null,
+      updated_by: null,
+      value_json: {
+        happ_announce: null,
+        profile_page_url: null,
+        random_host_order: false,
+        support_url: null,
+        title: 'Lumen VPN',
+        update_interval_hours: 2,
+      },
+    },
+    {
+      description: 'Panel-wide MFA, API key and session lifetime policy.',
+      key: 'security.policy',
+      title: 'Security policy',
+      updated_at: null,
+      updated_by: null,
+      value_json: {
+        api_key_max_ttl_days: 90,
+        require_mfa_for_admins: false,
+        session_ttl_minutes: 720,
+      },
+    },
+    {
+      description: 'Default node runtime intervals and operational retention windows.',
+      key: 'node.defaults',
+      title: 'Node defaults',
+      updated_at: null,
+      updated_by: null,
+      value_json: {
+        command_poll_interval_seconds: 30,
+        default_region: 'global',
+        heartbeat_interval_seconds: 30,
+        runtime_metrics_retention_days: 30,
+      },
+    },
+  ]
+
+  function updateSettingGroupValue(
+    groupKey: string,
+    request: SettingGroupUpdateRequest,
+  ): SettingGroupRecord {
+    const group = settingGroups.find((item) => item.key === groupKey)
+    if (!group) {
+      throw new Error('Setting group not found')
+    }
+    group.value_json = request.value_json
+    group.updated_at = new Date().toISOString()
+    group.updated_by = developmentSession.userId
+    updateSettingValue(groupKey, { value_json: request.value_json })
+    return group
   }
 
   function buildUserDetail(user: UserRecord): UserDetailResponse {
@@ -865,6 +939,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       items: protocolAdapters,
     }),
     listSettings: async (): Promise<SettingListResponse> => ({ items: settings }),
+    listSettingGroups: async (): Promise<SettingGroupListResponse> => ({ items: settingGroups }),
     listAuthProviders: async () => ({ items: authProviders }),
     listSquads: async (): Promise<SquadListResponse> => ({ items: squads }),
     listSubscriptions: async (): Promise<SubscriptionListResponse> => ({
@@ -1593,5 +1668,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     },
     updateSetting: async (key: string, request: SettingUpdateRequest) =>
       updateSettingValue(key, request),
+    updateSettingGroup: async (groupKey: string, request: SettingGroupUpdateRequest) =>
+      updateSettingGroupValue(groupKey, request),
   }
 }

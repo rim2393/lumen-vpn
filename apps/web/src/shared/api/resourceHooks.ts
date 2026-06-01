@@ -28,6 +28,7 @@ import type {
   ResponseRuleTestRequest,
   ResponseRuleUpdateRequest,
   SettingUpdateRequest,
+  SettingGroupUpdateRequest,
   SquadCreateRequest,
   SquadUpdateRequest,
   SquadUserMutationRequest,
@@ -59,6 +60,7 @@ export const resourceQueryKeys = {
   provisioningJob: (jobId: string) => ['resource', 'nodes', 'provisioning-job', jobId] as const,
   session: ['auth', 'session'] as const,
   settings: ['resource', 'settings'] as const,
+  settingGroups: ['resource', 'settings', 'groups'] as const,
   authProviders: ['resource', 'settings', 'auth-providers'] as const,
   squads: ['resource', 'squads'] as const,
   squadDetail: (squadId: string) => ['resource', 'squads', squadId, 'detail'] as const,
@@ -987,6 +989,15 @@ export function useSettingsPageData() {
   })
 }
 
+export function useSettingGroupsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listSettingGroups,
+    queryKey: resourceQueryKeys.settingGroups,
+  })
+}
+
 export function useAuthProvidersData() {
   const apiClient = useApiClient()
 
@@ -1023,6 +1034,25 @@ export function useUpdateSetting() {
     mutationFn: ({ key, request }: { key: string; request: SettingUpdateRequest }) =>
       apiClient.updateSetting(key, request),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settings })
+    },
+  })
+}
+
+export function useUpdateSettingGroup() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      groupKey,
+      request,
+    }: {
+      groupKey: string
+      request: SettingGroupUpdateRequest
+    }) => apiClient.updateSettingGroup(groupKey, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settingGroups })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.settings })
     },
   })

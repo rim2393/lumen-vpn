@@ -34,6 +34,7 @@ import type {
   ProvisioningJobCreateRequest,
   ResponseRuleCreateRequest,
   ResponseRuleUpdateRequest,
+  SettingGroupUpdateRequest,
   SettingUpdateRequest,
   SquadCreateRequest,
   SquadUpdateRequest,
@@ -213,6 +214,7 @@ export function createHttpLumenApiClient({
     listProfiles: () => request('/api/v1/profiles'),
     listProtocolAdapters: () => request('/api/v1/protocols/adapters'),
     listSettings: () => request('/api/v1/settings'),
+    listSettingGroups: () => request('/api/v1/settings/groups'),
     listAuthProviders: () => request('/api/v1/settings/auth/providers'),
     listSquads: () => request('/api/v1/squads'),
     listSubscriptions: () => request('/api/v1/subscriptions'),
@@ -373,6 +375,11 @@ export function createHttpLumenApiClient({
       }),
     updateSetting: (key: string, payload: SettingUpdateRequest) =>
       request(`/api/v1/settings/${encodeURIComponent(key)}`, { body: payload, method: 'PUT' }),
+    updateSettingGroup: (groupKey: string, payload: SettingGroupUpdateRequest) =>
+      request(`/api/v1/settings/groups/${encodeURIComponent(groupKey)}`, {
+        body: payload,
+        method: 'PUT',
+      }),
     updateSquad: (squadId: string, payload: SquadUpdateRequest) =>
       request(`/api/v1/squads/${squadId}`, { body: payload, method: 'PATCH' }),
     updateUser: (userId: string, payload: UserUpdateRequest) =>

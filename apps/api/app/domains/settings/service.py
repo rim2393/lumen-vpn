@@ -1,4 +1,5 @@
 from fastapi import status
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,11 +10,25 @@ from app.domains.settings.models import PanelSetting
 from app.domains.settings.schemas import (
     AuthProviderResponse,
     AuthProviderUpdateRequest,
+    SettingGroupResponse,
+    SettingGroupUpdateRequest,
     SettingResponse,
     SettingUpdateRequest,
 )
 
 AUTH_PROVIDERS_KEY = "auth.providers"
+PANEL_IDENTITY_KEY = "panel.identity"
+SUBSCRIPTION_DELIVERY_KEY = "subscription.delivery"
+SECURITY_POLICY_KEY = "security.policy"
+NODE_DEFAULTS_KEY = "node.defaults"
+TYPED_SETTING_KEYS = frozenset(
+    {
+        PANEL_IDENTITY_KEY,
+        SUBSCRIPTION_DELIVERY_KEY,
+        SECURITY_POLICY_KEY,
+        NODE_DEFAULTS_KEY,
+    }
+)
 IMPLEMENTED_AUTH_PROVIDERS = frozenset(
     {
         "password",
@@ -26,7 +41,70 @@ IMPLEMENTED_AUTH_PROVIDERS = frozenset(
         "generic_oauth2",
     }
 )
-RESERVED_SETTING_KEYS = frozenset({AUTH_PROVIDERS_KEY})
+RESERVED_SETTING_KEYS = frozenset({AUTH_PROVIDERS_KEY, *TYPED_SETTING_KEYS})
+
+
+class PanelIdentitySettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_name: str = Field(default="Lumen", min_length=1, max_length=80)
+    support_url: HttpUrl | None = None
+    docs_url: HttpUrl | None = None
+    default_locale: str = Field(default="ru", pattern="^(en|ru)$")
+
+
+class SubscriptionDeliverySettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(default="Lumen VPN", min_length=1, max_length=120)
+    support_url: HttpUrl | None = None
+    profile_page_url: HttpUrl | None = None
+    update_interval_hours: int = Field(default=2, ge=1, le=168)
+    happ_announce: str | None = Field(default=None, max_length=512)
+    random_host_order: bool = False
+
+
+class SecurityPolicySettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    require_mfa_for_admins: bool = False
+    api_key_max_ttl_days: int = Field(default=90, ge=1, le=3650)
+    session_ttl_minutes: int = Field(default=720, ge=5, le=43200)
+
+
+class NodeDefaultsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_region: str = Field(default="global", min_length=1, max_length=64)
+    heartbeat_interval_seconds: int = Field(default=30, ge=5, le=3600)
+    command_poll_interval_seconds: int = Field(default=30, ge=5, le=3600)
+    runtime_metrics_retention_days: int = Field(default=30, ge=1, le=365)
+
+
+SETTING_GROUP_MODELS: dict[str, type[BaseModel]] = {
+    PANEL_IDENTITY_KEY: PanelIdentitySettings,
+    SUBSCRIPTION_DELIVERY_KEY: SubscriptionDeliverySettings,
+    SECURITY_POLICY_KEY: SecurityPolicySettings,
+    NODE_DEFAULTS_KEY: NodeDefaultsSettings,
+}
+SETTING_GROUP_METADATA: dict[str, tuple[str, str]] = {
+    PANEL_IDENTITY_KEY: (
+        "Panel identity",
+        "Product name, documentation links and default locale exposed in the panel.",
+    ),
+    SUBSCRIPTION_DELIVERY_KEY: (
+        "Subscription delivery",
+        "Client-facing subscription presentation and update behavior.",
+    ),
+    SECURITY_POLICY_KEY: (
+        "Security policy",
+        "Panel-wide MFA, API key and session lifetime policy.",
+    ),
+    NODE_DEFAULTS_KEY: (
+        "Node defaults",
+        "Default node runtime intervals and operational retention windows.",
+    ),
+}
 DEFAULT_AUTH_PROVIDERS: tuple[dict[str, object], ...] = (
     {
         "provider": "password",
@@ -129,6 +207,61 @@ async def upsert_setting(
     await _upsert_setting(session, key=key, value_json=request.value_json, principal=principal)
     result = await session.execute(select(PanelSetting).where(PanelSetting.key == key))
     return result.scalar_one()
+
+
+def _setting_group_response(key: str, setting: PanelSetting | None) -> SettingGroupResponse:
+    model = SETTING_GROUP_MODELS[key]
+    title, description = SETTING_GROUP_METADATA[key]
+    value = setting.value_json if setting is not None else model().model_dump(mode="json")
+    validated = model.model_validate(value).model_dump(mode="json")
+    return SettingGroupResponse(
+        key=key,
+        title=title,
+        description=description,
+        value_json=validated,
+        updated_by=setting.updated_by if setting is not None else None,
+        updated_at=setting.updated_at if setting is not None else None,
+    )
+
+
+async def list_setting_groups(session: AsyncSession) -> list[SettingGroupResponse]:
+    result = await session.execute(
+        select(PanelSetting).where(PanelSetting.key.in_(TYPED_SETTING_KEYS))
+    )
+    settings_by_key = {setting.key: setting for setting in result.scalars().all()}
+    return [
+        _setting_group_response(key, settings_by_key.get(key))
+        for key in SETTING_GROUP_MODELS
+    ]
+
+
+async def update_setting_group(
+    session: AsyncSession,
+    *,
+    group_key: str,
+    request: SettingGroupUpdateRequest,
+    principal: Principal,
+) -> SettingGroupResponse:
+    model = SETTING_GROUP_MODELS.get(group_key)
+    if model is None:
+        raise APIError(
+            code="setting_group_not_found",
+            message="Typed settings group was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=[group_key],
+        )
+    try:
+        value_json = model.model_validate(request.value_json).model_dump(mode="json")
+    except ValidationError as exc:
+        raise APIError(
+            code="setting_group_invalid",
+            message="Typed settings group payload is invalid.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details=[str(error["loc"]) for error in exc.errors()],
+        ) from exc
+    await _upsert_setting(session, key=group_key, value_json=value_json, principal=principal)
+    setting = await get_setting(session, key=group_key)
+    return _setting_group_response(group_key, setting)
 
 
 async def _upsert_setting(

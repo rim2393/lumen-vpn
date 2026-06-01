@@ -901,6 +901,23 @@ export type SettingUpdateRequest = {
   value_json: Record<string, unknown>
 }
 
+export type SettingGroupRecord = {
+  key: string
+  title: string
+  description: string
+  value_json: Record<string, unknown>
+  updated_by: string | null
+  updated_at: string | null
+}
+
+export type SettingGroupListResponse = {
+  items: SettingGroupRecord[]
+}
+
+export type SettingGroupUpdateRequest = {
+  value_json: Record<string, unknown>
+}
+
 export type AuthProviderRecord = {
   display_name: string
   enabled: boolean
@@ -1195,6 +1212,7 @@ export type LumenApiClient = {
   listProfiles: () => Promise<ProtocolProfileListResponse>
   listProtocolAdapters: () => Promise<ProtocolAdapterListResponse>
   listSettings: () => Promise<SettingListResponse>
+  listSettingGroups: () => Promise<SettingGroupListResponse>
   listAuthProviders: () => Promise<AuthProviderListResponse>
   listSquads: () => Promise<SquadListResponse>
   listSubscriptions: () => Promise<SubscriptionListResponse>
@@ -1277,6 +1295,10 @@ export type LumenApiClient = {
     request: AuthProviderUpdateRequest,
   ) => Promise<AuthProviderRecord>
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
+  updateSettingGroup: (
+    groupKey: string,
+    request: SettingGroupUpdateRequest,
+  ) => Promise<SettingGroupRecord>
   updateSquad: (squadId: string, request: SquadUpdateRequest) => Promise<SquadRecord>
   updateUser: (userId: string, request: UserUpdateRequest) => Promise<UserRecord>
   listNodePlugins: (nodeId?: string) => Promise<NodePluginListResponse>
