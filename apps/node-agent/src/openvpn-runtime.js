@@ -244,7 +244,7 @@ function sleep(ms) {
 
 async function configureForwarding(execFileImpl, networkCidr) {
   await runExecFile(execFileImpl, "sh", ["-c", [
-    "sysctl -w net.ipv4.ip_forward=1 >/dev/null",
+    "sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>/dev/null || [ \"$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)\" = \"1\" ]",
     `while iptables -t nat -D POSTROUTING -s ${networkCidr} -j MASQUERADE 2>/dev/null; do :; done`,
     `iptables -t nat -A POSTROUTING -s ${networkCidr} -j MASQUERADE`
   ].join(" && ")]);
