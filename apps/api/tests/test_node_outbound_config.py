@@ -14,16 +14,17 @@ def _profile(adapter: str, config_json: dict | None = None) -> ProtocolProfile:
     )
 
 
-def _inbounds(port: int):
+def _inbounds(port: int, *, protocol: str = "vless", config_json: dict | None = None):
     return [
         SimpleNamespace(
             tag="inbound-test",
             listen="0.0.0.0",  # noqa: S104
             port=port,
-            protocol="vless",
+            protocol=protocol,
             transport="tcp",
-            security="tls",
+            security="none",
             credentials_ref="vault://subscriptions/p/creds",
+            config_json=config_json or {},
         )
     ]
 
@@ -59,6 +60,7 @@ def test_xray_profile_still_builds_xray_payload():
     assert payload["adapter"] == "vless-tcp-tls"
     assert "xrayConfig" in payload
     assert "inbounds" in payload["xrayConfig"]
+    assert payload["xrayConfig"]["outbounds"] == [{"tag": "direct", "protocol": "freedom"}]
 
 
 def test_xray_payload_uses_concrete_runtime_clients_when_available():
@@ -82,6 +84,66 @@ def test_xray_payload_uses_concrete_runtime_clients_when_available():
             "email": "lumen_sub_live",
             "flow": "xtls-rprx-vision",
         }
+    ]
+
+
+def test_shadowsocks_payload_uses_concrete_runtime_password():
+    payload = build_node_outbound_payload(
+        _profile("shadowsocks-native", {"method": "aes-128-gcm"}),
+        _inbounds(8388, protocol="shadowsocks", config_json={"method": "aes-128-gcm"}),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "password": "unused-generic-password",
+                "shadowsocks_password": "ss-live-password",
+            }
+        ],
+    )
+
+    settings = payload["xrayConfig"]["inbounds"][0]["settings"]
+    assert "clientsRef" not in settings
+    assert settings == {
+        "method": "aes-128-gcm",
+        "password": "ss-live-password",
+        "network": "tcp,udp",
+    }
+
+
+def test_socks_payload_uses_concrete_runtime_accounts():
+    payload = build_node_outbound_payload(
+        _profile("socks5"),
+        _inbounds(1080, protocol="socks"),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "password": "socks-live-password",
+            }
+        ],
+    )
+
+    settings = payload["xrayConfig"]["inbounds"][0]["settings"]
+    assert "clientsRef" not in settings
+    assert settings["accounts"] == [
+        {"user": "lumen_sub_live", "pass": "socks-live-password"}
+    ]
+
+
+def test_http_proxy_payload_uses_concrete_runtime_accounts():
+    payload = build_node_outbound_payload(
+        _profile("http-proxy"),
+        _inbounds(8080, protocol="http"),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "password": "http-live-password",
+            }
+        ],
+    )
+
+    settings = payload["xrayConfig"]["inbounds"][0]["settings"]
+    assert "clientsRef" not in settings
+    assert settings["accounts"] == [
+        {"user": "lumen_sub_live", "pass": "http-live-password"}
     ]
 
 

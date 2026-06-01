@@ -332,9 +332,9 @@ async def get_profile_computed_config(
 async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
     """Build a node runtime config for the profile and queue an outbound.apply.
 
-    The payload references client secrets via `clientsRef`; concrete credentials
-    are injected by the secret-delivery layer before the command reaches the
-    node (node commands must never carry inline secrets).
+    The payload carries concrete runtime credentials derived from active real
+    subscriptions bound to the profile/node. Apply is rejected when no real
+    subscription exists so production cannot queue placeholder configs.
     """
 
     from app.domains.ip_control.service import build_ip_control_policy
@@ -1185,6 +1185,7 @@ def _computed_xray_config(
         config = {}
     config.setdefault("log", {"loglevel": "warning"})
     config.setdefault("routing", {"rules": []})
+    config.setdefault("outbounds", [{"tag": "direct", "protocol": "freedom"}])
     config.setdefault(
         "inbounds",
         [_xray_inbound(inbound, runtime_clients=runtime_clients) for inbound in inbounds],
@@ -1249,6 +1250,39 @@ def _xray_inbound_settings(
                 {
                     "password": str(client["password"]),
                     "email": str(client["public_id"]),
+                }
+                for client in clients
+            ],
+        }
+    elif inbound.protocol == "shadowsocks":
+        password = (
+            str(clients[0]["shadowsocks_password"])
+            if clients
+            else ""
+        )
+        settings = {
+            "method": str(inbound.config_json.get("method") or "aes-256-gcm"),
+            "password": password,
+            "network": str(inbound.config_json.get("network") or "tcp,udp"),
+        }
+    elif inbound.protocol == "socks":
+        settings = {
+            "auth": "password",
+            "accounts": [
+                {
+                    "user": str(client["public_id"]),
+                    "pass": str(client["password"]),
+                }
+                for client in clients
+            ],
+            "udp": True,
+        }
+    elif inbound.protocol == "http":
+        settings = {
+            "accounts": [
+                {
+                    "user": str(client["public_id"]),
+                    "pass": str(client["password"]),
                 }
                 for client in clients
             ],
