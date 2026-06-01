@@ -398,18 +398,31 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     createHost: async (request: HostCreateRequest): Promise<HostRecord> => {
       const host: HostRecord = {
         address: request.address ?? request.hostname,
+        excluded_internal_squad_ids: request.excluded_internal_squad_ids ?? [],
+        final_mask: request.final_mask ?? null,
+        hidden: request.hidden ?? false,
         hostname: request.hostname,
         id: `host_${request.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
         inbound_tag: request.inbound_tag ?? null,
         metadata_json: request.metadata_json ?? {},
+        mihomo_x25519_public_key: request.mihomo_x25519_public_key ?? null,
+        mux_json: request.mux_json ?? {},
         name: request.name,
         node_id: request.node_id,
+        path: request.path ?? null,
         port: request.port ?? null,
         protocol_profile_id: request.protocol_profile_id ?? null,
         remark: request.remark ?? null,
+        security: request.security ?? null,
+        shuffle_host: request.shuffle_host ?? false,
+        sni: request.sni ?? null,
+        sockopt_json: request.sockopt_json ?? {},
         squad_id: request.squad_id ?? null,
         status: request.status ?? 'active',
+        subscription_excluded: request.subscription_excluded ?? false,
         tags: request.tags ?? [],
+        xhttp_json: request.xhttp_json ?? {},
+        xray_template_json: request.xray_template_json ?? {},
       }
       hosts.unshift(host)
       return host

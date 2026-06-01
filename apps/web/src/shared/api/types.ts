@@ -527,33 +527,59 @@ export type ProfileInboundListResponse = {
 
 export type HostRecord = {
   address: string | null
+  excluded_internal_squad_ids: string[]
+  final_mask: string | null
+  hidden: boolean
   hostname: string
   id: string
   inbound_tag: string | null
   metadata_json: Record<string, unknown>
+  mihomo_x25519_public_key: string | null
+  mux_json: Record<string, unknown>
   name: string
   node_id: string
+  path: string | null
   port: number | null
   protocol_profile_id: string | null
   remark: string | null
+  security: string | null
+  shuffle_host: boolean
+  sni: string | null
+  sockopt_json: Record<string, unknown>
   squad_id: string | null
   status: string
+  subscription_excluded: boolean
   tags: string[]
+  xhttp_json: Record<string, unknown>
+  xray_template_json: Record<string, unknown>
 }
 
 export type HostCreateRequest = {
   address?: string | null
+  excluded_internal_squad_ids?: string[]
+  final_mask?: string | null
+  hidden?: boolean
   hostname: string
   inbound_tag?: string | null
   metadata_json?: Record<string, unknown>
+  mihomo_x25519_public_key?: string | null
+  mux_json?: Record<string, unknown>
   name: string
   node_id: string
+  path?: string | null
   port?: number | null
   protocol_profile_id?: string | null
   remark?: string | null
+  security?: string | null
+  shuffle_host?: boolean
+  sni?: string | null
+  sockopt_json?: Record<string, unknown>
   squad_id?: string | null
   status?: string
+  subscription_excluded?: boolean
   tags?: string[]
+  xhttp_json?: Record<string, unknown>
+  xray_template_json?: Record<string, unknown>
 }
 
 export type HostUpdateRequest = Partial<HostCreateRequest>

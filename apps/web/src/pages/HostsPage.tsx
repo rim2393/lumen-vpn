@@ -45,6 +45,11 @@ export function HostsPage() {
   const [profileId, setProfileId] = useState('')
   const [squadId, setSquadId] = useState('')
   const [tags, setTags] = useState('auto-wifi')
+  const [path, setPath] = useState('')
+  const [sni, setSni] = useState('')
+  const [security, setSecurity] = useState('')
+  const [hidden, setHidden] = useState(false)
+  const [subscriptionExcluded, setSubscriptionExcluded] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedHostId, setSelectedHostId] = useState('')
@@ -68,10 +73,20 @@ export function HostsPage() {
         protocol_profile_id: profileId || null,
         squad_id: squadId || null,
         status: 'active',
+        hidden,
+        path: path.trim() || null,
+        security: security || null,
+        sni: sni.trim() || null,
+        subscription_excluded: subscriptionExcluded,
         tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
       })
       setName('')
       setHostname('')
+      setPath('')
+      setSni('')
+      setSecurity('')
+      setHidden(false)
+      setSubscriptionExcluded(false)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Host could not be created.')
     }
@@ -164,6 +179,36 @@ export function HostsPage() {
             {t('Tags')}
             <input id="host-tags" value={tags} onChange={(event) => setTags(event.target.value)} />
           </label>
+          <label htmlFor="host-path">
+            {t('Path')}
+            <input id="host-path" placeholder="/grpc, /ws, /xhttp" value={path} onChange={(event) => setPath(event.target.value)} />
+          </label>
+          <label htmlFor="host-sni">
+            {t('SNI')}
+            <input id="host-sni" value={sni} onChange={(event) => setSni(event.target.value)} />
+          </label>
+          <label htmlFor="host-security">
+            {t('Security')}
+            <select id="host-security" value={security} onChange={(event) => setSecurity(event.target.value)}>
+              <option value="">{t('Profile default')}</option>
+              <option value="none">none</option>
+              <option value="tls">tls</option>
+              <option value="reality">reality</option>
+            </select>
+          </label>
+          <label className="checkbox-line" htmlFor="host-hidden">
+            <input id="host-hidden" type="checkbox" checked={hidden} onChange={(event) => setHidden(event.target.checked)} />
+            {t('Hidden from operators')}
+          </label>
+          <label className="checkbox-line" htmlFor="host-subscription-excluded">
+            <input
+              id="host-subscription-excluded"
+              type="checkbox"
+              checked={subscriptionExcluded}
+              onChange={(event) => setSubscriptionExcluded(event.target.checked)}
+            />
+            {t('Exclude from subscriptions')}
+          </label>
           <FormError message={formError} />
           <SubmitButton pending={createHost.isPending}>{t('Add host')}</SubmitButton>
         </ScreenForm>
@@ -191,7 +236,7 @@ export function HostsPage() {
           nodes.find((node) => node.id === host.node_id)?.name ?? host.node_id,
           profiles.find((profile) => profile.id === host.protocol_profile_id)?.name ?? 'None',
           squads.find((squad) => squad.id === host.squad_id)?.name ?? 'None',
-          `${host.address ?? host.hostname}${host.port ? `:${host.port}` : ''}`,
+          `${host.address ?? host.hostname}${host.port ? `:${host.port}` : ''}${host.path ?? ''}`,
           host.tags.join(', ') || 'None',
           <StatusBadge tone={toneForStatus(host.status)}>{host.status}</StatusBadge>,
           <div className="inline-actions">
@@ -343,28 +388,51 @@ function HostEditor({
   const { t } = useI18n()
   const [draft, setDraft] = useState<HostUpdateRequest>({})
   const [metadataJson, setMetadataJson] = useState('{}')
+  const [xrayTemplateJson, setXrayTemplateJson] = useState('{}')
+  const [muxJson, setMuxJson] = useState('{}')
+  const [sockoptJson, setSockoptJson] = useState('{}')
+  const [xhttpJson, setXhttpJson] = useState('{}')
+  const [excludedSquads, setExcludedSquads] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!host) {
       setDraft({})
       setMetadataJson('{}')
+      setXrayTemplateJson('{}')
+      setMuxJson('{}')
+      setSockoptJson('{}')
+      setXhttpJson('{}')
+      setExcludedSquads('')
       return
     }
     setDraft({
       address: host.address,
+      final_mask: host.final_mask,
+      hidden: host.hidden,
       hostname: host.hostname,
       inbound_tag: host.inbound_tag,
+      mihomo_x25519_public_key: host.mihomo_x25519_public_key,
       name: host.name,
       node_id: host.node_id,
+      path: host.path,
       port: host.port,
       protocol_profile_id: host.protocol_profile_id,
       remark: host.remark,
+      security: host.security,
+      shuffle_host: host.shuffle_host,
+      sni: host.sni,
       squad_id: host.squad_id,
       status: host.status,
+      subscription_excluded: host.subscription_excluded,
       tags: host.tags,
     })
     setMetadataJson(JSON.stringify(host.metadata_json, null, 2))
+    setXrayTemplateJson(JSON.stringify(host.xray_template_json, null, 2))
+    setMuxJson(JSON.stringify(host.mux_json, null, 2))
+    setSockoptJson(JSON.stringify(host.sockopt_json, null, 2))
+    setXhttpJson(JSON.stringify(host.xhttp_json, null, 2))
+    setExcludedSquads(host.excluded_internal_squad_ids.join(', '))
   }, [host])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -381,10 +449,15 @@ function HostEditor({
       const nextPort = normalizeHostPort(draft.port, t)
       await onSave(host.id, {
         ...draft,
+        excluded_internal_squad_ids: excludedSquads.split(',').map((value) => value.trim()).filter(Boolean),
         metadata_json: parseMetadata(metadataJson),
+        mux_json: parseMetadata(muxJson),
         node_id: nextNodeId,
         port: nextPort,
+        sockopt_json: parseMetadata(sockoptJson),
         tags: draft.tags ?? [],
+        xhttp_json: parseMetadata(xhttpJson),
+        xray_template_json: parseMetadata(xrayTemplateJson),
       })
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Host could not be saved.')
@@ -439,6 +512,56 @@ function HostEditor({
         inbound_tag
         <input id="editor-host-inbound" value={draft.inbound_tag ?? ''} onChange={(event) => setDraft({ ...draft, inbound_tag: event.target.value || null })} />
       </label>
+      <label htmlFor="editor-host-path">
+        Path
+        <input id="editor-host-path" value={draft.path ?? ''} onChange={(event) => setDraft({ ...draft, path: event.target.value || null })} />
+      </label>
+      <label htmlFor="editor-host-sni">
+        SNI
+        <input id="editor-host-sni" value={draft.sni ?? ''} onChange={(event) => setDraft({ ...draft, sni: event.target.value || null })} />
+      </label>
+      <label htmlFor="editor-host-security">
+        Security
+        <select id="editor-host-security" value={draft.security ?? ''} onChange={(event) => setDraft({ ...draft, security: event.target.value || null })}>
+          <option value="">Profile default</option>
+          <option value="none">none</option>
+          <option value="tls">tls</option>
+          <option value="reality">reality</option>
+        </select>
+      </label>
+      <label htmlFor="editor-host-final-mask">
+        Final mask
+        <input id="editor-host-final-mask" value={draft.final_mask ?? ''} onChange={(event) => setDraft({ ...draft, final_mask: event.target.value || null })} />
+      </label>
+      <label htmlFor="editor-host-mihomo-x25519">
+        Mihomo X25519 public key
+        <input
+          id="editor-host-mihomo-x25519"
+          value={draft.mihomo_x25519_public_key ?? ''}
+          onChange={(event) => setDraft({ ...draft, mihomo_x25519_public_key: event.target.value || null })}
+        />
+      </label>
+      <label className="checkbox-line" htmlFor="editor-host-hidden">
+        <input id="editor-host-hidden" type="checkbox" checked={Boolean(draft.hidden)} onChange={(event) => setDraft({ ...draft, hidden: event.target.checked })} />
+        Hidden from operators
+      </label>
+      <label className="checkbox-line" htmlFor="editor-host-subscription-excluded">
+        <input
+          id="editor-host-subscription-excluded"
+          type="checkbox"
+          checked={Boolean(draft.subscription_excluded)}
+          onChange={(event) => setDraft({ ...draft, subscription_excluded: event.target.checked })}
+        />
+        Exclude from subscriptions
+      </label>
+      <label className="checkbox-line" htmlFor="editor-host-shuffle">
+        <input id="editor-host-shuffle" type="checkbox" checked={Boolean(draft.shuffle_host)} onChange={(event) => setDraft({ ...draft, shuffle_host: event.target.checked })} />
+        Shuffle host
+      </label>
+      <label htmlFor="editor-host-excluded-squads">
+        Excluded internal squad IDs
+        <input id="editor-host-excluded-squads" value={excludedSquads} onChange={(event) => setExcludedSquads(event.target.value)} />
+      </label>
       <label htmlFor="editor-host-remark">
         Remark
         <input id="editor-host-remark" value={draft.remark ?? ''} onChange={(event) => setDraft({ ...draft, remark: event.target.value || null })} />
@@ -454,6 +577,22 @@ function HostEditor({
       <label htmlFor="editor-host-metadata">
         metadata_json
         <textarea id="editor-host-metadata" rows={5} value={metadataJson} onChange={(event) => setMetadataJson(event.target.value)} />
+      </label>
+      <label htmlFor="editor-host-xray-template">
+        xray_template_json
+        <textarea id="editor-host-xray-template" rows={5} value={xrayTemplateJson} onChange={(event) => setXrayTemplateJson(event.target.value)} />
+      </label>
+      <label htmlFor="editor-host-mux">
+        mux_json
+        <textarea id="editor-host-mux" rows={4} value={muxJson} onChange={(event) => setMuxJson(event.target.value)} />
+      </label>
+      <label htmlFor="editor-host-sockopt">
+        sockopt_json
+        <textarea id="editor-host-sockopt" rows={4} value={sockoptJson} onChange={(event) => setSockoptJson(event.target.value)} />
+      </label>
+      <label htmlFor="editor-host-xhttp">
+        xhttp_json
+        <textarea id="editor-host-xhttp" rows={4} value={xhttpJson} onChange={(event) => setXhttpJson(event.target.value)} />
       </label>
       <FormError message={error} />
       <SubmitButton pending={pending || !host}>Save host</SubmitButton>

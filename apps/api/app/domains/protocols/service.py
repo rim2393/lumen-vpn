@@ -1034,6 +1034,8 @@ def _squad_host_response(host: Host) -> SquadHostResponse:
         status=host.status,
         inbound_tag=host.inbound_tag,
         port=host.port,
+        path=host.path,
+        security=host.security,
     )
 
 
@@ -1050,6 +1052,19 @@ def host_response(host: Host) -> HostResponse:
         address=host.address,
         port=host.port,
         inbound_tag=host.inbound_tag,
+        path=host.path,
+        sni=host.sni,
+        security=host.security,
+        xray_template_json=host.xray_template_json,
+        mux_json=host.mux_json,
+        sockopt_json=host.sockopt_json,
+        xhttp_json=host.xhttp_json,
+        subscription_excluded=host.subscription_excluded,
+        hidden=host.hidden,
+        excluded_internal_squad_ids=host.excluded_internal_squad_ids,
+        shuffle_host=host.shuffle_host,
+        final_mask=host.final_mask,
+        mihomo_x25519_public_key=host.mihomo_x25519_public_key,
         remark=host.remark,
         metadata_json=host.metadata_json,
     )
@@ -1232,14 +1247,75 @@ def _xray_inbound(
     *,
     runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
-    return {
-        "tag": inbound.tag,
-        "listen": inbound.listen,
-        "port": inbound.port,
-        "protocol": inbound.protocol,
-        "settings": _xray_inbound_settings(inbound, runtime_clients=runtime_clients),
-        "streamSettings": _xray_inbound_stream_settings(inbound),
-    }
+    xray_template = _primary_host_dict(inbound, "xray_template_json")
+    base = deepcopy(xray_template) if xray_template else {}
+    if not isinstance(base, dict):
+        base = {}
+    base.update(
+        {
+            "tag": inbound.tag,
+            "listen": inbound.listen,
+            "port": inbound.port,
+            "protocol": inbound.protocol,
+            "settings": _xray_inbound_settings(inbound, runtime_clients=runtime_clients),
+            "streamSettings": _xray_inbound_stream_settings(inbound),
+        }
+    )
+    return base
+
+
+def _primary_host(inbound: ProfileInboundResponse) -> ProfileInboundHostBindingResponse | None:
+    visible_hosts = [
+        host
+        for host in inbound.hosts
+        if not host.subscription_excluded and not host.hidden and host.status == "active"
+    ]
+    return visible_hosts[0] if visible_hosts else (inbound.hosts[0] if inbound.hosts else None)
+
+
+def _primary_host_dict(inbound: ProfileInboundResponse, key: str) -> dict[str, object]:
+    host = _primary_host(inbound)
+    value = getattr(host, key, None) if host is not None else None
+    return deepcopy(value) if isinstance(value, dict) else {}
+
+
+def _primary_host_string(inbound: ProfileInboundResponse, key: str) -> str | None:
+    host = _primary_host(inbound)
+    value = getattr(host, key, None) if host is not None else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _effective_inbound_transport(inbound: ProfileInboundResponse) -> str:
+    xhttp = _primary_host_dict(inbound, "xhttp_json")
+    if xhttp:
+        return "xhttp"
+    return inbound.transport
+
+
+def _effective_inbound_security(inbound: ProfileInboundResponse) -> str:
+    return _primary_host_string(inbound, "security") or inbound.security
+
+
+def _effective_config_with_host(inbound: ProfileInboundResponse) -> dict[str, object]:
+    config = deepcopy(inbound.config_json)
+    if not isinstance(config, dict):
+        config = {}
+    host_path = _primary_host_string(inbound, "path")
+    host_sni = _primary_host_string(inbound, "sni")
+    if host_path is not None:
+        config["path"] = host_path
+    if host_sni is not None:
+        config["host"] = host_sni
+        security_value = config.get("security")
+        security = deepcopy(security_value) if isinstance(security_value, dict) else {}
+        security["serverName"] = host_sni
+        config["security"] = security
+    xhttp = _primary_host_dict(inbound, "xhttp_json")
+    if xhttp:
+        config["xhttp"] = xhttp
+    return config
 
 
 def _xray_inbound_settings(
@@ -1326,21 +1402,31 @@ def _xray_inbound_settings(
 
 
 def _xray_inbound_stream_settings(inbound: ProfileInboundResponse) -> dict[str, object]:
+    transport = _effective_inbound_transport(inbound)
+    security = _effective_inbound_security(inbound)
+    config = _effective_config_with_host(inbound)
     stream: dict[str, object] = {
-        "network": inbound.transport,
-        "security": inbound.security,
+        "network": transport,
+        "security": security,
     }
+    mux = _primary_host_dict(inbound, "mux_json")
+    sockopt = _primary_host_dict(inbound, "sockopt_json")
+    if mux:
+        stream["mux"] = mux
+    if sockopt:
+        stream["sockopt"] = sockopt
     transport_settings = _xray_transport_settings(
-        inbound.transport,
-        inbound.config_json,
+        transport,
+        config,
     )
     stream.update(transport_settings)
-    security = inbound.config_json.get("security")
-    security_config = security if isinstance(security, dict) else {}
-    if inbound.security == "reality":
+    security_value = config.get("security")
+    security_config = security_value if isinstance(security_value, dict) else {}
+    if security == "reality":
         server_name = str(
             security_config.get("serverName")
             or security_config.get("server_name")
+            or _primary_host_string(inbound, "sni")
             or "www.cloudflare.com"
         )
         short_id = str(security_config.get("shortId") or security_config.get("short_id") or "")
@@ -1355,7 +1441,7 @@ def _xray_inbound_stream_settings(inbound: ProfileInboundResponse) -> dict[str, 
                 "shortIds": [short_id],
             }
         )
-    elif inbound.security == "tls":
+    elif security == "tls":
         certificates = security_config.get("certificates")
         if isinstance(certificates, list) and certificates:
             stream["tlsSettings"] = {"certificates": certificates}
@@ -1386,12 +1472,14 @@ def _xray_transport_settings(
             )
         }
     if transport == "xhttp":
+        xhttp_config = config.get("xhttp") if isinstance(config.get("xhttp"), dict) else {}
         return {
             "xhttpSettings": _compact_object(
                 {
                     "path": path,
                     "host": str(host) if host else None,
-                    "mode": str(config.get("mode") or "auto"),
+                    "mode": str(xhttp_config.get("mode") or config.get("mode") or "auto"),
+                    **xhttp_config,
                 }
             )
         }
@@ -2205,6 +2293,17 @@ def _host_binding_response(host: Host) -> ProfileInboundHostBindingResponse:
         address=host.address,
         port=host.port,
         inbound_tag=host.inbound_tag,
+        path=host.path,
+        sni=host.sni,
+        security=host.security,
+        xray_template_json=host.xray_template_json,
+        mux_json=host.mux_json,
+        sockopt_json=host.sockopt_json,
+        xhttp_json=host.xhttp_json,
+        subscription_excluded=host.subscription_excluded,
+        hidden=host.hidden,
+        final_mask=host.final_mask,
+        mihomo_x25519_public_key=host.mihomo_x25519_public_key,
         status=host.status,
         tags=host.tags,
         remark=host.remark,

@@ -132,6 +132,17 @@ class ProfileInboundHostBindingResponse(BaseModel):
     address: str | None
     port: int | None
     inbound_tag: str | None
+    path: str | None
+    sni: str | None
+    security: str | None
+    xray_template_json: dict[str, object]
+    mux_json: dict[str, object]
+    sockopt_json: dict[str, object]
+    xhttp_json: dict[str, object]
+    subscription_excluded: bool
+    hidden: bool
+    final_mask: str | None
+    mihomo_x25519_public_key: str | None
     status: str
     tags: list[str]
     remark: str | None
@@ -231,6 +242,8 @@ class SquadHostResponse(BaseModel):
     status: str
     inbound_tag: str | None
     port: int | None
+    path: str | None
+    security: str | None
 
 
 class SquadDetailResponse(BaseModel):
@@ -267,6 +280,19 @@ class HostCreateRequest(BaseModel):
     address: str | None = Field(default=None, max_length=255)
     port: int | None = Field(default=None, ge=1, le=65535)
     inbound_tag: str | None = Field(default=None, max_length=128)
+    path: str | None = Field(default=None, max_length=512)
+    sni: str | None = Field(default=None, max_length=255)
+    security: str | None = Field(default=None, max_length=64)
+    xray_template_json: dict[str, object] = Field(default_factory=dict)
+    mux_json: dict[str, object] = Field(default_factory=dict)
+    sockopt_json: dict[str, object] = Field(default_factory=dict)
+    xhttp_json: dict[str, object] = Field(default_factory=dict)
+    subscription_excluded: bool = False
+    hidden: bool = False
+    excluded_internal_squad_ids: list[str] = Field(default_factory=list)
+    shuffle_host: bool = False
+    final_mask: str | None = Field(default=None, max_length=255)
+    mihomo_x25519_public_key: str | None = Field(default=None, max_length=128)
     remark: str | None = Field(default=None, max_length=255)
     metadata_json: dict[str, object] = Field(default_factory=dict)
 
@@ -283,6 +309,19 @@ class HostResponse(BaseModel):
     address: str | None
     port: int | None
     inbound_tag: str | None
+    path: str | None
+    sni: str | None
+    security: str | None
+    xray_template_json: dict[str, object]
+    mux_json: dict[str, object]
+    sockopt_json: dict[str, object]
+    xhttp_json: dict[str, object]
+    subscription_excluded: bool
+    hidden: bool
+    excluded_internal_squad_ids: list[str]
+    shuffle_host: bool
+    final_mask: str | None
+    mihomo_x25519_public_key: str | None
     remark: str | None
     metadata_json: dict[str, object]
 
@@ -300,6 +339,19 @@ class HostUpdateRequest(BaseModel):
     address: str | None = Field(default=None, max_length=255)
     port: int | None = Field(default=None, ge=1, le=65535)
     inbound_tag: str | None = Field(default=None, max_length=128)
+    path: str | None = Field(default=None, max_length=512)
+    sni: str | None = Field(default=None, max_length=255)
+    security: str | None = Field(default=None, max_length=64)
+    xray_template_json: dict[str, object] | None = None
+    mux_json: dict[str, object] | None = None
+    sockopt_json: dict[str, object] | None = None
+    xhttp_json: dict[str, object] | None = None
+    subscription_excluded: bool | None = None
+    hidden: bool | None = None
+    excluded_internal_squad_ids: list[str] | None = None
+    shuffle_host: bool | None = None
+    final_mask: str | None = Field(default=None, max_length=255)
+    mihomo_x25519_public_key: str | None = Field(default=None, max_length=128)
     remark: str | None = Field(default=None, max_length=255)
     metadata_json: dict[str, object] | None = None
 

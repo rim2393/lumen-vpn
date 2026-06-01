@@ -595,24 +595,58 @@ async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRout
             "address": "203.0.113.99",
             "port": 9443,
             "inbound_tag": "VLESS_REALITY",
+            "path": "/xhttp",
+            "sni": "front.example.test",
+            "security": "reality",
+            "xray_template_json": {"streamSettings": {"network": "xhttp"}},
+            "mux_json": {"enabled": True, "concurrency": 8},
+            "sockopt_json": {"tcpFastOpen": True},
+            "xhttp_json": {"mode": "packet-up"},
+            "subscription_excluded": True,
+            "hidden": True,
+            "excluded_internal_squad_ids": [squad_id],
+            "shuffle_host": True,
+            "final_mask": "mask.example.test",
+            "mihomo_x25519_public_key": "x25519-public-test",
             "remark": "Visible in subscription",
             "tags": ["reality"],
         },
     )
     assert host_response.status_code == 201
-    host_id = host_response.json()["id"]
+    host_payload = host_response.json()
+    host_id = host_payload["id"]
+    assert host_payload["path"] == "/xhttp"
+    assert host_payload["sni"] == "front.example.test"
+    assert host_payload["security"] == "reality"
+    assert host_payload["xhttp_json"] == {"mode": "packet-up"}
+    assert host_payload["subscription_excluded"] is True
+    assert host_payload["hidden"] is True
+    assert host_payload["excluded_internal_squad_ids"] == [squad_id]
+    assert host_payload["shuffle_host"] is True
+    assert host_payload["final_mask"] == "mask.example.test"
+    assert host_payload["mihomo_x25519_public_key"] == "x25519-public-test"
 
     patch_host_response = await foundation_app.client.patch(
         f"/api/v1/hosts/{host_id}",
-        json={"status": "disabled", "remark": "Temporarily hidden"},
+        json={
+            "status": "disabled",
+            "remark": "Temporarily hidden",
+            "path": "/grpc",
+            "xhttp_json": {"mode": "stream-up"},
+            "subscription_excluded": False,
+        },
     )
     assert patch_host_response.status_code == 200
     assert patch_host_response.json()["status"] == "disabled"
     assert patch_host_response.json()["remark"] == "Temporarily hidden"
+    assert patch_host_response.json()["path"] == "/grpc"
+    assert patch_host_response.json()["xhttp_json"] == {"mode": "stream-up"}
+    assert patch_host_response.json()["subscription_excluded"] is False
 
     compat_hosts_response = await foundation_app.client.get("/api/hosts")
     assert compat_hosts_response.status_code == 200
     assert compat_hosts_response.json()["items"][0]["name"] == "Parity Host"
+    assert compat_hosts_response.json()["items"][0]["path"] == "/grpc"
 
 
 async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
@@ -649,6 +683,12 @@ async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
             "address": "203.0.113.77",
             "port": 2443,
             "inbound_tag": "COMPUTED_REALITY",
+            "path": "/real-xhttp",
+            "sni": "host-front.example.test",
+            "security": "reality",
+            "mux_json": {"enabled": True},
+            "sockopt_json": {"tcpFastOpen": True},
+            "xhttp_json": {"mode": "stream-up", "extra": "host-level"},
             "remark": "Bound to computed profile",
             "tags": ["computed"],
         },
@@ -673,6 +713,9 @@ async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
     assert inbound["credentials_ref"] == "vault://protocols/computed-reality"
     assert inbound["hosts"][0]["hostname"] == "computed.example.test"
     assert inbound["hosts"][0]["address"] == "203.0.113.77"
+    assert inbound["hosts"][0]["path"] == "/real-xhttp"
+    assert inbound["hosts"][0]["sni"] == "host-front.example.test"
+    assert inbound["hosts"][0]["xhttp_json"] == {"mode": "stream-up", "extra": "host-level"}
 
     global_inbounds_response = await foundation_app.client.get("/api/v1/profiles/inbounds")
     assert global_inbounds_response.status_code == 200
@@ -696,10 +739,18 @@ async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
         "vault://protocols/computed-reality"
     )
     stream_settings = computed_config["inbounds"][0]["streamSettings"]
-    assert stream_settings["network"] == "tcp"
+    assert stream_settings["network"] == "xhttp"
     assert stream_settings["security"] == "reality"
-    assert stream_settings["realitySettings"]["dest"] == "www.example.com:443"
-    assert stream_settings["realitySettings"]["serverNames"] == ["www.example.com"]
+    assert stream_settings["xhttpSettings"] == {
+        "path": "/real-xhttp",
+        "host": "host-front.example.test",
+        "mode": "stream-up",
+        "extra": "host-level",
+    }
+    assert stream_settings["realitySettings"]["serverNames"] == ["host-front.example.test"]
+    assert stream_settings["mux"] == {"enabled": True}
+    assert stream_settings["sockopt"] == {"tcpFastOpen": True}
+    assert stream_settings["realitySettings"]["dest"] == "host-front.example.test:443"
 
 
 async def test_host_bulk_actions_and_reorder_are_persisted(
