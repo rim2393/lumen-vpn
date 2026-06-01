@@ -237,6 +237,78 @@ export function SquadsPage() {
           <article className="panel">
             <div className="panel__header">
               <div>
+                <p className="eyebrow">{t('Squad nodes')}</p>
+                <h2>{t('{count} nodes', { count: detailQuery.data?.nodes.length ?? 0 })}</h2>
+              </div>
+            </div>
+            <div className="resource-list">
+              {(detailQuery.data?.nodes ?? []).map((node) => (
+                <div key={node.id} className="resource-list__item">
+                  <span>{node.name}</span>
+                  <small>
+                    {node.region} | {node.public_address} | {node.status}
+                  </small>
+                </div>
+              ))}
+              {detailQuery.data?.nodes.length === 0 && (
+                <div className="resource-list__item">
+                  <span>{t('No accessible nodes')}</span>
+                  <small>{t('Attach profiles or hosts to expose node access for this squad.')}</small>
+                </div>
+              )}
+            </div>
+          </article>
+          <article className="panel">
+            <div className="panel__header">
+              <div>
+                <p className="eyebrow">{t('Squad profiles')}</p>
+                <h2>{t('{count} profiles', { count: detailQuery.data?.profiles.length ?? 0 })}</h2>
+              </div>
+            </div>
+            <div className="resource-list">
+              {(detailQuery.data?.profiles ?? []).map((profile) => (
+                <div key={profile.id} className="resource-list__item">
+                  <span>{profile.name}</span>
+                  <small>
+                    {profile.adapter} | {profile.status} | {formatTags(profile.inbounds)}
+                  </small>
+                </div>
+              ))}
+              {detailQuery.data?.profiles.length === 0 && (
+                <div className="resource-list__item">
+                  <span>{t('No profiles')}</span>
+                  <small>{t('Assign protocol profiles to this squad to publish subscriptions.')}</small>
+                </div>
+              )}
+            </div>
+          </article>
+          <article className="panel">
+            <div className="panel__header">
+              <div>
+                <p className="eyebrow">{t('Squad hosts')}</p>
+                <h2>{t('{count} hosts', { count: detailQuery.data?.hosts.length ?? 0 })}</h2>
+              </div>
+            </div>
+            <div className="resource-list">
+              {(detailQuery.data?.hosts ?? []).map((host) => (
+                <div key={host.id} className="resource-list__item">
+                  <span>{host.hostname}</span>
+                  <small>
+                    {host.name} | {host.inbound_tag ?? 'no inbound'} | {host.port ?? 'auto'} | {host.status}
+                  </small>
+                </div>
+              ))}
+              {detailQuery.data?.hosts.length === 0 && (
+                <div className="resource-list__item">
+                  <span>{t('No hosts')}</span>
+                  <small>{t('Bind hosts to profiles when this squad needs public routes.')}</small>
+                </div>
+              )}
+            </div>
+          </article>
+          <article className="panel">
+            <div className="panel__header">
+              <div>
                 <p className="eyebrow">{t('Access matrix')}</p>
                 <h2>{t('{count} inbounds', { count: detailQuery.data?.inbound_matrix.length ?? 0 })}</h2>
               </div>
@@ -245,9 +317,18 @@ export function SquadsPage() {
               {(detailQuery.data?.inbound_matrix ?? []).map((inbound) => (
                 <div key={`${inbound.profile_id}-${inbound.tag}`} className="resource-list__item">
                   <span>{inbound.tag}</span>
-                  <small>{inbound.node_name} : {inbound.port}</small>
+                  <small>
+                    {inbound.profile_name} | {inbound.node_name} | {inbound.protocol}/{inbound.transport}/
+                    {inbound.security} | {inbound.listen}:{inbound.port} | {inbound.status}
+                  </small>
                 </div>
               ))}
+              {detailQuery.data?.inbound_matrix.length === 0 && (
+                <div className="resource-list__item">
+                  <span>{t('No inbounds')}</span>
+                  <small>{t('Runtime inbounds appear here after profiles are linked to this squad.')}</small>
+                </div>
+              )}
             </div>
           </article>
         </div>
@@ -369,4 +450,8 @@ function parseMetadata(value: string): Record<string, unknown> {
     throw new Error('metadata_json must be a JSON object.')
   }
   return parsed as Record<string, unknown>
+}
+
+function formatTags(values: string[]): string {
+  return values.length > 0 ? values.join(', ') : 'no inbounds'
 }

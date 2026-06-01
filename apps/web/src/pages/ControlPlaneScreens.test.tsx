@@ -6,6 +6,7 @@ import type {
   LumenApiClient,
   SettingUpdateRequest,
   SquadCreateRequest,
+  SquadDetailResponse,
   UserRecord,
 } from '../shared/api/types'
 import { developmentSession } from '../shared/data/developmentFixtures'
@@ -691,6 +692,94 @@ describe('Control plane resource screens', () => {
       metadata_json: { channel: 'canary', hwid_limit: '2' },
       name: 'Canary',
     })
+  })
+
+  it('renders squad detail nodes profiles hosts and inbounds from the detail API contract', async () => {
+    const detail: SquadDetailResponse = {
+      hosts: [
+        {
+          hostname: 'detail.example.test',
+          id: 'host_detail',
+          inbound_tag: 'DETAIL_INBOUND',
+          name: 'Detail host',
+          node_id: 'node_detail',
+          port: 443,
+          protocol_profile_id: 'profile_detail',
+          status: 'active',
+        },
+      ],
+      inbound_matrix: [
+        {
+          adapter: 'xray-core',
+          config_json: { flow: 'xtls-rprx-vision' },
+          credentials_ref: 'vault://detail',
+          hosts: [],
+          listen: '0.0.0.0',
+          node_id: 'node_detail',
+          node_name: 'node-eu-1',
+          port: 443,
+          profile_id: 'profile_detail',
+          profile_name: 'detail-profile',
+          protocol: 'vless',
+          security: 'reality',
+          status: 'active',
+          tag: 'DETAIL_INBOUND',
+          transport: 'tcp',
+        },
+      ],
+      nodes: [
+        {
+          id: 'node_detail',
+          name: 'node-eu-1',
+          public_address: '203.0.113.10',
+          region: 'eu',
+          status: 'active',
+        },
+      ],
+      profiles: [
+        {
+          adapter: 'xray-core',
+          id: 'profile_detail',
+          inbounds: ['DETAIL_INBOUND'],
+          name: 'detail-profile',
+          node_id: 'node_detail',
+          status: 'active',
+        },
+      ],
+      squad: {
+        id: 'squad_detail',
+        kind: 'internal',
+        metadata_json: { user_ids: ['usr_detail'] },
+        name: 'Detail squad',
+        status: 'active',
+      },
+      users: [
+        {
+          display_name: 'Detail User',
+          email: 'detail-user@lumen.local',
+          id: 'usr_detail',
+          status: 'active',
+          tags: ['qa'],
+          username: 'detail-user',
+        },
+      ],
+    }
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      getSquadDetail: async () => detail,
+      listSquads: async () => ({ items: [detail.squad] }),
+      listUsers: async () => ({ items: [] }),
+    }
+
+    renderWithRouter('/squads', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('table', { name: /squad inventory/i })).toBeInTheDocument()
+    expect(await screen.findByText('detail-user')).toBeInTheDocument()
+    expect(screen.getByText('node-eu-1')).toBeInTheDocument()
+    expect(screen.getByText('detail-profile')).toBeInTheDocument()
+    expect(screen.getByText('detail.example.test')).toBeInTheDocument()
+    expect(screen.getAllByText('DETAIL_INBOUND').length).toBeGreaterThan(0)
+    expect(screen.getByText(/vless\/tcp\/reality/i)).toBeInTheDocument()
   })
 
   it('updates settings without accepting secret-like keys', async () => {
