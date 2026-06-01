@@ -1,13 +1,13 @@
 # Continuation Checkpoint
 
-Last audited: 2026-06-01 15:58 Europe/Moscow.
+Last audited: 2026-06-01 17:10 Europe/Moscow.
 
 ## Current Working Copy
 
 - Repo: `D:\android-app-new\_work\full-revna-like-projekt`
-- Main branch state: clean after `e38f2ae Apply node policies to sing-box runtimes`.
-- Current signed production manifest: `v0.1.41`.
-- Live production panel and node were validated on `v0.1.41` through the official closed-image, public signed manifest, and public node installer flow.
+- Main branch state: clean after `340d87b Tolerate host-managed IP forwarding`.
+- Current signed production manifest: `v0.1.49`.
+- Live production panel and node were validated on `v0.1.49` through the official closed-image, public signed manifest, and public node installer flow.
 - 5.3 added backend domains/routes/migrations for:
   - `metrics`
   - `ip_control`
@@ -42,6 +42,7 @@ Last audited: 2026-06-01 15:58 Europe/Moscow.
   - `v0.1.39` added node-agent runtime log telemetry from real policy files and persisted offsets.
   - `v0.1.40` added Xray inbound sniffing for torrent-blocker enforcement and live-validated blackhole routing plus `xray -test`.
   - `v0.1.41` added sing-box policy enforcement for Hysteria2, TUIC, NaiveProxy, and sing-box Shadowsocks 2022. Live validation applied a real `shadowsocks-2022` profile with the global torrent-blocker policy, confirmed the generated sing-box config contains a `block` outbound plus `route.rules[0].protocol=["bittorrent"]`, passed `sing-box check -c`, and confirmed the live TCP listener.
+  - `v0.1.49` completed the first real direct OpenVPN UDP runtime slice. The node-agent image contains OpenVPN, public node compose mounts `/dev/net/tun`, installer persists host `net.ipv4.ip_forward=1`, backend generates per-profile OpenVPN PKI and concrete subscription username/password runtime users, public Happ/raw render emits a real `.ovpn`, and node-agent starts a managed OpenVPN process instead of returning scaffold/dry-run status. Live validation on the real panel/node reapplied the real OpenVPN profile on UDP `24103`, confirmed a live UDP listener, confirmed one idempotent NAT MASQUERADE rule for `10.90.3.0/24`, confirmed auth script execution as `nobody`, and connected a disposable OpenVPN client container through the rendered subscription to `Initialization Sequence Completed`.
   - CI fix `16aa332`: branch push image builds no longer dispatch the public installer/prod deploy pipeline. Only workflow dispatch/tag releases should change `release/prod.json`.
 - 2026-06-01 Clash/Mihomo Android pass:
   - supported Clash aliases now become concrete runtime profiles: `hy2` -> Hysteria2, TUIC hyphen fields -> runtime keys, SOCKS4/SOCKS4A version preserved, packet-encoding normalized.
@@ -61,8 +62,10 @@ Last audited: 2026-06-01 15:58 Europe/Moscow.
 - Node-agent gate after runtime telemetry: `node --test`, 86 passed.
 - API gate after Xray sniffing enforcement: full API `pytest tests`, 142 passed; focused ruff clean.
 - Node-agent gate after sing-box policy enforcement: `node --test`, 90 passed.
+- Node-agent gate after managed OpenVPN fixes: `node --test`, 93 passed.
 - Live prod evidence after `v0.1.40`: panel `LUMEN_VERSION=v0.1.40`, node-agent image pinned to `v0.1.40`, HTTP-proxy profile apply succeeded with `dryRun=false`, Xray config contains `blackhole`, `protocol=["bittorrent"]`, sniffing on all active inbounds, and `xray -test` passed.
 - Live prod evidence after `v0.1.41`: panel `LUMEN_VERSION=v0.1.41`, node-agent image pinned to `v0.1.41`, `shadowsocks-2022` profile apply succeeded with `dryRun=false`, node policy applied, generated sing-box Shadowsocks config contains the policy block route, `sing-box check -c` passed against the live config, and TCP `24081` listened on the node.
+- Live prod evidence after `v0.1.49`: panel `LUMEN_VERSION=v0.1.49`, node-agent image pinned to `v0.1.49`, public installer persisted host IP forwarding, direct OpenVPN UDP profile apply succeeded with `dryRun=false`, node listened on UDP `24103`, OpenVPN auth files were readable/executable by the dropped `nobody` user without exposing raw credentials, NAT had exactly one `10.90.3.0/24` MASQUERADE rule after repeated apply, and a disposable OpenVPN client connected from the panel VPS using the rendered subscription.
 - Alembic heads: single head `0008_infra_billing`.
 
 ## Fixes Applied During Audit
