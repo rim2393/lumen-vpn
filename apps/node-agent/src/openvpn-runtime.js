@@ -370,6 +370,7 @@ export async function ensureManagedOpenVpnProcess(input = {}) {
   const binary = env.LUMEN_OPENVPN_BINARY ?? DEFAULT_OPENVPN_BINARY;
   const logPath = env.LUMEN_OPENVPN_LOG_FILE ?? DEFAULT_OPENVPN_LOG_FILE;
   const pidFile = env.LUMEN_OPENVPN_PID_FILE ?? DEFAULT_OPENVPN_PID_FILE;
+  ensureDroppedUserCanTraverse(dirname(configPath));
   await runExecFile(input.execFileImpl, binary, ["--version"]);
   const pid = readPid(pidFile);
   if (isPidRunning(pid)) {
