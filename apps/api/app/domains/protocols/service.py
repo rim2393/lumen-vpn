@@ -1892,6 +1892,7 @@ def _apply_xray_policy(
         existing_rules = []
     routing["rules"] = blocking_rules + existing_rules
     next_config["routing"] = routing
+    next_config["inbounds"] = _xray_inbounds_with_policy_sniffing(next_config.get("inbounds"))
     return next_config
 
 
@@ -1935,6 +1936,33 @@ def _xray_blocking_rules_from_plugins(plugins: list[object]) -> list[dict[str, o
                     }
                 )
     return rules
+
+
+def _xray_inbounds_with_policy_sniffing(value: object) -> list[object]:
+    if not isinstance(value, list):
+        return []
+    next_inbounds: list[object] = []
+    for inbound in value:
+        if not isinstance(inbound, dict):
+            next_inbounds.append(deepcopy(inbound))
+            continue
+        next_inbound = deepcopy(inbound)
+        sniffing = next_inbound.get("sniffing")
+        sniffing_config = deepcopy(sniffing) if isinstance(sniffing, dict) else {}
+        existing_dest_override = _string_list(sniffing_config.get("destOverride"))
+        for protocol in ("http", "tls", "quic"):
+            if protocol not in existing_dest_override:
+                existing_dest_override.append(protocol)
+        sniffing_config.update(
+            {
+                "enabled": True,
+                "destOverride": existing_dest_override,
+                "routeOnly": True,
+            }
+        )
+        next_inbound["sniffing"] = sniffing_config
+        next_inbounds.append(next_inbound)
+    return next_inbounds
 
 
 def _string_list(value: object) -> list[str]:

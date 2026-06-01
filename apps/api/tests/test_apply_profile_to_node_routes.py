@@ -188,6 +188,11 @@ async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
         assert {"tag": "blocked", "protocol": "blackhole"} in xray_config["outbounds"]
         assert xray_config["routing"]["rules"][0]["protocol"] == ["bittorrent"]
         assert xray_config["routing"]["rules"][0]["outboundTag"] == "blocked"
+        assert xray_config["inbounds"][0]["sniffing"] == {
+            "enabled": True,
+            "destOverride": ["http", "tls", "quic"],
+            "routeOnly": True,
+        }
 
 
 async def test_apply_xray_profile_keeps_other_active_xray_inbounds_on_same_node(
