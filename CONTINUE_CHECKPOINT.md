@@ -47,7 +47,7 @@ Last audited: 2026-06-01 17:10 Europe/Moscow.
   - `v0.1.40` added Xray inbound sniffing for torrent-blocker enforcement and live-validated blackhole routing plus `xray -test`.
   - `v0.1.41` added sing-box policy enforcement for Hysteria2, TUIC, NaiveProxy, and sing-box Shadowsocks 2022. Live validation applied a real `shadowsocks-2022` profile with the global torrent-blocker policy, confirmed the generated sing-box config contains a `block` outbound plus `route.rules[0].protocol=["bittorrent"]`, passed `sing-box check -c`, and confirmed the live TCP listener.
   - `v0.1.49` completed the first real direct OpenVPN UDP runtime slice. The node-agent image contains OpenVPN, public node compose mounts `/dev/net/tun`, installer persists host `net.ipv4.ip_forward=1`, backend generates per-profile OpenVPN PKI and concrete subscription username/password runtime users, public Happ/raw render emits a real `.ovpn`, and node-agent starts a managed OpenVPN process instead of returning scaffold/dry-run status. Live validation on the real panel/node reapplied the real OpenVPN profile on UDP `24103`, confirmed a live UDP listener, confirmed one idempotent NAT MASQUERADE rule for `10.90.3.0/24`, confirmed auth script execution as `nobody`, and connected a disposable OpenVPN client container through the rendered subscription to `Initialization Sequence Completed`.
-  - Unreleased OpenVPN-over-Shadowsocks slice: added `openvpn-shadowsocks` catalog/profile payload support, a dedicated `openvpnShadowsocksConfig` node payload, node-agent managed runtime that starts OpenVPN TCP on loopback plus public `ssserver`, Lumen native/raw `.ovpn` render support with `socks-proxy`, and explicit rejection for generic sing-box/Mihomo/Xray exports that cannot honestly represent the two-layer client path.
+  - Unreleased OpenVPN-over-Shadowsocks slice: added `openvpn-shadowsocks` catalog/profile payload support, a dedicated `openvpnShadowsocksConfig` node payload, node command validator support, node-agent managed runtime that starts OpenVPN TCP on loopback plus public `ssserver`, Lumen native/raw `.ovpn` render support with `socks-proxy`, and explicit rejection for generic sing-box/Mihomo/Xray exports that cannot honestly represent the two-layer client path.
   - CI fix `16aa332`: branch push image builds no longer dispatch the public installer/prod deploy pipeline. Only workflow dispatch/tag releases should change `release/prod.json`.
 - 2026-06-01 Clash/Mihomo Android pass:
   - supported Clash aliases now become concrete runtime profiles: `hy2` -> Hysteria2, TUIC hyphen fields -> runtime keys, SOCKS4/SOCKS4A version preserved, packet-encoding normalized.
@@ -68,7 +68,7 @@ Last audited: 2026-06-01 17:10 Europe/Moscow.
 - API gate after Xray sniffing enforcement: full API `pytest tests`, 142 passed; focused ruff clean.
 - Node-agent gate after sing-box policy enforcement: `node --test`, 90 passed.
 - Node-agent gate after managed OpenVPN fixes: `node --test`, 93 passed.
-- Local unreleased OpenVPN-over-Shadowsocks gates: API full `pytest tests`, 145
+- Local unreleased OpenVPN-over-Shadowsocks gates: API full `pytest tests`, 146
   passed and 2 skipped; node-agent full `node --test`, 96 passed; scoped ruff
   on changed API files passed; protocol-registry, subscription-schema, and
   subscription-renderers package tests passed.

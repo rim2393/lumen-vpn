@@ -96,6 +96,40 @@ def test_outbound_apply_accepts_openvpn_live_payload() -> None:
     )
 
 
+def test_outbound_apply_accepts_openvpn_shadowsocks_live_payload() -> None:
+    ensure_supported_node_command(
+        NodeCommandCreateRequest(
+            command_type="outbound.apply",
+            payload_json={
+                "adapter": "openvpn-shadowsocks",
+                "openvpnShadowsocksConfig": {
+                    "openvpn": {
+                        "listen_port": 24194,
+                        "proto": "tcp-server",
+                        "local_address": "127.0.0.1",
+                        "network": "10.89.0.0/24",
+                        "pki": {
+                            "ca_cert": "-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----",
+                            "server_cert": (
+                                "-----BEGIN CERTIFICATE-----\nserver\n-----END CERTIFICATE-----"
+                            ),
+                            "server_key": (
+                                "-----BEGIN PRIVATE KEY-----\nserver\n-----END PRIVATE KEY-----"
+                            ),
+                        },
+                        "users": [{"username": "lumen_sub_live", "password": "pass"}],
+                    },
+                    "shadowsocks": {
+                        "listen_port": 28443,
+                        "method": "aes-256-gcm",
+                        "password": "pass",
+                    },
+                },
+            },
+        )
+    )
+
+
 async def test_create_provisioning_job_is_idempotent_and_stores_credential_reference_only(
     db_session: tuple[AsyncSession, Settings],
 ) -> None:
