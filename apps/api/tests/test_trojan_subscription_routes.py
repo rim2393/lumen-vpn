@@ -381,6 +381,78 @@ async def test_wireguard_subscription_renders_structured_formats(
     assert xray.json()["outbounds"][0]["protocol"] == "wireguard"
 
 
+@pytest.mark.parametrize(
+    ("protocol", "adapter", "port", "raw_prefix", "sing_box_type", "xray_protocol", "mihomo_type"),
+    [
+        ("socks5", "socks5", "1080", "socks5://", "socks", "socks", "socks5"),
+        ("http-proxy", "http-proxy", "8080", "http://", "http", "http", "http"),
+    ],
+)
+async def test_proxy_subscriptions_render_client_formats(
+    route_app: RouteTestApp,
+    protocol: str,
+    adapter: str,
+    port: str,
+    raw_prefix: str,
+    sing_box_type: str,
+    xray_protocol: str,
+    mihomo_type: str,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    create = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": protocol,
+                "adapter": adapter,
+                "profile_title": f"Lumen {protocol}",
+                "port": port,
+            },
+            "config_hash": f"sha256:{protocol}",
+        },
+    )
+    assert create.status_code == 201, create.text
+    public_id = create.json()["public_id"]
+
+    raw = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=happ",
+    )
+    assert raw.status_code == 200, raw.text
+    assert raw.text.startswith(raw_prefix)
+    assert f":{port}" in raw.text
+    assert "%3A" not in raw.text.split("@", maxsplit=1)[0]
+
+    sing_box = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
+    )
+    assert sing_box.status_code == 200
+    outbound = sing_box.json()["outbounds"][0]
+    assert outbound["type"] == sing_box_type
+    assert outbound["username"] == public_id
+    assert outbound["password"]
+    if protocol == "socks5":
+        assert outbound["version"] == "5"
+
+    xray = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=amnezia",
+    )
+    assert xray.status_code == 200
+    outbound = xray.json()["outbounds"][0]
+    assert outbound["protocol"] == xray_protocol
+    assert outbound["settings"]["servers"][0]["users"][0]["user"] == public_id
+    assert outbound["settings"]["servers"][0]["users"][0]["pass"]
+
+    mihomo = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=mihomo",
+    )
+    assert mihomo.status_code == 200
+    assert f'type: "{mihomo_type}"' in mihomo.text
+    assert f'username: "{public_id}"' in mihomo.text
+
+
 async def test_unsupported_protocol_is_still_rejected(route_app: RouteTestApp) -> None:
     user, license_record, node = await _seed(route_app)
     response = await route_app.client.post(

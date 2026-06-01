@@ -47,6 +47,8 @@ RENDERABLE_PROTOCOL_PREFIXES = (
     "hysteria2",
     "tuic",
     "wireguard",
+    "socks",
+    "http",
 )
 
 

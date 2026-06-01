@@ -280,6 +280,20 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
             f"?{urlencode(query)}#{quote(label)}"
         )
 
+    if protocol_type == "socks":
+        userinfo = (
+            f"{quote(protocol_username(entry), safe='')}:"
+            f"{quote(credentials.password, safe='')}"
+        )
+        return build_uri("socks5", userinfo, protocol, {}, label)
+
+    if protocol_type == "http":
+        userinfo = (
+            f"{quote(protocol_username(entry), safe='')}:"
+            f"{quote(credentials.password, safe='')}"
+        )
+        return build_uri("http", userinfo, protocol, {}, label)
+
     # WireGuard/AmneziaWG have no universal single-line share URI; they are only
     # emitted in the structured client formats (sing-box / mihomo / xray-json).
     return None
@@ -296,7 +310,7 @@ def build_uri(
     query_string = urlencode({key: value for key, value in query.items() if value is not None})
     suffix = f"?{query_string}" if query_string else ""
     return (
-        f"{scheme}://{quote(userinfo, safe='')}@{endpoint['host']}:{endpoint['port']}"
+        f"{scheme}://{quote(userinfo, safe=':')}@{endpoint['host']}:{endpoint['port']}"
         f"{suffix}#{quote(label)}"
     )
 
@@ -431,6 +445,26 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
             base["mtu"] = hints["mtu"]
         return base
 
+    if protocol_type == "socks":
+        base.update(
+            {
+                "type": "socks5",
+                "username": protocol_username(entry),
+                "password": credentials.password,
+                "udp": True,
+            }
+        )
+        return base
+
+    if protocol_type == "http":
+        base.update(
+            {
+                "username": protocol_username(entry),
+                "password": credentials.password,
+            }
+        )
+        return base
+
     return None
 
 
@@ -546,6 +580,19 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
                 "mtu": hints.get("mtu"),
             }
         )
+        return compact_object(base)
+    if protocol_type == "socks":
+        base.update(
+            {
+                "type": "socks",
+                "version": "5",
+                "username": protocol_username(entry),
+                "password": credentials.password,
+            }
+        )
+        return compact_object(base)
+    if protocol_type == "http":
+        base.update({"username": protocol_username(entry), "password": credentials.password})
         return compact_object(base)
     return None
 
@@ -717,6 +764,46 @@ def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any
             }
         )
 
+    if protocol_type == "socks":
+        return {
+            "tag": node_label(entry),
+            "protocol": "socks",
+            "settings": {
+                "servers": [
+                    {
+                        "address": protocol["endpoint"]["host"],
+                        "port": protocol["endpoint"]["port"],
+                        "users": [
+                            {
+                                "user": protocol_username(entry),
+                                "pass": credentials.password,
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+    if protocol_type == "http":
+        return {
+            "tag": node_label(entry),
+            "protocol": "http",
+            "settings": {
+                "servers": [
+                    {
+                        "address": protocol["endpoint"]["host"],
+                        "port": protocol["endpoint"]["port"],
+                        "users": [
+                            {
+                                "user": protocol_username(entry),
+                                "pass": credentials.password,
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
     return None
 
 
@@ -862,7 +949,18 @@ def normalize_protocol_type(value: object) -> str:
         return "tuic"
     if raw.startswith("wireguard"):
         return "wireguard"
+    if raw.startswith("socks"):
+        return "socks"
+    if raw.startswith("http"):
+        return "http"
     return raw
+
+
+def protocol_username(entry: dict[str, Any]) -> str:
+    manifest = entry.get("manifest", {})
+    subscription = manifest.get("subscription", {}) if isinstance(manifest, dict) else {}
+    value = subscription.get("id")
+    return str(value or "lumen")
 
 
 def network_type(protocol: dict[str, Any]) -> str:
