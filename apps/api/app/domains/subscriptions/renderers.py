@@ -49,6 +49,24 @@ RAW_URI_TARGETS = frozenset(
     {"raw-uri", "v2ray", "v2rayn", "v2rayng", "streisand", "shadowrocket", "hiddify", "happ"}
 )
 XRAY_TARGETS = frozenset({"xray-json", "amnezia"})
+AMNEZIA_WG_KEYS = (
+    "Jc",
+    "Jmin",
+    "Jmax",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "I1",
+    "I2",
+    "I3",
+    "I4",
+    "I5",
+)
 
 
 @dataclass(frozen=True)
@@ -321,6 +339,9 @@ def render_wireguard_conf(entry: dict[str, Any], *, credentials: ClientCredentia
         lines.append(f"DNS = {hints['dns']}")
     if hints.get("mtu"):
         lines.append(f"MTU = {hints['mtu']}")
+    for key in AMNEZIA_WG_KEYS:
+        if hints.get(key) is not None:
+            lines.append(f"{key} = {hints[key]}")
     lines.extend(
         [
             "",

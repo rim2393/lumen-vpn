@@ -49,6 +49,37 @@ test("renderWireguardIni passes AmneziaWG obfuscation params through verbatim", 
   assert.match(ini, /\nH1 = 1234567890/);
 });
 
+test("applyWireguardConfig uses awg-quick when AmneziaWG mode is requested", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lumen-awg-"));
+  const configPath = join(dir, "lumen-awg.conf");
+  const calls = [];
+  const config = validConfig();
+  config.interface.Jc = 4;
+  config.interface.S1 = 60;
+  const plan = createWireguardApplyPlan({
+    config,
+    configPath,
+    reloadMode: "awg-quick"
+  });
+  try {
+    const result = await applyWireguardConfig(plan, {
+      dryRun: false,
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+      }
+    });
+    assert.equal(result.implementationStatus, "wireguard-applied");
+    assert.equal(result.reloadMode, "awg-quick");
+    assert.deepEqual(calls, [
+      ["awg-quick", ["down", configPath]],
+      ["awg-quick", ["up", configPath]],
+      ["awg", ["show", "lumen-awg"]]
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("createWireguardApplyPlan rejects incomplete configs", () => {
   assert.throws(
     () => createWireguardApplyPlan({ config: { interface: {}, peers: [] } }),

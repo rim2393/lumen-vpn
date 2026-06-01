@@ -50,6 +50,24 @@ RENDERABLE_PROTOCOL_PREFIXES = (
     "socks",
     "http",
 )
+AMNEZIA_WG_HINT_KEYS = (
+    "Jc",
+    "Jmin",
+    "Jmax",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "I1",
+    "I2",
+    "I3",
+    "I4",
+    "I5",
+)
 
 
 def utc_now() -> datetime:
@@ -240,14 +258,11 @@ async def build_subscription_manifest(
                         "credentialsRef": credentials_ref,
                         "credentials": _manifest_credentials(credentials),
                         "capabilities": _manifest_capabilities(protocol_type),
-                        "rendererHints": {
-                            "liveDiagnostic": False,
-                            "name": profile_title,
-                            "method": delivery.get("method"),
-                            "address": delivery.get("address"),
-                            "allowedIps": delivery.get("allowed_ips"),
-                            "mtu": delivery.get("mtu"),
-                        },
+                        "rendererHints": _manifest_renderer_hints(
+                            delivery=delivery,
+                            profile=profile,
+                            profile_title=profile_title,
+                        ),
                     }
                 ],
                 "metadata": {
@@ -605,6 +620,33 @@ def _manifest_alpn(*, security: dict[str, object], delivery: dict[str, str]) -> 
 
 def _manifest_capabilities(protocol_type: str) -> list[str]:
     return ["subscription"]
+
+
+def _manifest_renderer_hints(
+    *,
+    delivery: dict[str, str],
+    profile: ProtocolProfile | None,
+    profile_title: str,
+) -> dict[str, object]:
+    hints: dict[str, object] = {
+        "liveDiagnostic": False,
+        "name": profile_title,
+        "method": delivery.get("method"),
+        "address": delivery.get("address"),
+        "allowedIps": delivery.get("allowed_ips"),
+        "mtu": delivery.get("mtu"),
+        "persistentKeepalive": delivery.get("persistent_keepalive"),
+    }
+    profile_config = profile.config_json if profile is not None else {}
+    interface_config = (
+        profile_config.get("interface") if isinstance(profile_config.get("interface"), dict) else {}
+    )
+    for key in AMNEZIA_WG_HINT_KEYS:
+        if key in delivery and delivery[key] is not None:
+            hints[key] = delivery[key]
+        elif key in interface_config and interface_config[key] is not None:
+            hints[key] = interface_config[key]
+    return hints
 
 
 def _manifest_credentials(credentials) -> dict[str, str]:

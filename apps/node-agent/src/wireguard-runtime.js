@@ -28,6 +28,24 @@ const PEER_KEY_MAP = Object.freeze({
   endpoint: "Endpoint",
   persistent_keepalive: "PersistentKeepalive"
 });
+const AMNEZIA_WG_KEYS = Object.freeze([
+  "Jc",
+  "Jmin",
+  "Jmax",
+  "S1",
+  "S2",
+  "S3",
+  "S4",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "I1",
+  "I2",
+  "I3",
+  "I4",
+  "I5"
+]);
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -70,6 +88,10 @@ function summarizeArgv(argv) {
 
 function interfaceNameFromConfigPath(configPath) {
   return basename(configPath).replace(/\.conf$/i, "");
+}
+
+function containsAmneziaWireGuardOptions(config) {
+  return AMNEZIA_WG_KEYS.some((key) => config?.interface?.[key] !== undefined);
 }
 
 function validateWireguardConfig(config) {
@@ -177,7 +199,10 @@ export async function applyWireguardConfig(plan, input = {}) {
   const env = input.env ?? {};
   const configPath =
     plan.configPath ?? env.LUMEN_WIREGUARD_CONFIG_FILE ?? DEFAULT_WIREGUARD_CONFIG_PATH;
-  const reloadMode = plan.reloadMode ?? env.LUMEN_WIREGUARD_RELOAD_MODE ?? DEFAULT_WIREGUARD_RELOAD_MODE;
+  const reloadMode =
+    plan.reloadMode ??
+    env.LUMEN_WIREGUARD_RELOAD_MODE ??
+    (containsAmneziaWireGuardOptions(plan.config) ? "awg-quick" : DEFAULT_WIREGUARD_RELOAD_MODE);
   const reloadArgv =
     plan.reloadArgv ?? parseArgv(env.LUMEN_WIREGUARD_RELOAD_ARGV, DEFAULT_WIREGUARD_RELOAD_ARGV);
   const interfaceName = env.LUMEN_WIREGUARD_INTERFACE ?? interfaceNameFromConfigPath(configPath);
@@ -201,6 +226,10 @@ export async function applyWireguardConfig(plan, input = {}) {
     await runExecFileIgnoringFailure(input.execFileImpl, "wg-quick", ["down", configPath]);
     await runExecFile(input.execFileImpl, "wg-quick", ["up", configPath]);
     await runExecFile(input.execFileImpl, "wg", ["show", interfaceName]);
+  } else if (reloadMode === "awg-quick") {
+    await runExecFileIgnoringFailure(input.execFileImpl, "awg-quick", ["down", configPath]);
+    await runExecFile(input.execFileImpl, "awg-quick", ["up", configPath]);
+    await runExecFile(input.execFileImpl, "awg", ["show", interfaceName]);
   } else if (reloadMode === "exec") {
     await runExecFile(input.execFileImpl, reloadArgv[0], reloadArgv.slice(1));
   } else {

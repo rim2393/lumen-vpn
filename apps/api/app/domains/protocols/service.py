@@ -1565,6 +1565,8 @@ def build_node_outbound_payload(
         "profileId": str(profile.id),
         config_key: config,
     }
+    if family == "wireguard" and profile.adapter == "wireguard-amneziawg":
+        payload["wireguardReloadMode"] = "awg-quick"
     if runtime_policy is not None:
         payload["nodePolicy"] = runtime_policy
     return payload

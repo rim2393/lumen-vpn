@@ -72,6 +72,19 @@ def test_wireguard_profile_builds_wireguard_payload():
     assert payload["wireguardConfig"]["clientsRef"] == "vault://subscriptions/p/creds"
 
 
+def test_amneziawg_profile_requests_awg_quick_runtime():
+    payload = build_node_outbound_payload(
+        _profile(
+            "wireguard-amneziawg",
+            {"interface": {"private_key": "server-private", "address": "10.77.0.1/24", "Jc": 4}},
+        ),
+        _inbounds(51821, protocol="wireguard"),
+    )
+    assert payload["adapter"] == "wireguard-amneziawg"
+    assert payload["wireguardReloadMode"] == "awg-quick"
+    assert payload["wireguardConfig"]["interface"]["Jc"] == 4
+
+
 def test_xray_profile_still_builds_xray_payload():
     payload = build_node_outbound_payload(_profile("vless-tcp-tls"), [])
     assert payload["adapter"] == "vless-tcp-tls"
