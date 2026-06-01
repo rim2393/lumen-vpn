@@ -1,12 +1,12 @@
 # Continuation Checkpoint
 
-Last audited: 2026-06-01 20:20 Europe/Moscow.
+Last audited: 2026-06-01 20:32 Europe/Moscow.
 
 ## Current Working Copy
 
 - Repo: `D:\android-app-new\_work\full-revna-like-projekt`
-- Main branch state: clean after live profile-apply validation.
-- Current signed production manifest: `v0.1.60`.
+- Main branch state: clean after live host-validation deploy.
+- Current signed production manifest: `v0.1.61`.
 - OpenVPN-over-Shadowsocks backend/node runtime is live-validated on production
   through the official closed-image, public signed manifest, public panel
   upgrade, and public node installer flow.
@@ -123,6 +123,12 @@ Last audited: 2026-06-01 20:20 Europe/Moscow.
   `d40a27ae-29fa-4cd1-88ee-269957de1e30`; after node-agent polling the command
   became `succeeded` with result status `succeeded` and implementation
   `openvpn-shadowsocks-managed-process-started`.
+- Live prod evidence after `v0.1.61`: panel `LUMEN_VERSION=v0.1.61`,
+  web/api/subscription images healthy and `/api/v1/health/ready` returned ok.
+  This deploy contains the Hosts UI-side validation guard. Browser navigation
+  reached `/hosts`, but the in-app session was expired and showed operator
+  session restoration; interactive UI smoke still needs an authenticated browser
+  session.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
