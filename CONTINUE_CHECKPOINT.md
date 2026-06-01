@@ -32,6 +32,9 @@ Last audited: 2026-06-01 13:25 Europe/Moscow.
   - Incomplete `wireguard://` links are importable but explicitly not connectable; they no longer fall through as empty sing-box/WireGuard runtime configs.
   - JS `@lumen/protocol-registry` now exposes live plan adapters for `trojan`, `shadowsocks`, `wireguard`, and `hysteria2` instead of leaving them catalog-only.
   - JS `@lumen/subscription-renderers` now renders real derived-credential sing-box/Mihomo client configs for `trojan`, `shadowsocks`, and `hysteria2`; `wireguard` remains intentionally rejected there until real key material is available.
+- 2026-06-01 Clash/Mihomo Android pass:
+  - supported Clash aliases now become concrete runtime profiles: `hy2` -> Hysteria2, TUIC hyphen fields -> runtime keys, SOCKS4/SOCKS4A version preserved, packet-encoding normalized.
+  - `clash://install-config?url=<inline-yaml>` now decodes form-encoded spaces only for structured inline Clash payloads while keeping normal subscription URL token handling unchanged.
 
 ## Verification Done
 
@@ -43,6 +46,7 @@ Last audited: 2026-06-01 13:25 Europe/Moscow.
 - Node agent: `node --test` passed, `60 passed`.
 - Android: `:app:testDebugUnitTest` passed with the workspace JDK. Focused `SubscriptionParserTest`, `:app:assembleDebug`, and `:app:assembleRelease` also passed after the WireGuard URI fix.
 - JS package gates after live contract sync: `packages/protocol-registry npm test` passed; `packages/subscription-renderers npm test` passed.
+- Android focused gate after Clash/Mihomo conversion: `SubscriptionParserTest` and `SubscriptionSourceResolverTest` passed; `:app:assembleDebug` and `:app:assembleRelease` passed.
 - Alembic heads: single head `0008_infra_billing`.
 
 ## Fixes Applied During Audit
@@ -59,7 +63,7 @@ Last audited: 2026-06-01 13:25 Europe/Moscow.
 
 ## Next Suggested Work
 
-1. Continue the remaining real-runtime protocol gaps: OpenVPN over Shadowsocks bridge, Android IKEv2/IPsec, and Clash-to-concrete-profile conversion.
+1. Continue the remaining real-runtime protocol gaps: OpenVPN over Shadowsocks bridge and Android IKEv2/IPsec.
 2. Continue Remnawave parity UI pages only against live API state; no fake counters or static placeholder rows.
 3. Extend non-Xray protocol runtimes to actively consume the persisted policy file where native protocol support exists.
 4. Keep official release/update path mandatory for production validation.
