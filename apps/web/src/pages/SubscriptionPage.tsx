@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react'
-import { ExternalLink, RefreshCw, Rss, Save, ShieldX, Smartphone } from 'lucide-react'
+import { Copy, ExternalLink, KeyRound, RefreshCw, Rss, Save, Search, ShieldX, Smartphone, Trash2 } from 'lucide-react'
 import {
+  useCloneSubscription,
   useCreateSubscription,
+  useDeleteSubscription,
   useHostsPageData,
+  useLookupSubscriptions,
   useNodesPageData,
   useProfilesPageData,
   useRevokeSubscription,
+  useSubscriptionDevices,
   useSubscriptionsPageData,
   useUpdateSubscription,
   useUsersPageData,
@@ -31,8 +35,15 @@ export function SubscriptionPage() {
   const profilesQuery = useProfilesPageData()
   const hostsQuery = useHostsPageData()
   const createSubscription = useCreateSubscription()
+  const cloneSubscription = useCloneSubscription()
+  const deleteSubscription = useDeleteSubscription()
+  const lookupSubscriptions = useLookupSubscriptions()
   const updateSubscription = useUpdateSubscription()
   const revokeSubscription = useRevokeSubscription()
+  const [lookupQuery, setLookupQuery] = useState('')
+  const [lookupResults, setLookupResults] = useState<SubscriptionRecord[] | null>(null)
+  const [selectedDeviceSubscriptionId, setSelectedDeviceSubscriptionId] = useState<string | null>(null)
+  const deviceQuery = useSubscriptionDevices(selectedDeviceSubscriptionId)
   const subscriptions = query.data?.items ?? []
   const users = usersQuery.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
@@ -48,6 +59,32 @@ export function SubscriptionPage() {
       caption="Subscription inventory"
       actions={
         <div className="action-cluster">
+          <form
+            className="inline-actions"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const normalized = lookupQuery.trim()
+              if (!normalized) {
+                setLookupResults(null)
+                return
+              }
+              void lookupSubscriptions.mutateAsync(normalized).then((result) => {
+                setLookupResults(result.items)
+              })
+            }}
+          >
+            <label className="sr-only" htmlFor="subscription-lookup">{t('Find subscription')}</label>
+            <input
+              id="subscription-lookup"
+              placeholder={t('Public ID, UUID, username, email')}
+              value={lookupQuery}
+              onChange={(event) => setLookupQuery(event.target.value)}
+            />
+            <button className="button button--secondary" type="submit" disabled={lookupSubscriptions.isPending}>
+              <Search size={18} aria-hidden="true" />
+              {t('Find')}
+            </button>
+          </form>
           {subscriptionBaseUrl ? (
             <>
               <a className="button button--primary" href={subscriptionBaseUrl} target="_blank" rel="noreferrer">
@@ -97,6 +134,13 @@ export function SubscriptionPage() {
           <StatusBadge tone={toneForStatus(subscription.status)}>{subscription.status}</StatusBadge>,
           <SubscriptionActions
             subscription={subscription}
+            onClone={() => void cloneSubscription.mutateAsync(subscription.id)}
+            onDelete={() => {
+              if (window.confirm(t('Delete this subscription record?'))) {
+                void deleteSubscription.mutateAsync(subscription.id)
+              }
+            }}
+            onDevices={() => setSelectedDeviceSubscriptionId(subscription.id)}
             onRevoke={() => void revokeSubscription.mutateAsync(subscription.id)}
             onToggle={() =>
               void updateSubscription.mutateAsync({
@@ -109,7 +153,14 @@ export function SubscriptionPage() {
         id: subscription.id,
       })}
       rightPanel={
-        <SubscriptionGuide subscription={activeSubscription} />
+        <SubscriptionSidePanel
+          deviceSubscription={subscriptions.find((subscription) => subscription.id === selectedDeviceSubscriptionId)}
+          devices={deviceQuery.data?.items ?? []}
+          devicesError={deviceQuery.error}
+          devicesLoading={deviceQuery.isLoading}
+          lookupResults={lookupResults}
+          subscription={activeSubscription}
+        />
       }
       createForm={
         <SubscriptionCreateForm
@@ -133,10 +184,16 @@ export function SubscriptionPage() {
 }
 
 function SubscriptionActions({
+  onClone,
+  onDelete,
+  onDevices,
   onRevoke,
   onToggle,
   subscription,
 }: {
+  onClone: () => void
+  onDelete: () => void
+  onDevices: () => void
   onRevoke: () => void
   onToggle: () => void
   subscription: SubscriptionRecord
@@ -151,9 +208,21 @@ function SubscriptionActions({
         <Save size={14} aria-hidden="true" />
         {subscription.status === 'active' ? t('Disable') : t('Enable')}
       </button>
+      <button type="button" className="text-link text-link--button" onClick={onClone}>
+        <Copy size={14} aria-hidden="true" />
+        {t('Clone')}
+      </button>
+      <button type="button" className="text-link text-link--button" onClick={onDevices}>
+        <KeyRound size={14} aria-hidden="true" />
+        {t('Devices')}
+      </button>
       <button type="button" className="text-link text-link--button" onClick={onRevoke}>
         <ShieldX size={14} aria-hidden="true" />
         {t('Revoke')}
+      </button>
+      <button type="button" className="text-link text-link--button" onClick={onDelete}>
+        <Trash2 size={14} aria-hidden="true" />
+        {t('Delete')}
       </button>
       {renderability.canOpenBasePage ? (
         <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
@@ -172,6 +241,9 @@ function SubscriptionActions({
           Mihomo
         </a>
       ) : null}
+      <a className="text-link" href={buildAdminRenderUrl(subscription.id, 'raw-uri')} target="_blank" rel="noreferrer">
+        Raw
+      </a>
     </div>
   )
 }
@@ -380,13 +452,98 @@ function parseDeliveryProfile(value: string): Record<string, string> {
     }, {})
 }
 
+function SubscriptionSidePanel({
+  deviceSubscription,
+  devices,
+  devicesError,
+  devicesLoading,
+  lookupResults,
+  subscription,
+}: {
+  deviceSubscription: SubscriptionRecord | undefined
+  devices: Array<{
+    hwid: string | null
+    id: string
+    label: string | null
+    last_seen_at: string | null
+    platform: string | null
+    status: string
+  }>
+  devicesError: unknown
+  devicesLoading: boolean
+  lookupResults: SubscriptionRecord[] | null
+  subscription: SubscriptionRecord | undefined
+}) {
+  const { t } = useI18n()
+
+  return (
+    <div className="side-stack">
+      {lookupResults ? (
+        <article className="panel">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">{t('Lookup')}</p>
+              <h2>{t('Matched subscriptions')}</h2>
+            </div>
+            <StatusBadge tone={lookupResults.length > 0 ? 'info' : 'neutral'}>
+              {String(lookupResults.length)}
+            </StatusBadge>
+          </div>
+          {lookupResults.length > 0 ? (
+            <div className="client-link-grid">
+              {lookupResults.map((item) => (
+                <a key={item.id} className="client-link" href={buildSubscriptionUrl(item.public_id)} target="_blank" rel="noreferrer">
+                  <span>{item.public_id}</span>
+                  <StatusBadge tone={toneForStatus(item.status)}>{item.status}</StatusBadge>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-inline">{t('No subscriptions matched this query.')}</p>
+          )}
+        </article>
+      ) : null}
+      {deviceSubscription ? (
+        <article className="panel">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">{t('Connection keys')}</p>
+              <h2>{deviceSubscription.public_id}</h2>
+            </div>
+            <KeyRound size={20} aria-hidden="true" />
+          </div>
+          {devicesLoading ? (
+            <p className="empty-inline">{t('Loading devices...')}</p>
+          ) : devicesError ? (
+            <p className="empty-inline">{t('Device registry unavailable.')}</p>
+          ) : devices.length > 0 ? (
+            <div className="client-link-grid">
+              {devices.map((device) => (
+                <div key={device.id} className="client-link">
+                  <span>{device.label ?? device.id}</span>
+                  <span>{device.hwid ?? device.platform ?? t('unknown platform')}</span>
+                  <StatusBadge tone={toneForStatus(device.status)}>{device.status}</StatusBadge>
+                  <span>{device.last_seen_at ? formatDateTime(device.last_seen_at) : t('Not recorded')}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-inline">{t('No devices are registered for this subscription yet.')}</p>
+          )}
+        </article>
+      ) : null}
+      <SubscriptionGuide subscription={subscription} />
+    </div>
+  )
+}
+
 function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord | undefined }) {
   const { t } = useI18n()
   const renderability = subscription ? getSubscriptionRenderability(subscription) : null
   const baseUrl = subscription && renderability?.canOpenBasePage ? buildSubscriptionUrl(subscription.public_id) : null
 
   return (
-    <div className="side-stack">
+    <>
       <OperatorGuide
         title="What to configure"
         steps={[
@@ -422,7 +579,7 @@ function SubscriptionGuide({ subscription }: { subscription: SubscriptionRecord 
           </p>
         )}
       </article>
-    </div>
+    </>
   )
 }
 
@@ -478,4 +635,8 @@ function buildSubscriptionUrl(publicId: string) {
   }
   const host = window.location.host.replace(/^panel\./, 'sub.')
   return `${window.location.protocol}//${host}/sub/${publicId}`
+}
+
+function buildAdminRenderUrl(subscriptionId: string, target: string) {
+  return `/api/v1/subscriptions/${subscriptionId}/render?target=${encodeURIComponent(target)}`
 }

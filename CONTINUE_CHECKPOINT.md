@@ -1,12 +1,13 @@
 # Continuation Checkpoint
 
-Last audited: 2026-06-01 20:41 Europe/Moscow.
+Last audited: 2026-06-01 21:08 Europe/Moscow.
 
 ## Current Working Copy
 
 - Repo: `D:\android-app-new\_work\full-revna-like-projekt`
-- Main branch state: clean after live subscription-create deploy.
-- Current signed production manifest: `v0.1.62`.
+- Main branch state: dirty with subscription admin parity changes ready for
+  `v0.1.63` release.
+- Current signed production manifest before this slice: `v0.1.62`.
 - OpenVPN-over-Shadowsocks backend/node runtime is live-validated on production
   through the official closed-image, public signed manifest, public panel
   upgrade, and public node installer flow.
@@ -83,6 +84,16 @@ Last audited: 2026-06-01 20:41 Europe/Moscow.
   - If `server_name` is omitted, the UI derives it from the selected host
     hostname or selected node public address before creating the backend record.
   - Exposed backend `expires_at` and `config_hash` fields in the create form.
+- 2026-06-01 Subscription admin parity follow-up:
+  - Backend subscriptions API now includes lookup by public ID, subscription
+    UUID prefix, username, email, and display name, plus an explicit
+    `/by-short-uuid/{short_uuid}` route.
+  - Backend subscriptions API now includes clone, hard delete, admin raw render
+    preview coverage, and subscription-scoped device/HWID listing.
+  - Web subscriptions page now exposes real production API controls for lookup,
+    Clone, Delete, Devices, and Raw preview.
+  - RU translation coverage was extended for the new production UI strings; the
+    production reality test remains the guard against partial translation.
 
 ## Verification Done
 
@@ -117,6 +128,10 @@ Last audited: 2026-06-01 20:41 Europe/Moscow.
   passed with 7 tests; web production build passed.
 - Subscription create local gates: web TypeScript passed;
   `productionReality.test.ts` passed with 7 tests; web production build passed.
+- Subscription admin parity local gates: scoped API ruff passed; API
+  `test_license_subscription_routes.py` passed with 17 tests; web TypeScript
+  passed; web `httpClient.test.ts` plus `productionReality.test.ts` passed with
+  11 tests; web production build passed.
 - Live prod evidence after `v0.1.40`: panel `LUMEN_VERSION=v0.1.40`, node-agent image pinned to `v0.1.40`, HTTP-proxy profile apply succeeded with `dryRun=false`, Xray config contains `blackhole`, `protocol=["bittorrent"]`, sniffing on all active inbounds, and `xray -test` passed.
 - Live prod evidence after `v0.1.41`: panel `LUMEN_VERSION=v0.1.41`, node-agent image pinned to `v0.1.41`, `shadowsocks-2022` profile apply succeeded with `dryRun=false`, node policy applied, generated sing-box Shadowsocks config contains the policy block route, `sing-box check -c` passed against the live config, and TCP `24081` listened on the node.
 - Live prod evidence after `v0.1.49`: panel `LUMEN_VERSION=v0.1.49`, node-agent image pinned to `v0.1.49`, public installer persisted host IP forwarding, direct OpenVPN UDP profile apply succeeded with `dryRun=false`, node listened on UDP `24103`, OpenVPN auth files were readable/executable by the dropped `nobody` user without exposing raw credentials, NAT had exactly one `10.90.3.0/24` MASQUERADE rule after repeated apply, and a disposable OpenVPN client connected from the panel VPS using the rendered subscription.
@@ -141,6 +156,8 @@ Last audited: 2026-06-01 20:41 Europe/Moscow.
   This deploy contains subscription create changes: no static panel-domain
   `server_name`, derived host/node `server_name`, and exposed `expires_at` plus
   `config_hash`.
+- Live prod evidence for `v0.1.63`: pending official release/update and VPS
+  smoke.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
@@ -157,7 +174,10 @@ Last audited: 2026-06-01 20:41 Europe/Moscow.
 
 ## Next Suggested Work
 
-1. Continue the remaining real-runtime protocol gaps: Android IKEv2/IPsec.
-3. Do not mark WireGuard/AWG torrent blocking complete through a fake policy artifact. Native WireGuard needs a real enforceable design such as nftables marks/routing or an explicit unsupported/enforced-by-edge status; ordinary `wg-quick` cannot do BitTorrent protocol detection by itself.
-4. Continue Remnawave parity UI pages only against live API state; no fake counters or static placeholder rows.
-5. Keep official release/update path mandatory for production validation.
+1. Release and live-validate `v0.1.63` subscription admin parity.
+2. Implement real `generic_oauth2`/auth-provider parity; currently the
+   provider is catalog-only/read-only and blocked as `unimplemented`.
+3. Continue the remaining real-runtime protocol gaps: Android IKEv2/IPsec.
+4. Do not mark WireGuard/AWG torrent blocking complete through a fake policy artifact. Native WireGuard needs a real enforceable design such as nftables marks/routing or an explicit unsupported/enforced-by-edge status; ordinary `wg-quick` cannot do BitTorrent protocol detection by itself.
+5. Continue Remnawave parity UI pages only against live API state; no fake counters or static placeholder rows.
+6. Keep official release/update path mandatory for production validation.

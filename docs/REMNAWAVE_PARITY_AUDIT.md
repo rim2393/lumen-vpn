@@ -14,8 +14,8 @@ counts, placeholder actions and DB-only buttons do not count.
 | Nodes | Several node actions changed control-plane state without a matching live node-agent command. | Closed for restart/reset-traffic in `v0.1.59`; future node actions must keep the same API -> command -> live evidence rule. |
 | Profiles and hosts | CRUD exists, but profile/host changes do not auto-sync node runtime except explicit profile apply. | Open |
 | Hosts | Host model is narrower than required Remnawave parity fields: path, SNI, security, mux, sockopt, xHTTP, exclusions, final mask and Mihomo X25519. | Open |
-| Subscriptions | Admin API lacks delete/clone/raw/connection keys/subpage config and lookup by username or short UUID. | Open |
-| Subscriptions | Create UI covers only a narrow part of the backend subscription contract and still has a static `server_name` default. | Partially closed locally: static `server_name` removed, `expires_at` and `config_hash` added; remaining parity gaps are clone/delete/raw/connection keys and richer subscription settings. |
+| Subscriptions | Admin API lacks delete/clone/raw/connection keys/subpage config and lookup by username or short UUID. | Closed locally for delete/clone/raw preview/connection-key read/lookup in the subscription admin slice; live closure pending `v0.1.63` deploy evidence. Subpage config remains split into the dedicated Subscription Page settings surface. |
+| Subscriptions | Create UI covers only a narrow part of the backend subscription contract and still has a static `server_name` default. | Partially closed: static `server_name` removed, `expires_at` and `config_hash` added; richer subscription setting UX remains a follow-up. |
 | Settings | Auth providers with `unimplemented` status are deliberately read-only; this is not Remnawave-level parity until the real callback/config flow exists. | Open |
 | Tools | Several tools are inspector-only; drop connections, top users, node user IPs and full HApp routing encryption remain incomplete. | Open |
 | Settings | Settings are generic key/value; typed Remnawave/Lumen groups with validation are incomplete. | Open |
@@ -78,3 +78,13 @@ Closure evidence:
 - Subscription create form now exposes backend `expires_at` and `config_hash`
   fields in addition to `user_id`, `license_id`, `node_id`, and
   `delivery_profile`.
+- Subscription admin now has real backend routes for lookup by public ID,
+  username/email/display name and short UUID, clone, hard delete, raw admin
+  preview, and subscription-scoped registered device/HWID inspection.
+- Subscription UI wires these admin actions through the production API client:
+  lookup search, Clone, Delete, Devices, and Raw preview are not local-only
+  controls.
+- Local closure gates for this slice: API subscription route tests passed
+  (`17 passed`), scoped API ruff passed, web TypeScript passed,
+  `httpClient.test.ts` plus `productionReality.test.ts` passed (`11 tests`),
+  and web production build passed.

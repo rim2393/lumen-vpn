@@ -162,6 +162,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/squads', { body: payload, method: 'POST' }),
     createSubscription: (payload: SubscriptionCreateRequest) =>
       request('/api/v1/subscriptions', { body: payload, method: 'POST' }),
+    cloneSubscription: (subscriptionId: string) =>
+      request(`/api/v1/subscriptions/${subscriptionId}/clone`, { method: 'POST' }),
     createSubscriptionTemplate: (payload: SubscriptionTemplateCreateRequest) =>
       request('/api/v1/subscription-templates', { body: payload, method: 'POST' }),
     createResponseRule: (payload: ResponseRuleCreateRequest) =>
@@ -174,6 +176,8 @@ export function createHttpLumenApiClient({
     deleteSquad: (squadId: string) => request(`/api/v1/squads/${squadId}`, { method: 'DELETE' }),
     deleteSubscriptionTemplate: (templateId: string) =>
       request(`/api/v1/subscription-templates/${templateId}`, { method: 'DELETE' }),
+    deleteSubscription: (subscriptionId: string) =>
+      request(`/api/v1/subscriptions/${subscriptionId}`, { method: 'DELETE' }),
     deleteResponseRule: (ruleId: string) =>
       request(`/api/v1/response-rules/${ruleId}`, { method: 'DELETE' }),
     deleteUser: (userId: string) => request(`/api/v1/users/${userId}`, { method: 'DELETE' }),
@@ -204,6 +208,10 @@ export function createHttpLumenApiClient({
     listAuthProviders: () => request('/api/v1/settings/auth/providers'),
     listSquads: () => request('/api/v1/squads'),
     listSubscriptions: () => request('/api/v1/subscriptions'),
+    lookupSubscriptions: (query: string) =>
+      request(`/api/v1/subscriptions/lookup?query=${encodeURIComponent(query)}`),
+    listSubscriptionDevices: (subscriptionId: string) =>
+      request(`/api/v1/subscriptions/${subscriptionId}/devices`),
     listSubscriptionTemplates: () => request('/api/v1/subscription-templates'),
     listResponseRules: () => request('/api/v1/response-rules'),
     readToolSummary: () => request('/api/v1/tools/summary'),

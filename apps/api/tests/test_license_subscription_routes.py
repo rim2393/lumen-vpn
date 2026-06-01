@@ -300,6 +300,127 @@ async def test_subscription_routes_patch_revoke_and_record_audit(
     assert all(event.actor_email == "owner@example.com" for event in events)
 
 
+async def test_subscription_admin_lookup_clone_devices_and_delete(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        user_record = await session.get(User, user.id)
+        assert user_record is not None
+        user_record.username = "route-user"
+        user_record.display_name = "Route Subscriber"
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {"protocol": "vless", "format": "happ"},
+            "config_hash": "sha256:clone-source",
+        },
+    )
+    assert create_response.status_code == 201
+    source = create_response.json()
+
+    async with route_app.sessionmaker() as session:
+        user_record = await session.get(User, user.id)
+        assert user_record is not None
+        user_record.metadata_json = {
+            "devices": [
+                {
+                    "id": "phone-1",
+                    "hwid": "HWID-1",
+                    "label": "Phone",
+                    "platform": "android",
+                    "status": "active",
+                    "subscription_id": source["id"],
+                },
+                {
+                    "id": "other-subscription-device",
+                    "subscription_id": "00000000-0000-0000-0000-000000000000",
+                },
+            ]
+        }
+        await session.commit()
+
+    lookup_by_public_id = await route_app.client.get(
+        "/api/v1/subscriptions/lookup",
+        params={"query": source["public_id"][0:18]},
+    )
+    assert lookup_by_public_id.status_code == 200
+    assert [item["id"] for item in lookup_by_public_id.json()["items"]] == [source["id"]]
+
+    lookup_by_user = await route_app.client.get(
+        "/api/v1/subscriptions/lookup",
+        params={"query": "route-user"},
+    )
+    assert lookup_by_user.status_code == 200
+    assert [item["id"] for item in lookup_by_user.json()["items"]] == [source["id"]]
+
+    lookup_by_short_uuid = await route_app.client.get(
+        f"/api/v1/subscriptions/by-short-uuid/{source['id'][0:8]}"
+    )
+    assert lookup_by_short_uuid.status_code == 200
+    assert lookup_by_short_uuid.json()["id"] == source["id"]
+
+    raw_preview_response = await route_app.client.get(
+        f"/api/v1/subscriptions/{source['id']}/render",
+        params={"target": "raw-uri"},
+    )
+    assert raw_preview_response.status_code == 200
+    assert raw_preview_response.headers["x-lumen-render-target"] == "raw-uri"
+    assert raw_preview_response.text.startswith("vless://")
+    assert "@203.0.113.50:443" in raw_preview_response.text
+
+    devices_response = await route_app.client.get(f"/api/v1/subscriptions/{source['id']}/devices")
+    assert devices_response.status_code == 200
+    assert devices_response.json()["items"] == [
+        {
+            "id": "phone-1",
+            "label": "Phone",
+            "hwid": "HWID-1",
+            "platform": "android",
+            "status": "active",
+            "last_seen_at": None,
+            "metadata_json": {
+                "id": "phone-1",
+                "hwid": "HWID-1",
+                "label": "Phone",
+                "platform": "android",
+                "status": "active",
+                "subscription_id": source["id"],
+            },
+        }
+    ]
+
+    clone_response = await route_app.client.post(f"/api/v1/subscriptions/{source['id']}/clone")
+    assert clone_response.status_code == 201
+    clone = clone_response.json()
+    assert clone["id"] != source["id"]
+    assert clone["public_id"] != source["public_id"]
+    assert clone["status"] == "active"
+    assert clone["delivery_profile"] == source["delivery_profile"]
+    assert clone["config_hash"] == "sha256:clone-source"
+
+    delete_response = await route_app.client.delete(f"/api/v1/subscriptions/{clone['id']}")
+    assert delete_response.status_code == 204
+    get_deleted_response = await route_app.client.get(f"/api/v1/subscriptions/{clone['id']}")
+    assert get_deleted_response.status_code == 404
+
+    async with route_app.sessionmaker() as session:
+        events = (
+            await session.execute(select(AuditEvent).order_by(AuditEvent.created_at.asc()))
+        ).scalars().all()
+
+    assert [event.action for event in events] == [
+        "subscription.cloned",
+        "subscription.deleted",
+    ]
+    assert events[0].metadata_json == {"source_subscription_id": source["id"]}
+
+
 async def test_subscription_manifest_route_renders_vless_profile_protocol(
     route_app: RouteTestApp,
 ) -> None:

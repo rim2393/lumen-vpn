@@ -9,6 +9,19 @@ type I18nContextValue = {
 }
 
 const ru: Record<string, string> = {
+  'Find subscription': 'Найти подписку',
+  'Public ID, UUID, username, email': 'Public ID, UUID, логин, email',
+  Find: 'Найти',
+  'Delete this subscription record?': 'Удалить эту запись подписки?',
+  Clone: 'Клонировать',
+  Lookup: 'Поиск',
+  'Matched subscriptions': 'Найденные подписки',
+  'No subscriptions matched this query.': 'Подписок по этому запросу не найдено.',
+  'Connection keys': 'Ключи подключений',
+  'Loading devices...': 'Загрузка устройств...',
+  'Device registry unavailable.': 'Реестр устройств недоступен.',
+  'No devices are registered for this subscription yet.':
+    'Для этой подписки пока нет зарегистрированных устройств.',
   'API keys': 'API-ключи',
   Active: 'Активна',
   active: 'активна',

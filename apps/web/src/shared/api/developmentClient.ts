@@ -508,6 +508,21 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       subscriptions.unshift(subscription)
       return subscription
     },
+    cloneSubscription: async (subscriptionId: string): Promise<SubscriptionRecord> => {
+      const source = subscriptions.find((item) => item.id === subscriptionId)
+      if (!source) {
+        throw new Error('Subscription not found')
+      }
+      const clone: SubscriptionRecord = {
+        ...source,
+        id: `sub_clone_${Date.now()}`,
+        public_id: `sub_pub_clone_${Date.now()}`,
+        revoked_at: null,
+        status: 'active',
+      }
+      subscriptions.unshift(clone)
+      return clone
+    },
     createSubscriptionTemplate: async (
       request: SubscriptionTemplateCreateRequest,
     ): Promise<SubscriptionTemplateRecord> => {
@@ -580,6 +595,12 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       const index = templates.findIndex((template) => template.id === templateId)
       if (index >= 0) {
         templates.splice(index, 1)
+      }
+    },
+    deleteSubscription: async (subscriptionId: string) => {
+      const index = subscriptions.findIndex((subscription) => subscription.id === subscriptionId)
+      if (index >= 0) {
+        subscriptions.splice(index, 1)
       }
     },
     deleteResponseRule: async (ruleId: string) => {
@@ -762,6 +783,43 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     listSubscriptions: async (): Promise<SubscriptionListResponse> => ({
       items: subscriptions,
     }),
+    lookupSubscriptions: async (query: string): Promise<SubscriptionListResponse> => {
+      const normalizedQuery = query.trim().toLowerCase()
+      return {
+        items: subscriptions.filter((subscription) => {
+          const user = users.find((item) => item.id === subscription.user_id)
+          return [
+            subscription.id,
+            subscription.public_id,
+            user?.email,
+            user?.username,
+            user?.display_name,
+          ].some((value) => String(value ?? '').toLowerCase().includes(normalizedQuery))
+        }),
+      }
+    },
+    listSubscriptionDevices: async (subscriptionId: string) => {
+      const subscription = subscriptions.find((item) => item.id === subscriptionId)
+      const user = users.find((item) => item.id === subscription?.user_id)
+      const rawDevices = Array.isArray(user?.metadata_json.devices)
+        ? user?.metadata_json.devices
+        : []
+      return {
+        items: rawDevices
+          .filter((device): device is Record<string, unknown> => {
+            return typeof device === 'object' && device !== null && device.subscription_id === subscriptionId
+          })
+          .map((device, index) => ({
+            hwid: typeof device.hwid === 'string' ? device.hwid : null,
+            id: String(device.id ?? device.hwid ?? `device-${index + 1}`),
+            label: typeof device.label === 'string' ? device.label : null,
+            last_seen_at: typeof device.last_seen_at === 'string' ? device.last_seen_at : null,
+            metadata_json: device,
+            platform: typeof device.platform === 'string' ? device.platform : null,
+            status: String(device.status ?? 'active'),
+          })),
+      }
+    },
     listSubscriptionTemplates: async () => ({ items: templates }),
     listResponseRules: async () => ({ items: responseRules }),
     readToolSummary: async (): Promise<ToolSummaryResponse> => ({

@@ -141,4 +141,57 @@ describe('createHttpLumenApiClient', () => {
       status: 'queued',
     })
   })
+
+  it('uses production subscription admin endpoints for lookup clone devices and delete', async () => {
+    const fetcher = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = input instanceof URL ? input : new URL(String(input))
+      expect(init?.headers).toMatchObject({ Authorization: 'Bearer lumen_at_session' })
+
+      if (url.pathname === '/api/v1/subscriptions/lookup') {
+        expect(url.searchParams.get('query')).toBe('short-user')
+        return jsonResponse({ items: [] })
+      }
+
+      if (url.pathname === '/api/v1/subscriptions/sub-live/clone') {
+        expect(init?.method).toBe('POST')
+        return jsonResponse({ id: 'sub-clone', public_id: 'lumen_sub_clone' })
+      }
+
+      if (url.pathname === '/api/v1/subscriptions/sub-live/devices') {
+        return jsonResponse({ items: [{ id: 'phone', status: 'active' }] })
+      }
+
+      if (url.pathname === '/api/v1/subscriptions/sub-live') {
+        expect(init?.method).toBe('DELETE')
+        return new Response(null, { status: 204 })
+      }
+
+      throw new Error(`Unexpected request: ${url.pathname}`)
+    })
+
+    const client = createHttpLumenApiClient({
+      baseUrl: 'https://panel.example.test',
+      fetcher,
+      getSession: () => ({
+        accessToken: 'lumen_at_session',
+        email: 'admin@test.lumentah.tel',
+        expiresAt: '2026-05-28T12:00:00Z',
+        name: 'Admin',
+        refreshToken: 'lumen_rt_session',
+        role: 'admin',
+        scopes: ['subscription:manage'],
+        userId: 'admin',
+      }),
+    })
+
+    await expect(client.lookupSubscriptions('short-user')).resolves.toEqual({ items: [] })
+    await expect(client.cloneSubscription('sub-live')).resolves.toMatchObject({
+      id: 'sub-clone',
+      public_id: 'lumen_sub_clone',
+    })
+    await expect(client.listSubscriptionDevices('sub-live')).resolves.toMatchObject({
+      items: [{ id: 'phone', status: 'active' }],
+    })
+    await expect(client.deleteSubscription('sub-live')).resolves.toBeUndefined()
+  })
 })

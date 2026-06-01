@@ -40,3 +40,17 @@ class SubscriptionResponse(BaseModel):
 
 class SubscriptionListResponse(BaseModel):
     items: list[SubscriptionResponse]
+
+
+class SubscriptionDeviceRecord(BaseModel):
+    id: str
+    label: str | None = None
+    hwid: str | None = None
+    platform: str | None = None
+    status: str = "active"
+    last_seen_at: datetime | None = None
+    metadata_json: dict[str, object] = Field(default_factory=dict)
+
+
+class SubscriptionDeviceListResponse(BaseModel):
+    items: list[SubscriptionDeviceRecord]

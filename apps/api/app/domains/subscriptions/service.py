@@ -2,7 +2,8 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import String as SQLString
+from sqlalchemy import cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -22,6 +23,7 @@ from app.domains.subscriptions.renderers import (
 )
 from app.domains.subscriptions.schemas import (
     SubscriptionCreateRequest,
+    SubscriptionDeviceRecord,
     SubscriptionResponse,
     SubscriptionUpdateRequest,
 )
@@ -96,6 +98,31 @@ async def list_subscriptions(session: AsyncSession) -> list[Subscription]:
     return list(result.scalars())
 
 
+async def lookup_subscriptions(session: AsyncSession, *, query: str) -> list[Subscription]:
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return []
+
+    like_value = f"%{normalized_query}%"
+    id_prefix = f"{normalized_query}%"
+    result = await session.execute(
+        select(Subscription)
+        .join(User, User.id == Subscription.user_id)
+        .where(
+            or_(
+                func.lower(Subscription.public_id).like(like_value),
+                func.lower(cast(Subscription.id, SQLString)).like(id_prefix),
+                func.lower(User.email).like(like_value),
+                func.lower(User.username).like(like_value),
+                func.lower(User.display_name).like(like_value),
+            )
+        )
+        .order_by(Subscription.created_at.desc())
+        .limit(25)
+    )
+    return list(result.scalars())
+
+
 async def list_subscriptions_for_user(
     session: AsyncSession,
     *,
@@ -131,6 +158,34 @@ async def get_subscription_by_public_id(
 ) -> Subscription:
     subscription = (
         await session.execute(select(Subscription).where(Subscription.public_id == public_id))
+    ).scalar_one_or_none()
+    if subscription is None:
+        raise APIError(
+            code="subscription_not_found",
+            message="Subscription was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return subscription
+
+
+async def get_subscription_by_short_uuid(
+    session: AsyncSession,
+    *,
+    short_uuid: str,
+) -> Subscription:
+    normalized = short_uuid.strip().lower()
+    if len(normalized) < 8:
+        raise APIError(
+            code="subscription_short_uuid_too_short",
+            message="Subscription short UUID must contain at least 8 characters.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    subscription = (
+        await session.execute(
+            select(Subscription).where(
+                func.lower(cast(Subscription.id, SQLString)).like(f"{normalized}%")
+            )
+        )
     ).scalar_one_or_none()
     if subscription is None:
         raise APIError(
@@ -515,6 +570,68 @@ async def revoke_subscription(session: AsyncSession, *, subscription_id: UUID) -
     return subscription
 
 
+async def clone_subscription(session: AsyncSession, *, subscription_id: UUID) -> Subscription:
+    source = await get_subscription(session, subscription_id=subscription_id)
+    clone = Subscription(
+        public_id=await create_subscription_public_id(session),
+        user_id=source.user_id,
+        license_id=source.license_id,
+        node_id=source.node_id,
+        status="active",
+        delivery_profile=dict(source.delivery_profile),
+        config_hash=source.config_hash,
+        expires_at=source.expires_at,
+    )
+    session.add(clone)
+    await session.flush()
+    return clone
+
+
+async def delete_subscription(session: AsyncSession, *, subscription_id: UUID) -> Subscription:
+    subscription = await get_subscription(session, subscription_id=subscription_id)
+    await session.delete(subscription)
+    await session.flush()
+    return subscription
+
+
+async def list_subscription_devices(
+    session: AsyncSession,
+    *,
+    subscription_id: UUID,
+) -> list[SubscriptionDeviceRecord]:
+    subscription = await get_subscription(session, subscription_id=subscription_id)
+    user = await session.get(User, subscription.user_id)
+    if user is None:
+        raise APIError(
+            code="subscription_user_not_found",
+            message="Subscription user was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    raw_devices = user.metadata_json.get("devices", [])
+    if not isinstance(raw_devices, list):
+        return []
+    devices: list[SubscriptionDeviceRecord] = []
+    for index, raw_device in enumerate(raw_devices):
+        if not isinstance(raw_device, dict):
+            continue
+        if raw_device.get("subscription_id") != str(subscription.id):
+            continue
+        device_id = raw_device.get("id") or raw_device.get("hwid") or f"device-{index + 1}"
+        last_seen = raw_device.get("last_seen_at")
+        devices.append(
+            SubscriptionDeviceRecord(
+                id=str(device_id),
+                label=_optional_str(raw_device.get("label")),
+                hwid=_optional_str(raw_device.get("hwid")),
+                platform=_optional_str(raw_device.get("platform")),
+                status=str(raw_device.get("status") or "active"),
+                last_seen_at=last_seen if hasattr(last_seen, "isoformat") else None,
+                metadata_json={str(key): value for key, value in raw_device.items()},
+            )
+        )
+    return devices
+
+
 def subscription_to_response(subscription: Subscription) -> SubscriptionResponse:
     return SubscriptionResponse(
         id=subscription.id,
@@ -528,6 +645,12 @@ def subscription_to_response(subscription: Subscription) -> SubscriptionResponse
         expires_at=subscription.expires_at,
         revoked_at=subscription.revoked_at,
     )
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
 
 
 def _ensure_renderable_subscription_request(

@@ -620,6 +620,20 @@ export type SubscriptionListResponse = {
   items: SubscriptionRecord[]
 }
 
+export type SubscriptionDeviceRecord = {
+  id: string
+  label: string | null
+  hwid: string | null
+  platform: string | null
+  status: string
+  last_seen_at: string | null
+  metadata_json: Record<string, unknown>
+}
+
+export type SubscriptionDeviceListResponse = {
+  items: SubscriptionDeviceRecord[]
+}
+
 export type SubscriptionTemplateFormat =
   | 'xray_json'
   | 'mihomo'
@@ -1020,6 +1034,7 @@ export type LumenApiClient = {
   resetNodeTraffic: (nodeId: string) => Promise<NodeCommandRecord>
   createSquad: (request: SquadCreateRequest) => Promise<SquadRecord>
   createSubscription: (request: SubscriptionCreateRequest) => Promise<SubscriptionRecord>
+  cloneSubscription: (subscriptionId: string) => Promise<SubscriptionRecord>
   createSubscriptionTemplate: (
     request: SubscriptionTemplateCreateRequest,
   ) => Promise<SubscriptionTemplateRecord>
@@ -1029,6 +1044,7 @@ export type LumenApiClient = {
   deleteProfile: (profileId: string) => Promise<void>
   deleteSquad: (squadId: string) => Promise<void>
   deleteSubscriptionTemplate: (templateId: string) => Promise<void>
+  deleteSubscription: (subscriptionId: string) => Promise<void>
   deleteResponseRule: (ruleId: string) => Promise<void>
   deleteUser: (userId: string) => Promise<void>
   clearUserDevices: (userId: string) => Promise<UserDetailResponse>
@@ -1052,6 +1068,8 @@ export type LumenApiClient = {
   listAuthProviders: () => Promise<AuthProviderListResponse>
   listSquads: () => Promise<SquadListResponse>
   listSubscriptions: () => Promise<SubscriptionListResponse>
+  lookupSubscriptions: (query: string) => Promise<SubscriptionListResponse>
+  listSubscriptionDevices: (subscriptionId: string) => Promise<SubscriptionDeviceListResponse>
   listSubscriptionTemplates: () => Promise<SubscriptionTemplateListResponse>
   listResponseRules: () => Promise<ResponseRuleListResponse>
   readToolSummary: () => Promise<ToolSummaryResponse>

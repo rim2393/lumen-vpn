@@ -18,6 +18,7 @@ from app.domains.subscriptions.renderers import (
 )
 from app.domains.subscriptions.schemas import (
     SubscriptionCreateRequest,
+    SubscriptionDeviceListResponse,
     SubscriptionListResponse,
     SubscriptionResponse,
     SubscriptionUpdateRequest,
@@ -25,8 +26,13 @@ from app.domains.subscriptions.schemas import (
 from app.domains.subscriptions.service import (
     build_public_subscription_manifest,
     build_subscription_manifest,
+    clone_subscription,
+    delete_subscription,
     enforce_public_subscription_device,
     get_subscription_by_public_id,
+    get_subscription_by_short_uuid,
+    list_subscription_devices,
+    lookup_subscriptions,
     revoke_subscription,
     subscription_to_response,
     update_subscription,
@@ -76,6 +82,28 @@ async def create_subscription(
     return subscription_to_response(subscription)
 
 
+@router.get("/lookup", response_model=SubscriptionListResponse)
+async def lookup_subscription_records(
+    _: SubscriptionReader,
+    session: DatabaseSession,
+    query: str = Query(..., min_length=1, max_length=160),
+) -> SubscriptionListResponse:
+    subscriptions = await lookup_subscriptions(session, query=query)
+    return SubscriptionListResponse(
+        items=[subscription_to_response(subscription) for subscription in subscriptions]
+    )
+
+
+@router.get("/by-short-uuid/{short_uuid}", response_model=SubscriptionResponse)
+async def get_subscription_by_short_uuid_route(
+    short_uuid: str,
+    _: SubscriptionReader,
+    session: DatabaseSession,
+) -> SubscriptionResponse:
+    subscription = await get_subscription_by_short_uuid(session, short_uuid=short_uuid)
+    return subscription_to_response(subscription)
+
+
 @router.patch("/{subscription_id}", response_model=SubscriptionResponse)
 async def patch_subscription(
     subscription_id: UUID,
@@ -115,6 +143,47 @@ async def revoke_subscription_route(
     )
     await session.commit()
     return subscription_to_response(subscription)
+
+
+@router.post(
+    "/{subscription_id}/clone",
+    response_model=SubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def clone_subscription_route(
+    subscription_id: UUID,
+    principal: SubscriptionManager,
+    session: DatabaseSession,
+) -> SubscriptionResponse:
+    subscription = await clone_subscription(session, subscription_id=subscription_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="subscription.cloned",
+        resource_type="subscription",
+        resource_id=str(subscription.id),
+        metadata_json={"source_subscription_id": str(subscription_id)},
+    )
+    await session.commit()
+    return subscription_to_response(subscription)
+
+
+@router.delete("/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subscription_route(
+    subscription_id: UUID,
+    principal: SubscriptionManager,
+    session: DatabaseSession,
+) -> Response:
+    subscription = await delete_subscription(session, subscription_id=subscription_id)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="subscription.deleted",
+        resource_type="subscription",
+        resource_id=str(subscription.id),
+    )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/public/{public_id}/manifest", response_model=None)
@@ -202,6 +271,17 @@ async def get_subscription_manifest(
     session: DatabaseSession,
 ) -> dict[str, object]:
     return await build_subscription_manifest(session, subscription_id=subscription_id)
+
+
+@router.get("/{subscription_id}/devices", response_model=SubscriptionDeviceListResponse)
+async def get_subscription_devices(
+    subscription_id: UUID,
+    _: SubscriptionReader,
+    session: DatabaseSession,
+) -> SubscriptionDeviceListResponse:
+    return SubscriptionDeviceListResponse(
+        items=await list_subscription_devices(session, subscription_id=subscription_id)
+    )
 
 
 @router.get("/{subscription_id}/render")

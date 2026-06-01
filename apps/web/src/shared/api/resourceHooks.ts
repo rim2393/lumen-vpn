@@ -866,6 +866,50 @@ export function useCreateSubscription() {
   })
 }
 
+export function useCloneSubscription() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.cloneSubscription(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+    },
+  })
+}
+
+export function useDeleteSubscription() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteSubscription(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+    },
+  })
+}
+
+export function useLookupSubscriptions() {
+  const apiClient = useApiClient()
+
+  return useMutation({
+    mutationFn: (query: string) => apiClient.lookupSubscriptions(query),
+  })
+}
+
+export function useSubscriptionDevices(subscriptionId: string | null) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    enabled: Boolean(subscriptionId),
+    queryFn: () => apiClient.listSubscriptionDevices(subscriptionId ?? ''),
+    queryKey: [...resourceQueryKeys.subscriptions, subscriptionId, 'devices'],
+  })
+}
+
 export function useUpdateSubscription() {
   const apiClient = useApiClient()
   const queryClient = useQueryClient()
