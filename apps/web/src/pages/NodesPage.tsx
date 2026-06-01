@@ -295,7 +295,13 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural
 }
 
-function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) {
+function ProvisioningJobPanel({
+  job,
+  t,
+}: {
+  job: ProvisioningJobResponse | null
+  t: (value: string) => string
+}) {
   if (!job) {
     return (
       <article className="panel">
@@ -331,14 +337,14 @@ function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) 
           <p className="eyebrow">Provisioning state</p>
           <h2>{job.node_id}</h2>
         </div>
-        <StatusBadge tone={getJobTone(job.status)}>{formatStatus(job.status)}</StatusBadge>
+        <StatusBadge tone={getJobTone(job.status)}>{t(formatStatus(job.status))}</StatusBadge>
       </div>
       <div className="summary-grid">
         <div>
           <span>Preflight</span>
           <strong>
             <StatusBadge tone={getPreflightTone(job.preflight_status)}>
-              {formatStatus(job.preflight_status)}
+              {t(formatStatus(job.preflight_status))}
             </StatusBadge>
           </strong>
         </div>
@@ -652,7 +658,7 @@ export function NodesPage() {
               <p className="eyebrow">{t('Last node action')}</p>
               <h2>{actionResult.nodeName}</h2>
             </div>
-            <StatusBadge tone={actionResult.tone}>{actionResult.label}</StatusBadge>
+            <StatusBadge tone={actionResult.tone}>{t(actionResult.label)}</StatusBadge>
           </div>
           <p>{actionResult.detail}</p>
         </article>
@@ -699,7 +705,7 @@ export function NodesPage() {
                     formatCapabilities(node.capabilities),
                     t(getHeartbeatLabel(node)),
                     <>
-                      <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+                      <StatusBadge tone={state.tone}>{t(state.label)}</StatusBadge>
                       <br />
                       <small>{t(state.detail)}</small>
                       {pendingControl ? (
@@ -913,7 +919,7 @@ export function NodesPage() {
                 <h2>{selectedNode.name}</h2>
               </div>
               <StatusBadge tone={getNodeState(selectedNode.status).tone}>
-                {getNodeState(selectedNode.status).label}
+                {t(getNodeState(selectedNode.status).label)}
               </StatusBadge>
             </div>
             <form className="screen-form" onSubmit={handleCommandSubmit}>
@@ -965,7 +971,7 @@ export function NodesPage() {
                 cells: [
                   command.command_type,
                   <StatusBadge tone={getNodeState(command.status).tone}>
-                    {formatStatus(command.status)}
+                    {t(formatStatus(command.status))}
                   </StatusBadge>,
                   JSON.stringify(command.payload_json),
                   command.result_json ? JSON.stringify(command.result_json) : '-',
@@ -1263,7 +1269,7 @@ export function NodesPage() {
           ]}
         />
 
-        <ProvisioningJobPanel job={latestJob} />
+        <ProvisioningJobPanel job={latestJob} t={t} />
       </section>
     </section>
   )
