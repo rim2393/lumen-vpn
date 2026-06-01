@@ -118,19 +118,18 @@ function writeSecret(path, value) {
 }
 
 function scheduleNodeAgentRestart(input = {}) {
-  const spawnImpl = input.spawnImpl ?? spawn;
-  const command = input.env?.LUMEN_NODE_AGENT_RESTART_COMMAND ??
-    "sleep 3; kill -KILL 1";
-  const child = spawnImpl("sh", ["-lc", `nohup sh -c ${JSON.stringify(command)} >/dev/null 2>&1 &`], {
-    detached: true,
-    stdio: "ignore"
-  });
-  if (typeof child?.unref === "function") {
-    child.unref();
+  const setTimeoutImpl = input.setTimeoutImpl ?? setTimeout;
+  const processExitImpl = input.processExitImpl ?? process.exit.bind(process);
+  const delayMs = Number.parseInt(input.env?.LUMEN_NODE_AGENT_RESTART_DELAY_MS ?? "3000", 10);
+  const timer = setTimeoutImpl(() => {
+    processExitImpl(0);
+  }, Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 3000);
+  if (typeof timer?.unref === "function") {
+    timer.unref();
   }
   return Object.freeze({
     implementationStatus: "node-agent-restart-scheduled",
-    command: "kill -KILL 1"
+    command: "process.exit(0)"
   });
 }
 
@@ -969,7 +968,9 @@ export async function runNodeAgentOnce(input = {}) {
       env: input.env ?? {},
       execFileImpl: input.execFileImpl,
       isPidRunningImpl: input.isPidRunningImpl,
-      spawnImpl: input.spawnImpl
+      processExitImpl: input.processExitImpl,
+      spawnImpl: input.spawnImpl,
+      setTimeoutImpl: input.setTimeoutImpl
     });
     if (commandResult.state) {
       latestState = commandResult.state;

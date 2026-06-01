@@ -1189,7 +1189,8 @@ test("run once applies node policy artifact from outbound apply", async () => {
 
 test("run once executes node restart as a deferred container restart", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
-  const spawned = [];
+  const scheduled = [];
+  const exitCalls = [];
   try {
     writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
     writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
@@ -1202,9 +1203,16 @@ test("run once executes node restart as a deferred container restart", async () 
         LUMEN_STATE_DIR: stateDir,
         LUMEN_DRY_RUN: "false"
       },
-      spawnImpl: (binary, args, options) => {
-        spawned.push({ binary, args, options });
-        return { unref() {} };
+      setTimeoutImpl: (callback, delayMs) => {
+        scheduled.push({ callback, delayMs, unrefCalled: false });
+        return {
+          unref() {
+            scheduled[scheduled.length - 1].unrefCalled = true;
+          }
+        };
+      },
+      processExitImpl: (code) => {
+        exitCalls.push(code);
       },
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
@@ -1247,10 +1255,13 @@ test("run once executes node restart as a deferred container restart", async () 
     });
 
     assert.equal(result.command.status, "succeeded");
-    assert.equal(spawned[0].binary, "sh");
-    assert.match(spawned[0].args.join(" "), /kill -KILL 1/);
+    assert.equal(scheduled[0].delayMs, 3000);
+    assert.equal(scheduled[0].unrefCalled, true);
+    scheduled[0].callback();
+    assert.deepEqual(exitCalls, [0]);
     const completed = JSON.parse(calls[2].options.body);
     assert.equal(completed.result_json.outputs.implementationStatus, "node-agent-restart-scheduled");
+    assert.equal(completed.result_json.outputs.command, "process.exit(0)");
   } finally {
     rmSync(stateDir, { recursive: true, force: true });
   }
