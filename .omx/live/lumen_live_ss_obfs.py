@@ -114,9 +114,9 @@ def validate_renders():
         item = {"status": status, "bytes": len(body)}
         if target == "lumen-json":
             obj = json.loads(text)
-            first = obj["endpoints"][0]
+            first = obj["nodes"][0]["protocols"][0]
             hints = first.get("rendererHints", {})
-            item["protocol"] = first.get("protocol")
+            item["protocol"] = first.get("type") or first.get("protocol")
             item["plugin"] = hints.get("plugin")
             item["plugin_opts"] = hints.get("pluginOpts")
         elif target == "sing-box":
@@ -137,7 +137,7 @@ def validate_renders():
                 "ss://" in text or "type: ss" in text or 'type: "ss"' in text
             )
             item["contains_plugin"] = VARIANT["client_plugin"] in text
-            item["contains_obfs"] = "obfs=http" in text
+            item["contains_obfs"] = "obfs=http" in text or "obfs%3Dhttp" in text
         out[target] = item
 
     for target in ["lumen-json", "sing-box", "xray-json", "amnezia"]:
