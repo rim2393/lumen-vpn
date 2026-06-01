@@ -12,8 +12,9 @@ NODE_HEADERS = {"X-Lumen-Node-Token": NODE_TOKEN}
 
 
 def request(method, path, **kwargs):
+    allow_error = kwargs.pop("allow_error", False)
     response = requests.request(method, f"{BASE}{path}", timeout=20, **kwargs)
-    if response.status_code >= 400 and kwargs.pop("allow_error", False) is False:
+    if response.status_code >= 400 and allow_error is False:
         raise RuntimeError(f"{method} {path} failed: {response.status_code} {response.text[:240]}")
     return response
 
