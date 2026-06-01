@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.86` |
-| Product repo head | `7ada8aa Add live node overview telemetry` |
-| Public installer manifest | `rim2393/lumen_vpn@20a3b96` |
+| Latest production release | `v0.1.87` |
+| Product repo head | `d184fb4 Add typed settings groups` |
+| Public installer manifest | `rim2393/lumen_vpn@e1e1770` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -101,7 +101,7 @@ evidence here is wrong or stale.
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
 | S-001 | Generic OAuth2 provider | DONE | Real env/file-backed OAuth2/OIDC config, start/callback, validation | `4980e8c`, `v0.1.64` |
-| S-002 | Typed settings groups | OPEN | Settings are grouped and validated by domain, not generic key/value UI only | Not started |
+| S-002 | Typed settings groups | DONE | Settings are grouped and validated by domain, not generic key/value UI only | `d184fb4`, `v0.1.87`, release run `26789066575`, installer/deploy run `26789125159`, manifest `rim2393/lumen_vpn@e1e1770`; backend `ruff`, focused pytest `test_typed_setting_groups_validate_and_block_generic_bypass` + auth-provider settings passed, web `npm run build`, focused Vitest `ControlPlaneScreens.test.tsx -t typed settings groups` passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.87` healthy; live protected API smoke verified typed groups `panel.identity`, `subscription.delivery`, `security.policy`, `node.defaults`, successful typed update for `subscription.delivery`, `422 setting_group_invalid` for invalid payload, `422 setting_reserved_key` for generic bypass, and restored original value; prod browser `/settings` showed typed settings groups, subscription delivery, security policy, node defaults and save group controls. |
 | S-003 | MFA/passkey registration and login UX | OPEN | Authenticator 2FA/passkeys can be configured and used end-to-end | Not started |
 | S-004 | API tokens CRUD with scopes for automation/Telegram bot | OPEN | Scoped token lifecycle with one-time secret display and audit | Not started |
 | S-005 | Auth method toggles and branding toggles | OPEN | Toggles are real settings and affect login/UI surfaces | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`S-002`: typed settings groups.
+`S-003`: MFA/passkey registration and login UX.
 
 Proposed implementation:
 
-1. Audit current settings storage, settings UI, auth-provider settings and panel metadata settings.
-2. Define typed settings groups for panel, subscription delivery, auth, security and node/runtime defaults.
-3. Add backend validation schemas and grouped read/update endpoints without accepting inline secrets.
-4. Replace generic UI-only editing with grouped forms that persist through the real settings API.
-5. Test backend/UI contracts, release through the signed manifest, then verify on the live panel path before marking DONE.
+1. Audit current TOTP, WebAuthn/passkey and login challenge backend flows.
+2. Add missing settings UI for registering/listing/disabling MFA methods and passkeys without exposing secrets after setup.
+3. Make login UX handle MFA/passkey challenges end-to-end through the existing auth APIs.
+4. Test backend/UI flows with real challenge contracts and no fake success.
+5. Release through the signed manifest and verify on the live panel path before marking DONE.
 
 ## Checkpoint Notes
 
