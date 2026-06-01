@@ -2,7 +2,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { execFile as nodeExecFile, spawn } from "node:child_process";
-import { applyOpenVpnConfig } from "./openvpn-runtime.js";
+import { applyOpenVpnConfig, ensureManagedOpenVpnProcess } from "./openvpn-runtime.js";
 
 export const OPENVPN_SHADOWSOCKS_RUNTIME_MODEL_VERSION =
   "lumen.node-agent.openvpn-shadowsocks-runtime.v1";
@@ -170,6 +170,7 @@ function bridgeOpenVpnEnv(env, baseDir) {
     join(baseDir, "openvpn");
   return {
     ...env,
+    LUMEN_OPENVPN_RELOAD_MODE: "process",
     LUMEN_OPENVPN_CONFIG_FILE: join(openvpnDir, "server.conf"),
     LUMEN_OPENVPN_AUTH_SCRIPT: join(openvpnDir, "auth-user-pass.sh"),
     LUMEN_OPENVPN_USERS_FILE: join(openvpnDir, "users.txt"),
@@ -233,6 +234,11 @@ export async function ensureManagedOpenVpnShadowsocksProcess(input = {}) {
   if (!existsSync(configPath)) {
     return null;
   }
+  const bridgeDir = dirname(configPath);
+  const openvpn = await ensureManagedOpenVpnProcess({
+    ...input,
+    env: bridgeOpenVpnEnv(env, bridgeDir)
+  });
   const binary = env.LUMEN_OPENVPN_SHADOWSOCKS_BINARY ?? DEFAULT_OPENVPN_SHADOWSOCKS_BINARY;
   const logPath = env.LUMEN_OPENVPN_SHADOWSOCKS_LOG_FILE ?? DEFAULT_OPENVPN_SHADOWSOCKS_LOG_FILE;
   const pidFile = env.LUMEN_OPENVPN_SHADOWSOCKS_PID_FILE ?? DEFAULT_OPENVPN_SHADOWSOCKS_PID_FILE;
@@ -243,7 +249,8 @@ export async function ensureManagedOpenVpnShadowsocksProcess(input = {}) {
       implementationStatus: "openvpn-shadowsocks-managed-process-running",
       configPath,
       logPath,
-      pid
+      pid,
+      openvpn
     });
   }
   const nextPid = startManagedProcess(binary, configPath, logPath, pidFile, input.spawnImpl);
@@ -251,6 +258,7 @@ export async function ensureManagedOpenVpnShadowsocksProcess(input = {}) {
     implementationStatus: "openvpn-shadowsocks-managed-process-restored",
     configPath,
     logPath,
-    pid: nextPid
+    pid: nextPid,
+    openvpn
   });
 }

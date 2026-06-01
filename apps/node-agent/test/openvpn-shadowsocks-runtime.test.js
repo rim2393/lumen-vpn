@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   applyOpenVpnShadowsocksConfig,
-  createOpenVpnShadowsocksApplyPlan
+  createOpenVpnShadowsocksApplyPlan,
+  ensureManagedOpenVpnShadowsocksProcess
 } from "../src/openvpn-shadowsocks-runtime.js";
 
 const pki = Object.freeze({
@@ -93,4 +94,64 @@ test("createOpenVpnShadowsocksApplyPlan rejects unresolved refs", () => {
     }),
     /unresolved refs/i
   );
+});
+
+test("ensureManagedOpenVpnShadowsocksProcess restores bridge OpenVPN and ssserver", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lumen-openvpn-ss-restore-"));
+  const configPath = join(dir, "config.json");
+  const openvpnDir = join(dir, "openvpn");
+  const calls = [];
+  const spawns = [];
+  try {
+    await applyOpenVpnShadowsocksConfig(createOpenVpnShadowsocksApplyPlan({
+      openvpnShadowsocksConfig: bridgeConfig(),
+      configPath
+    }), {
+      dryRun: false,
+      env: {
+        LUMEN_OPENVPN_SHADOWSOCKS_LOG_FILE: join(dir, "ss.log"),
+        LUMEN_OPENVPN_SHADOWSOCKS_PID_FILE: join(dir, "ss.pid")
+      },
+      execFileImpl: async () => ({ stdout: "", stderr: "" }),
+      isPidRunningImpl: () => true,
+      processStartCheckMs: 0,
+      spawnImpl: (command, args) => ({
+        pid: command === "openvpn" ? 7001 : 7002,
+        unref() {}
+      })
+    });
+    rmSync(join(openvpnDir, "openvpn.pid"), { force: true });
+    rmSync(join(dir, "ss.pid"), { force: true });
+
+    const result = await ensureManagedOpenVpnShadowsocksProcess({
+      env: {
+        LUMEN_OPENVPN_SHADOWSOCKS_CONFIG_FILE: configPath,
+        LUMEN_OPENVPN_SHADOWSOCKS_LOG_FILE: join(dir, "ss.log"),
+        LUMEN_OPENVPN_SHADOWSOCKS_PID_FILE: join(dir, "ss.pid")
+      },
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+        return { stdout: "", stderr: "" };
+      },
+      isPidRunningImpl: () => true,
+      processStartCheckMs: 0,
+      spawnImpl: (command, args) => {
+        spawns.push([command, args]);
+        return {
+          pid: 8100 + spawns.length,
+          unref() {}
+        };
+      }
+    });
+
+    assert.equal(result.implementationStatus, "openvpn-shadowsocks-managed-process-restored");
+    assert.equal(result.openvpn.implementationStatus, "openvpn-managed-process-restored");
+    assert.deepEqual(spawns.map(([command]) => command), ["openvpn", "ssserver"]);
+    assert.deepEqual(spawns[0][1], ["--config", join(openvpnDir, "server.conf")]);
+    assert.deepEqual(spawns[1][1], ["-c", configPath]);
+    assert.equal(calls[0][0], "openvpn");
+    assert.equal(calls.at(-1)[0], "ssserver");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
