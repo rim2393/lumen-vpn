@@ -135,6 +135,14 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByText(/profile metadata json must be an object/i)).toBeInTheDocument()
     expect(updateProfile).not.toHaveBeenCalled()
 
+    fireEvent.change(screen.getByLabelText(/profile metadata json/i), { target: { value: '{}' } })
+    fireEvent.change(screen.getByLabelText(/profile config json/i), {
+      target: { value: JSON.stringify({ security: { privateKey: 'must-not-inline' } }, null, 2) },
+    })
+    fireEvent.submit(form as HTMLFormElement)
+    expect(await screen.findByText(/inline secret-like fields/i)).toBeInTheDocument()
+    expect(updateProfile).not.toHaveBeenCalled()
+
     fireEvent.change(screen.getByLabelText(/profile config json/i), {
       target: {
         value: JSON.stringify(

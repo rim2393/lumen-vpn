@@ -2178,6 +2178,7 @@ function formToRequest(
     parseProfileConfigJson(form.configJson, t),
     buildProfileConfigFromForm(form, adapterCapabilities),
   )
+  validateProfileConfigSafety(config_json, t)
   const metadata_json = parseProfileMetadataJson(form.metadataJson, t)
   if (adapterCapabilities.includes('reality') && form.flow.trim()) {
     config_json.flow = form.flow.trim()
@@ -2361,6 +2362,55 @@ function parseProfileConfigJson(value: string, t: (value: string) => string): Re
     throw new Error(t('Profile config JSON must be an object.'))
   }
   return { ...(parsed as Record<string, unknown>) }
+}
+
+function validateProfileConfigSafety(config: Record<string, unknown>, t: (value: string) => string) {
+  const unsafePaths = collectUnsafeProfileConfigPaths(config)
+  if (unsafePaths.length > 0) {
+    throw new Error(`${t('Profile config JSON contains inline secret-like fields. Use credentials ref instead.')} ${unsafePaths.join(', ')}`)
+  }
+}
+
+const profileConfigSecretFragments = [
+  'apikey',
+  'accesstoken',
+  'bearer',
+  'clientsecret',
+  'credential',
+  'password',
+  'passwd',
+  'privatekey',
+  'runtimeconfig',
+  'secret',
+  'subscriptionurl',
+  'token',
+]
+
+function collectUnsafeProfileConfigPaths(value: unknown, path = 'config_json'): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectUnsafeProfileConfigPaths(item, `${path}[${index}]`))
+  }
+  if (!isPlainProfileObject(value)) {
+    if (typeof value === 'string' && looksLikeInlineSecretValue(value)) {
+      return [path]
+    }
+    return []
+  }
+  const unsafe: string[] = []
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`
+    const normalizedKey = key.replace(/[-_\s]/g, '').toLowerCase()
+    if (profileConfigSecretFragments.some((fragment) => normalizedKey.includes(fragment))) {
+      unsafe.push(childPath)
+      continue
+    }
+    unsafe.push(...collectUnsafeProfileConfigPaths(child, childPath))
+  }
+  return unsafe
+}
+
+function looksLikeInlineSecretValue(value: string): boolean {
+  return /-----BEGIN (?:RSA |EC |OPENSSH |)?PRIVATE KEY-----/i.test(value) || /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/.test(value)
 }
 
 function parseProfileMetadataJson(value: string, t: (value: string) => string): Record<string, unknown> {

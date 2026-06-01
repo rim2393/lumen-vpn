@@ -509,6 +509,8 @@ const ru: Record<string, string> = {
   'Port validation': 'Проверка порта',
   'Profile could not be saved.': 'Профиль не удалось сохранить.',
   'Profile config JSON': 'JSON конфигурации профиля',
+  'Profile config JSON contains inline secret-like fields. Use credentials ref instead.':
+    'JSON конфигурации профиля содержит inline-секреты. Используйте credentials ref.',
   'Profile config JSON must be an object.': 'JSON конфигурации профиля должен быть объектом.',
   'Profile config JSON must be valid JSON.': 'JSON конфигурации профиля должен быть валидным JSON.',
   'Profile metadata JSON': 'JSON метаданных профиля',
