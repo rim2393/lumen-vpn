@@ -215,6 +215,38 @@ test("outbound apply permits resolved runtime credentials but still rejects stra
 
   assert.equal(validateCommandEnvelope(openvpnEnvelope).ok, true);
 
+  const openvpnShadowsocksEnvelope = createCommandEnvelope({
+    id: "cmd-openvpn-ss-1",
+    nodeId: "ams-1",
+    command: COMMAND_TYPES.OUTBOUND_APPLY,
+    idempotencyKey: "cmd-openvpn-ss-1:ams-1",
+    issuedAt: "2026-05-27T00:04:00.000Z",
+    payload: {
+      adapter: "openvpn-shadowsocks",
+      openvpnShadowsocksConfig: {
+        openvpn: {
+          listen_port: 24194,
+          proto: "tcp-server",
+          local_address: "127.0.0.1",
+          network: "10.89.0.0/24",
+          pki: {
+            ca_cert: "-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----",
+            server_cert: "-----BEGIN CERTIFICATE-----\nserver\n-----END CERTIFICATE-----",
+            server_key: "-----BEGIN PRIVATE KEY-----\nserver\n-----END PRIVATE KEY-----"
+          },
+          users: [{ username: "lumen_sub_live", password: "resolved-runtime-password" }]
+        },
+        shadowsocks: {
+          listen_port: 28443,
+          method: "aes-256-gcm",
+          password: "resolved-ss-password"
+        }
+      }
+    }
+  });
+
+  assert.equal(validateCommandEnvelope(openvpnShadowsocksEnvelope).ok, true);
+
   assert.throws(
     () => createCommandEnvelope({
       id: "cmd-xray-token-bad",

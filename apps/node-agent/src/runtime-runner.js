@@ -39,6 +39,11 @@ import {
 } from "./shadowsocks-plugin-runtime.js";
 import { applyNaiveConfig, createNaiveApplyPlan, ensureManagedNaiveProcess } from "./naive-runtime.js";
 import { applyOpenVpnConfig, createOpenVpnApplyPlan, ensureManagedOpenVpnProcess } from "./openvpn-runtime.js";
+import {
+  applyOpenVpnShadowsocksConfig,
+  createOpenVpnShadowsocksApplyPlan,
+  ensureManagedOpenVpnShadowsocksProcess
+} from "./openvpn-shadowsocks-runtime.js";
 import { applyTuicConfig, createTuicApplyPlan, ensureManagedTuicProcess } from "./tuic-runtime.js";
 import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
 import { applyNodePolicy, createNodePolicyApplyPlan } from "./policy-runtime.js";
@@ -57,6 +62,7 @@ const APPLY_FAILURE_CODES = Object.freeze({
   "shadowsocks-plugin.apply": "shadowsocks_plugin_apply_failed",
   "naive.apply": "naive_apply_failed",
   "openvpn.apply": "openvpn_apply_failed",
+  "openvpn-shadowsocks.apply": "openvpn_shadowsocks_apply_failed",
   "tuic.apply": "tuic_apply_failed",
   "wireguard.apply": "wireguard_apply_failed",
   "node-policy.apply": "node_policy_apply_failed"
@@ -69,6 +75,7 @@ const APPLY_DRY_RUN_STATUS = Object.freeze({
   "shadowsocks-plugin.apply": "shadowsocks-plugin-dry-run",
   "naive.apply": "naive-dry-run",
   "openvpn.apply": "openvpn-dry-run",
+  "openvpn-shadowsocks.apply": "openvpn-shadowsocks-dry-run",
   "tuic.apply": "tuic-dry-run",
   "wireguard.apply": "wireguard-dry-run",
   "node-policy.apply": "node-policy-dry-run"
@@ -81,6 +88,7 @@ const APPLY_PENDING_STATUS = Object.freeze({
   "shadowsocks-plugin.apply": "shadowsocks-plugin-apply-pending",
   "naive.apply": "naive-apply-pending",
   "openvpn.apply": "openvpn-apply-pending",
+  "openvpn-shadowsocks.apply": "openvpn-shadowsocks-apply-pending",
   "tuic.apply": "tuic-apply-pending",
   "wireguard.apply": "wireguard-apply-pending",
   "node-policy.apply": "node-policy-apply-pending"
@@ -294,13 +302,24 @@ function naiveApplyPlanFromEnvelope(envelope) {
 }
 
 function openVpnApplyPlanFromEnvelope(envelope) {
-  if (!envelope.payload.openvpnConfig) {
+  if (!envelope.payload.openvpnConfig || envelope.payload.openvpnShadowsocksConfig) {
     return null;
   }
   return createOpenVpnApplyPlan({
     id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
     openvpnConfig: envelope.payload.openvpnConfig,
     configPath: envelope.payload.openvpnConfigPath
+  });
+}
+
+function openVpnShadowsocksApplyPlanFromEnvelope(envelope) {
+  if (!envelope.payload.openvpnShadowsocksConfig) {
+    return null;
+  }
+  return createOpenVpnShadowsocksApplyPlan({
+    id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
+    openvpnShadowsocksConfig: envelope.payload.openvpnShadowsocksConfig,
+    configPath: envelope.payload.openvpnShadowsocksConfigPath
   });
 }
 
@@ -403,6 +422,7 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         dryRun: input.dryRun,
         env: input.env,
         execFileImpl: input.execFileImpl,
+        isPidRunningImpl: input.isPidRunningImpl,
         spawnImpl: input.spawnImpl
       });
       const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
@@ -435,6 +455,7 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         dryRun: input.dryRun,
         env: input.env,
         execFileImpl: input.execFileImpl,
+        isPidRunningImpl: input.isPidRunningImpl,
         spawnImpl: input.spawnImpl
       });
       const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
@@ -456,10 +477,25 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         dryRun: input.dryRun,
         env: input.env,
         execFileImpl: input.execFileImpl,
+        isPidRunningImpl: input.isPidRunningImpl,
         spawnImpl: input.spawnImpl
       });
       const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
       return withResultOutputs(commandResult, policy ? { ...openvpn, nodePolicy: policy } : openvpn);
+    }
+    if (commandResult.runtimeAction.type === "openvpn-shadowsocks.apply") {
+      const openvpnShadowsocks = await applyOpenVpnShadowsocksConfig(commandResult.runtimeAction.plan, {
+        dryRun: input.dryRun,
+        env: input.env,
+        execFileImpl: input.execFileImpl,
+        isPidRunningImpl: input.isPidRunningImpl,
+        spawnImpl: input.spawnImpl
+      });
+      const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
+      return withResultOutputs(
+        commandResult,
+        policy ? { ...openvpnShadowsocks, nodePolicy: policy } : openvpnShadowsocks
+      );
     }
     if (commandResult.runtimeAction.type === "tuic.apply") {
       const tuic = await applyTuicConfig(commandResult.runtimeAction.plan, {
@@ -649,6 +685,15 @@ export function applyNodeCommand(command, currentState, input = {}) {
             }
           }
           if (!runtimeAction) {
+            const openVpnShadowsocksPlan = openVpnShadowsocksApplyPlanFromEnvelope(envelope);
+            if (openVpnShadowsocksPlan) {
+              runtimeAction = Object.freeze({
+                type: "openvpn-shadowsocks.apply",
+                plan: openVpnShadowsocksPlan
+              });
+            }
+          }
+          if (!runtimeAction) {
             const openVpnPlan = openVpnApplyPlanFromEnvelope(envelope);
             if (openVpnPlan) {
               runtimeAction = Object.freeze({
@@ -804,6 +849,7 @@ export async function runNodeAgentOnce(input = {}) {
     const restoreInput = {
       env: input.env ?? {},
       execFileImpl: input.execFileImpl,
+      isPidRunningImpl: input.isPidRunningImpl,
       spawnImpl: input.spawnImpl
     };
     const xray = await ensureManagedXrayProcess(restoreInput);
@@ -812,8 +858,18 @@ export async function runNodeAgentOnce(input = {}) {
     const shadowsocksPlugin = await ensureManagedShadowsocksPluginProcess(restoreInput);
     const naive = await ensureManagedNaiveProcess(restoreInput);
     const openvpn = await ensureManagedOpenVpnProcess(restoreInput);
+    const openvpnShadowsocks = await ensureManagedOpenVpnShadowsocksProcess(restoreInput);
     const tuic = await ensureManagedTuicProcess(restoreInput);
-    runtimeRestore = Object.freeze({ xray, hysteria2, shadowsocks, shadowsocksPlugin, naive, openvpn, tuic });
+    runtimeRestore = Object.freeze({
+      xray,
+      hysteria2,
+      shadowsocks,
+      shadowsocksPlugin,
+      naive,
+      openvpn,
+      openvpnShadowsocks,
+      tuic
+    });
   } catch (error) {
     runtimeRestore = Object.freeze({
       implementationStatus: "managed-process-restore-failed",
@@ -847,6 +903,7 @@ export async function runNodeAgentOnce(input = {}) {
       enableLiveDiagnostic: (input.env ?? {}).LUMEN_ENABLE_LIVE_DIAGNOSTIC === "true",
       env: input.env ?? {},
       execFileImpl: input.execFileImpl,
+      isPidRunningImpl: input.isPidRunningImpl,
       spawnImpl: input.spawnImpl
     });
     if (commandResult.state) {

@@ -194,6 +194,9 @@ export function renderOpenVpnServerConfig(config, paths) {
   const lines = [
     `port ${config.listen_port}`,
     `proto ${config.proto}`,
+    ...(typeof config.local_address === "string" && config.local_address.trim().length > 0
+      ? [`local ${config.local_address.trim()}`]
+      : []),
     "dev tun",
     "topology subnet",
     `server ${network.network} ${network.netmask}`,

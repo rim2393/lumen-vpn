@@ -28,6 +28,12 @@ const PROTOCOL_RUNTIMES = Object.freeze({
     capability: "runtime.hysteria2",
     credentialSlots: Object.freeze(["authRef"]),
     transport: "udp"
+  }),
+  "openvpn-shadowsocks": Object.freeze({
+    runtime: "openvpn-shadowsocks",
+    capability: "runtime.openvpn_shadowsocks",
+    credentialSlots: Object.freeze(["usernameRef", "passwordRef", "shadowsocksPasswordRef"]),
+    transport: "tcp"
   })
 });
 
@@ -197,5 +203,12 @@ export const runtimeProtocolAdapters = Object.freeze([
     capabilities: Object.freeze(["udp", "quic", "hysteria2"]),
     requiredCredentialRefs: Object.freeze(["authRef"]),
     rendererHints: Object.freeze({ singBoxType: "hysteria2", clashMetaType: "hysteria2" })
+  }),
+  runtimeAdapter({
+    protocol: "openvpn-shadowsocks",
+    displayName: "OpenVPN over Shadowsocks",
+    capabilities: Object.freeze(["tcp", "openvpn", "shadowsocks"]),
+    requiredCredentialRefs: Object.freeze(["usernameRef", "passwordRef", "shadowsocksPasswordRef"]),
+    rendererHints: Object.freeze({ rawType: "openvpn", delivery: "ovpn-socks-proxy" })
   })
 ]);

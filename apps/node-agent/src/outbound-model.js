@@ -21,6 +21,7 @@ const RUNTIME_CREDENTIAL_PAYLOAD_ROOTS = Object.freeze([
   "$.payload.hysteria2Config",
   "$.payload.naiveConfig",
   "$.payload.openvpnConfig",
+  "$.payload.openvpnShadowsocksConfig",
   "$.payload.singBoxShadowsocksConfig",
   "$.payload.shadowsocksPluginConfig",
   "$.payload.tuicConfig",

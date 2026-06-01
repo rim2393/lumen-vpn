@@ -23,6 +23,7 @@ def test_protocol_adapter_catalog_contains_full_product_matrix() -> None:
         "hysteria2-obfs",
         "tuic-v5",
         "naiveproxy",
+        "openvpn-shadowsocks",
     ):
         assert expected_protocol in protocols
 

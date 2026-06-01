@@ -28,7 +28,15 @@ function realityRequest(overrides = {}) {
 
 test("default registry exposes all production-plan adapters while catalog entries stay separate", () => {
   const protocols = defaultProtocolRegistry.list().map((adapter) => adapter.protocol);
-  assert.deepEqual(protocols, ["vless-reality", "vless-tcp-tls", "trojan", "shadowsocks", "wireguard", "hysteria2"]);
+  assert.deepEqual(protocols, [
+    "vless-reality",
+    "vless-tcp-tls",
+    "trojan",
+    "shadowsocks",
+    "wireguard",
+    "hysteria2",
+    "openvpn-shadowsocks"
+  ]);
   assert.deepEqual(protocolCatalogEntries.map((adapter) => adapter.protocol), ["vless", "trojan", "shadowsocks", "wireguard", "hysteria2"]);
   assert.equal(defaultProtocolRegistry.require("vless-reality").status, "experimental");
   assert.equal(defaultProtocolRegistry.require("vless-tcp-tls").status, "experimental");

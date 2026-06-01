@@ -30,10 +30,11 @@ The currently executable runtime slice includes the adapters that have passed
 backend renderer tests, node-agent runtime tests, and live VPS validation:
 VLESS/VMess/Trojan TCP variants, Shadowsocks native, SOCKS5, HTTP proxy,
 Hysteria2, TUIC v5, WireGuard native, AmneziaWG, and direct OpenVPN UDP.
-OpenVPN-over-Shadowsocks remains a separate bridge task and must not be marked
-complete until a real bridge path is implemented and live-validated. Catalog
-entries outside that set remain metadata only until install, health, export,
-conflict, and client compatibility tests are completed.
+OpenVPN-over-Shadowsocks now has a real backend/node-agent implementation and
+must still pass the official image release plus live VPS validation before it is
+listed as live-validated. Catalog entries outside that set remain metadata only
+until install, health, export, conflict, and client compatibility tests are
+completed.
 
 The VLESS Reality adapter expects public client subscription fields:
 
@@ -61,6 +62,18 @@ The OpenVPN UDP adapter expects:
 - per-subscription username/password credentials
 - node-agent process mode with `openvpn` installed, TUN/NET_ADMIN available,
   IP forwarding enabled, and NAT for the OpenVPN client network
+
+The OpenVPN-over-Shadowsocks adapter expects:
+
+- profile-managed server CA/certificate/private key material
+- per-subscription OpenVPN username/password credentials
+- per-subscription Shadowsocks password credentials
+- node-agent process mode with `openvpn`, `ssserver`, TUN/NET_ADMIN, IP
+  forwarding, and NAT
+- OpenVPN is bound to loopback TCP and the public listener is Shadowsocks TCP.
+  Generic sing-box/Mihomo/Xray exports are rejected for this adapter rather
+  than emitting a broken config. Lumen native exports include both layers, and
+  raw/Happ exports render an `.ovpn` profile with `socks-proxy` instructions.
 
 The Xray transport variants use adapter-derived transport defaults:
 

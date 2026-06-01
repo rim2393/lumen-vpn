@@ -783,3 +783,83 @@ async def test_openvpn_subscription_renders_ovpn_from_real_profile_pki(
     assert "remote 203.0.113.70 1194" in raw.text
     assert "<ca>\n-----BEGIN CERTIFICATE-----" in raw.text
     assert f"<auth-user-pass>\n{public_id}\n" in raw.text
+
+
+async def test_openvpn_shadowsocks_subscription_renders_bridge_ovpn_and_blocks_wrong_targets(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="OpenVPN Shadowsocks",
+            node_id=node.id,
+            adapter="openvpn-shadowsocks",
+            status="active",
+            config_json={
+                "network": "10.89.0.0/24",
+                "method": "aes-256-gcm",
+                "openvpn": {"listen_port": 24194},
+            },
+            port_reservations=[
+                {
+                    "address": "0.0.0.0",  # noqa: S104
+                    "port": 28443,
+                    "protocol": "tcp",
+                    "exclusive": True,
+                }
+            ],
+            credentials_ref="vault://subscriptions/openvpn-ss/creds",
+            metadata_json={
+                "openvpn_pki": {
+                    "ca_cert": "-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----",
+                    "server_cert": "-----BEGIN CERTIFICATE-----\nserver\n-----END CERTIFICATE-----",
+                    "server_key": "-----BEGIN PRIVATE KEY-----\nserver\n-----END PRIVATE KEY-----",
+                }
+            },
+        )
+        session.add(profile)
+        await session.commit()
+
+    response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "profile_id": str(profile.id),
+                "protocol": "openvpn-shadowsocks",
+                "adapter": "openvpn-shadowsocks",
+                "profile_title": "Lumen OpenVPN over SS",
+                "port": "28443",
+            },
+            "config_hash": "sha256:openvpn-shadowsocks",
+        },
+    )
+    assert response.status_code == 201, response.text
+    public_id = response.json()["public_id"]
+
+    raw = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=happ",
+    )
+    assert raw.status_code == 200, raw.text
+    assert "proto tcp" in raw.text
+    assert "remote 127.0.0.1 24194" in raw.text
+    assert "socks-proxy 127.0.0.1 1080" in raw.text
+    assert "Shadowsocks server: 203.0.113.70:28443" in raw.text
+    assert f"<auth-user-pass>\n{public_id}\n" in raw.text
+
+    native = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=lumen-json",
+    )
+    assert native.status_code == 200, native.text
+    protocol = native.json()["nodes"][0]["protocols"][0]
+    assert protocol["adapter"] == "openvpn-shadowsocks"
+    assert protocol["endpoint"]["transport"] == "tcp"
+    assert protocol["credentials"]["shadowsocksPassword"]
+
+    sing_box = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
+    )
+    assert sing_box.status_code == 422
+    assert sing_box.json()["error"]["code"] == "subscription_render_target_unsupported_for_protocol"

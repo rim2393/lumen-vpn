@@ -261,6 +261,12 @@ PROTOCOL_ADAPTERS = (
         required_credential_refs=["username", "password", "server_certificate"],
     ),
     _adapter(
+        "openvpn-shadowsocks",
+        "OpenVPN over Shadowsocks",
+        capabilities=["openvpn", "shadowsocks", "tcp", "tls", "subscription"],
+        required_credential_refs=["username", "password", "shadowsocks_password"],
+    ),
+    _adapter(
         "socks5",
         "SOCKS5",
         capabilities=["socks", "tcp", "udp", "subscription"],
@@ -1412,6 +1418,7 @@ _NODE_CONFIG_KEY_BY_FAMILY = {
     "hysteria2": "hysteria2Config",
     "naive": "naiveConfig",
     "openvpn": "openvpnConfig",
+    "openvpn-shadowsocks": "openvpnShadowsocksConfig",
     "sing-box-shadowsocks": "singBoxShadowsocksConfig",
     "shadowsocks-plugin": "shadowsocksPluginConfig",
     "tuic": "tuicConfig",
@@ -1425,6 +1432,8 @@ _DEFAULT_NODE_TLS_KEY_PATH = "/var/lib/lumen-node/runtime/tls/live.key"
 def _adapter_family(adapter: str) -> str:
     if adapter == "naiveproxy":
         return "naive"
+    if adapter == "openvpn-shadowsocks":
+        return "openvpn-shadowsocks"
     if adapter.startswith("openvpn"):
         return "openvpn"
     if adapter == "shadowsocks-2022":
@@ -1759,6 +1768,47 @@ def _computed_openvpn_config(
     return config
 
 
+def _computed_openvpn_shadowsocks_config(
+    profile: ProtocolProfile,
+    port: int | None,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    config = _profile_config_dict(profile)
+    openvpn_config = dict(config.get("openvpn") or {})
+    shadowsocks_config = dict(config.get("shadowsocks") or {})
+    bridge_port = int(openvpn_config.get("listen_port") or config.get("openvpn_port") or 1194)
+    bridge_profile = ProtocolProfile(
+        id=profile.id,
+        adapter="openvpn-shadowsocks",
+        credentials_ref=profile.credentials_ref,
+        config_json={
+            **openvpn_config,
+            "listen_port": bridge_port,
+            "proto": "tcp-server",
+            "local_address": "127.0.0.1",
+            "network": openvpn_config.get("network") or config.get("network") or "10.89.0.0/24",
+        },
+        metadata_json=profile.metadata_json,
+    )
+    shadowsocks_config.setdefault("listen", WILDCARD_BIND_ADDRESS)
+    shadowsocks_config.setdefault("listen_port", port or config.get("listen_port") or 8388)
+    shadowsocks_config.setdefault("method", config.get("method") or "aes-256-gcm")
+    clients = runtime_clients or []
+    if clients:
+        shadowsocks_config["password"] = str(clients[0]["shadowsocks_password"])
+    else:
+        shadowsocks_config["clientsRef"] = profile.credentials_ref
+    return {
+        "openvpn": _computed_openvpn_config(
+            bridge_profile,
+            bridge_port,
+            runtime_clients=runtime_clients,
+        ),
+        "shadowsocks": shadowsocks_config,
+    }
+
+
 def _computed_sing_box_shadowsocks_config(
     profile: ProtocolProfile,
     port: int | None,
@@ -1865,6 +1915,12 @@ def compute_node_outbound_config(
         )
     if family == "openvpn":
         return _computed_openvpn_config(
+            profile,
+            _first_inbound_port(inbounds),
+            runtime_clients=runtime_clients,
+        )
+    if family == "openvpn-shadowsocks":
+        return _computed_openvpn_shadowsocks_config(
             profile,
             _first_inbound_port(inbounds),
             runtime_clients=runtime_clients,
@@ -2252,6 +2308,8 @@ def _inbound_transport(profile: ProtocolProfile) -> str:
         "openvpn-udp",
     }:
         return "udp"
+    if profile.adapter == "openvpn-shadowsocks":
+        return "tcp"
     return "tcp"
 
 
@@ -2266,6 +2324,7 @@ def _inbound_security(profile: ProtocolProfile) -> str:
         "tuic-v5",
         "naiveproxy",
         "openvpn-udp",
+        "openvpn-shadowsocks",
     }:
         return "tls"
     return "none"

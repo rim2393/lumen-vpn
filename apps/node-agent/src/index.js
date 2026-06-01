@@ -143,6 +143,13 @@ export {
   renderOpenVpnServerConfig
 } from "./openvpn-runtime.js";
 export {
+  DEFAULT_OPENVPN_SHADOWSOCKS_BINARY,
+  DEFAULT_OPENVPN_SHADOWSOCKS_CONFIG_PATH,
+  OPENVPN_SHADOWSOCKS_RUNTIME_MODEL_VERSION,
+  applyOpenVpnShadowsocksConfig,
+  createOpenVpnShadowsocksApplyPlan
+} from "./openvpn-shadowsocks-runtime.js";
+export {
   DEFAULT_SHADOWSOCKS_PLUGIN_CONFIG_PATH,
   DEFAULT_SHADOWSOCKS_SERVER_BINARY,
   SHADOWSOCKS_PLUGIN_RUNTIME_MODEL_VERSION,

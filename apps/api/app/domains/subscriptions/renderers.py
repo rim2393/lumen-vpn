@@ -97,6 +97,20 @@ def render_subscription_for_target(
 ) -> RenderedSubscription:
     normalized_target = normalize_render_target(target)
     headers = build_subscription_headers(manifest)
+    if manifest_contains_openvpn_shadowsocks(manifest) and (
+        normalized_target in MIHOMO_TARGETS
+        or normalized_target in SING_BOX_TARGETS
+        or normalized_target in XRAY_TARGETS
+    ):
+        raise APIError(
+            code="subscription_render_target_unsupported_for_protocol",
+            message=(
+                "OpenVPN-over-Shadowsocks can be rendered as the Lumen native "
+                "manifest or raw OpenVPN profile only."
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[normalized_target, "openvpn-shadowsocks"],
+        )
 
     if normalized_target == "lumen-json":
         return RenderedSubscription(
@@ -160,6 +174,20 @@ def render_subscription_for_target(
         message="Subscription render target is not supported.",
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         details=[normalized_target],
+    )
+
+
+def manifest_contains_openvpn_shadowsocks(manifest: dict[str, Any]) -> bool:
+    return any(
+        is_openvpn_shadowsocks_protocol(entry["protocol"])
+        for entry in iter_protocol_entries(manifest)
+    )
+
+
+def is_openvpn_shadowsocks_protocol(protocol: dict[str, Any]) -> bool:
+    return (
+        protocol.get("adapter") == "openvpn-shadowsocks"
+        or protocol.get("type") == "openvpn-shadowsocks"
     )
 
 
@@ -348,14 +376,31 @@ def render_openvpn_ovpn(entry: dict[str, Any], *, credentials: ClientCredential)
     ca_cert = hints.get("caCert")
     if not endpoint.get("host") or not endpoint.get("port") or not ca_cert:
         return None
-    proto = network_type(protocol)
+    is_shadowsocks_bridge = is_openvpn_shadowsocks_protocol(protocol)
+    proto = "tcp" if is_shadowsocks_bridge else network_type(protocol)
     if proto not in {"udp", "tcp"}:
         proto = "udp"
+    remote_host = endpoint["host"]
+    remote_port = endpoint["port"]
+    bridge_lines: list[str] = []
+    if is_shadowsocks_bridge:
+        remote_host = str(hints.get("openvpnRemoteHost") or "127.0.0.1")
+        remote_port = int(hints.get("openvpnRemotePort") or 1194)
+        bridge_lines = [
+            "# Lumen OpenVPN-over-Shadowsocks profile.",
+            "# Start a local Shadowsocks client first and expose SOCKS5 on 127.0.0.1:1080.",
+            f"# Shadowsocks server: {endpoint['host']}:{endpoint['port']}",
+            f"# Shadowsocks method: {hints.get('method') or 'aes-256-gcm'}",
+            "# Shadowsocks password is available in the Lumen native subscription manifest.",
+            "socks-proxy 127.0.0.1 1080",
+            "route-method exe",
+            "route-delay 2",
+        ]
     lines = [
         "client",
         "dev tun",
         f"proto {proto}",
-        f"remote {endpoint['host']} {endpoint['port']}",
+        f"remote {remote_host} {remote_port}",
         "resolv-retry infinite",
         "nobind",
         "persist-key",
@@ -365,6 +410,7 @@ def render_openvpn_ovpn(entry: dict[str, Any], *, credentials: ClientCredential)
         "auth-nocache",
         "data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305",
         "verb 3",
+        *bridge_lines,
         "<ca>",
         str(ca_cert).strip(),
         "</ca>",
@@ -661,6 +707,8 @@ def render_sing_box_config(manifest: dict[str, Any], *, settings: Settings) -> d
 
 def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any] | None:
     protocol = entry["protocol"]
+    if is_openvpn_shadowsocks_protocol(protocol):
+        return None
     protocol_type = normalize_protocol_type(protocol.get("type"))
     credentials = derive_credentials(
         settings=settings,
@@ -823,6 +871,8 @@ def render_xray_json(manifest: dict[str, Any], *, settings: Settings) -> dict[st
 
 def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any] | None:
     protocol = entry["protocol"]
+    if is_openvpn_shadowsocks_protocol(protocol):
+        return None
     protocol_type = normalize_protocol_type(protocol.get("type"))
     credentials = derive_credentials(
         settings=settings,

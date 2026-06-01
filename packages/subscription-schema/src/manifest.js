@@ -8,7 +8,8 @@ export const SUPPORTED_SUBSCRIPTION_PROTOCOLS = Object.freeze([
   "shadowsocks",
   "wireguard",
   "hysteria2",
-  "openvpn"
+  "openvpn",
+  "openvpn-shadowsocks"
 ]);
 
 const SUPPORTED_PROTOCOL_SET = new Set(SUPPORTED_SUBSCRIPTION_PROTOCOLS);

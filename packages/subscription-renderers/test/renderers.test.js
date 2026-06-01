@@ -183,3 +183,35 @@ test("rejects WireGuard from client renderers until real key material is availab
     /not enabled for client rendering/
   );
 });
+
+test("rejects OpenVPN-over-Shadowsocks from generic sing-box and Mihomo renderers", () => {
+  const manifest = createSubscriptionManifest({
+    generatedAt: "2026-05-26T00:00:00.000Z",
+    provider: { id: "lumen", name: "Lumen VPN" },
+    subscription: { id: "sub_123", audience: "android" },
+    nodes: [
+      {
+        id: "ams-1",
+        displayName: "Amsterdam 1",
+        region: "nl-ams",
+        protocols: [
+          {
+            type: "openvpn-shadowsocks",
+            endpoint: { host: "ams-1.example.net", port: 28443, transport: "tcp" },
+            credentialsRef: "vault://subscriptions/sub_123/openvpn-shadowsocks",
+            rendererHints: { openvpnRemoteHost: "127.0.0.1", openvpnRemotePort: 24194 }
+          }
+        ]
+      }
+    ]
+  });
+
+  assert.throws(
+    () => renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED }),
+    /not enabled for client rendering/
+  );
+  assert.throws(
+    () => renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED }),
+    /not enabled for client rendering/
+  );
+});

@@ -105,6 +105,42 @@ def test_openvpn_profile_builds_real_openvpn_payload_with_generated_pki():
     assert "BEGIN PRIVATE KEY" in config["pki"]["server_key"]
 
 
+def test_openvpn_shadowsocks_profile_builds_real_bridge_payload():
+    payload = build_node_outbound_payload(
+        _profile(
+            "openvpn-shadowsocks",
+            {
+                "network": "10.89.0.0/24",
+                "openvpn": {"listen_port": 24194},
+                "shadowsocks": {"method": "aes-256-gcm"},
+            },
+        ),
+        _inbounds(28443, protocol="openvpn", transport="tcp"),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "password": "openvpn-live-password",
+                "shadowsocks_password": "ss-live-password",
+            }
+        ],
+    )
+
+    assert payload["adapter"] == "openvpn-shadowsocks"
+    assert "openvpnShadowsocksConfig" in payload
+    config = payload["openvpnShadowsocksConfig"]
+    assert config["openvpn"]["listen_port"] == 24194
+    assert config["openvpn"]["proto"] == "tcp-server"
+    assert config["openvpn"]["local_address"] == "127.0.0.1"
+    assert config["openvpn"]["users"] == [
+        {"username": "lumen_sub_live", "password": "openvpn-live-password"}
+    ]
+    assert config["shadowsocks"]["listen_port"] == 28443
+    assert config["shadowsocks"]["method"] == "aes-256-gcm"
+    assert config["shadowsocks"]["password"] == "ss-live-password"  # noqa: S105
+    assert "clientsRef" not in config["openvpn"]
+    assert "clientsRef" not in config["shadowsocks"]
+
+
 def test_wireguard_profile_builds_wireguard_payload():
     payload = build_node_outbound_payload(_profile("wireguard-native"), _inbounds(51820))
     assert "wireguardConfig" in payload
