@@ -148,6 +148,9 @@ describe('Control plane resource screens', () => {
         ),
       },
     })
+    fireEvent.change(screen.getByLabelText(/server name/i), {
+      target: { value: 'front.example.test' },
+    })
     fireEvent.change(screen.getByLabelText(/profile metadata json/i), {
       target: {
         value: JSON.stringify({ order: 7, owner: 'ops' }, null, 2),
@@ -158,6 +161,10 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(updateProfile).toHaveBeenCalled())
     expect(updateProfile.mock.calls[0][1].config_json).toMatchObject({
       routing: { domainStrategy: 'AsIs' },
+      security: {
+        serverName: 'front.example.test',
+        type: 'reality',
+      },
     })
     expect(updateProfile.mock.calls[0][1].metadata_json).toMatchObject({
       order: 7,

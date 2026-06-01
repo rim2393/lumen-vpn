@@ -60,12 +60,19 @@ type ProfileFormState = {
   credentialsRef: string
   configJson: string
   flow: string
+  method: string
   metadataJson: string
   name: string
+  network: string
   nodeId: string
+  path: string
   port: string
   portProtocol: 'tcp' | 'udp'
+  realityDestination: string
+  realityShortId: string
   security: string
+  serverName: string
+  serviceName: string
   squadId: string
   status: string
   tag: string
@@ -78,12 +85,19 @@ const defaultForm: ProfileFormState = {
   credentialsRef: '',
   configJson: JSON.stringify({}, null, 2),
   flow: '',
+  method: 'aes-256-gcm',
   metadataJson: JSON.stringify({}, null, 2),
   name: '',
+  network: 'tcp,udp',
   nodeId: '',
+  path: '/',
   port: '443',
   portProtocol: 'tcp',
+  realityDestination: '',
+  realityShortId: '',
   security: 'reality',
+  serverName: '',
+  serviceName: 'lumen',
   squadId: '',
   status: 'active',
   tag: '',
@@ -290,18 +304,28 @@ export function ProfilesPage() {
       if (current.adapter !== selectedAdapter.protocol) {
         return current
       }
-      const transport = getTransportOptions(selectedAdapter.capabilities, current.transport)[0] ?? 'tcp'
-      const security = getSecurityOptions(selectedAdapter.capabilities, current.security)[0] ?? 'none'
+      const allowedTransports = getAllowedTransportOptions(selectedAdapter.capabilities)
+      const allowedSecurity = getAllowedSecurityOptions(selectedAdapter.capabilities)
+      const transport = allowedTransports.includes(current.transport) ? current.transport : allowedTransports[0] ?? 'tcp'
+      const security = allowedSecurity.includes(current.security) ? current.security : allowedSecurity[0] ?? 'none'
+      const portProtocol =
+        selectedAdapter.capabilities.includes('udp') && !selectedAdapter.capabilities.includes('tcp')
+          ? 'udp'
+          : current.portProtocol
       const next: ProfileFormState = {
         ...current,
         flow: selectedAdapter.capabilities.includes('reality') ? current.flow : '',
+        method: selectedAdapter.capabilities.includes('shadowsocks') ? current.method || defaultCipherMethod(current.adapter) : current.method,
+        portProtocol,
         transport,
         security,
       }
       if (
         next.transport === current.transport &&
         next.security === current.security &&
-        next.flow === current.flow
+        next.flow === current.flow &&
+        next.method === current.method &&
+        next.portProtocol === current.portProtocol
       ) {
         return current
       }
@@ -1747,6 +1771,14 @@ function ProfileEditor({
   const transportOptions = getTransportOptions(selectedAdapterCapabilities, form.transport)
   const securityOptions = getSecurityOptions(selectedAdapterCapabilities, form.security)
   const isRealityOriented = selectedAdapterCapabilities.includes('reality')
+  const usesServerName =
+    selectedAdapterCapabilities.some((capability) =>
+      ['tls', 'reality', 'hysteria2', 'tuic', 'naiveproxy'].includes(capability),
+    ) || form.security === 'tls' || form.security === 'reality'
+  const usesPath = ['ws', 'xhttp', 'httpupgrade', 'splithttp'].includes(form.transport)
+  const usesGrpcService = form.transport === 'grpc'
+  const usesShadowsocks = selectedAdapterCapabilities.includes('shadowsocks')
+  const builderConfig = buildProfileConfigFromForm(form, selectedAdapterCapabilities)
 
   return (
     <form className="auth-card auth-card--wide" onSubmit={onSubmit}>
@@ -1883,6 +1915,70 @@ function ProfileEditor({
             <input id="profile-flow" value={form.flow} onChange={(event) => patch({ flow: event.target.value })} />
           </label>
         ) : null}
+        {usesServerName ? (
+          <label htmlFor="profile-server-name">
+            {t('Server name')}
+            <input
+              id="profile-server-name"
+              value={form.serverName}
+              onChange={(event) => patch({ serverName: event.target.value })}
+              placeholder="front.example.com"
+            />
+          </label>
+        ) : null}
+        {isRealityOriented ? (
+          <>
+            <label htmlFor="profile-reality-destination">
+              {t('Reality destination')}
+              <input
+                id="profile-reality-destination"
+                value={form.realityDestination}
+                onChange={(event) => patch({ realityDestination: event.target.value })}
+                placeholder="front.example.com:443"
+              />
+            </label>
+            <label htmlFor="profile-reality-short-id">
+              {t('Reality short ID')}
+              <input
+                id="profile-reality-short-id"
+                value={form.realityShortId}
+                onChange={(event) => patch({ realityShortId: event.target.value })}
+              />
+            </label>
+          </>
+        ) : null}
+        {usesPath ? (
+          <label htmlFor="profile-path">
+            {t('Path')}
+            <input id="profile-path" value={form.path} onChange={(event) => patch({ path: event.target.value })} />
+          </label>
+        ) : null}
+        {usesGrpcService ? (
+          <label htmlFor="profile-service-name">
+            {t('gRPC service name')}
+            <input
+              id="profile-service-name"
+              value={form.serviceName}
+              onChange={(event) => patch({ serviceName: event.target.value })}
+            />
+          </label>
+        ) : null}
+        {usesShadowsocks ? (
+          <>
+            <label htmlFor="profile-method">
+              {t('Cipher method')}
+              <input id="profile-method" value={form.method} onChange={(event) => patch({ method: event.target.value })} />
+            </label>
+            <label htmlFor="profile-network">
+              {t('Network')}
+              <select id="profile-network" value={form.network} onChange={(event) => patch({ network: event.target.value })}>
+                <option value="tcp,udp">tcp,udp</option>
+                <option value="tcp">tcp</option>
+                <option value="udp">udp</option>
+              </select>
+            </label>
+          </>
+        ) : null}
         <label htmlFor="profile-tag">
           {t('Inbound tag')}
           <input id="profile-tag" value={form.tag} onChange={(event) => patch({ tag: event.target.value })} />
@@ -1904,6 +2000,17 @@ function ProfileEditor({
             onChange={(event) => patch({ configJson: event.target.value })}
           />
         </label>
+        <div className="profile-form-grid__wide inline-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => patch({ configJson: JSON.stringify(builderConfig, null, 2) })}
+          >
+            <Code2 size={16} aria-hidden="true" />
+            {t('Build JSON from protocol fields')}
+          </button>
+          <StatusBadge tone="info">{t('Protocol builder writes real config_json')}</StatusBadge>
+        </div>
         <label htmlFor="profile-metadata-json" className="profile-form-grid__wide">
           {t('Profile metadata JSON')}
           <textarea
@@ -1962,18 +2069,29 @@ function ProfileEditor({
 
 function profileToForm(profile: ProtocolProfileRecord): ProfileFormState {
   const reservation = profile.port_reservations[0] ?? {}
+  const security = profile.config_json.security
+  const securityObject = security && typeof security === 'object' && !Array.isArray(security)
+    ? (security as Record<string, unknown>)
+    : {}
   return {
     adapter: profile.adapter,
     allowPortConflicts: false,
     configJson: JSON.stringify(profile.config_json, null, 2),
     credentialsRef: profile.credentials_ref ?? '',
     flow: String(profile.config_json.flow ?? ''),
+    method: String(profile.config_json.method ?? 'aes-256-gcm'),
     metadataJson: JSON.stringify(profile.metadata_json, null, 2),
     name: profile.name,
+    network: String(profile.config_json.network ?? 'tcp,udp'),
     nodeId: profile.node_id,
+    path: String(profile.config_json.path ?? '/'),
     port: String(reservation.port ?? ''),
     portProtocol: reservation.protocol === 'udp' ? 'udp' : 'tcp',
-    security: String(profile.config_json.security ?? 'reality'),
+    realityDestination: String(securityObject.dest ?? ''),
+    realityShortId: String(securityObject.shortId ?? securityObject.short_id ?? ''),
+    security: String(securityObject.type ?? profile.config_json.security ?? 'reality'),
+    serverName: String(securityObject.serverName ?? securityObject.server_name ?? profile.config_json.host ?? profile.config_json.serverName ?? ''),
+    serviceName: String(profile.config_json.serviceName ?? profile.config_json.service_name ?? profile.config_json.grpc_service_name ?? 'lumen'),
     squadId: profile.squad_id ?? '',
     status: profile.status,
     tag: String(profile.config_json.tag ?? ''),
@@ -1982,8 +2100,26 @@ function profileToForm(profile: ProtocolProfileRecord): ProfileFormState {
 }
 
 function getTransportOptions(capabilities: string[], selected: string): string[] {
-  const transportSet = new Set<string>(['tcp', 'udp'])
+  const transportSet = new Set<string>(getAllowedTransportOptions(capabilities))
+  transportSet.add(selected)
+  return Array.from(transportSet).sort((a, b) => a.localeCompare(b))
+}
 
+function getSecurityOptions(capabilities: string[], selected: string): string[] {
+  const securitySet = new Set<string>(getAllowedSecurityOptions(capabilities))
+  securitySet.add(selected)
+  return Array.from(securitySet).sort((a, b) => a.localeCompare(b))
+}
+
+function getAllowedTransportOptions(capabilities: string[]): string[] {
+  const transportSet = new Set<string>()
+
+  if (capabilities.includes('tcp') || capabilities.includes('http') || capabilities.includes('https') || capabilities.includes('socks')) {
+    transportSet.add('tcp')
+  }
+  if (capabilities.includes('udp') || capabilities.includes('wireguard') || capabilities.includes('hysteria2') || capabilities.includes('tuic')) {
+    transportSet.add('udp')
+  }
   if (capabilities.includes('grpc')) {
     transportSet.add('grpc')
   }
@@ -2002,22 +2138,24 @@ function getTransportOptions(capabilities: string[], selected: string): string[]
   if (capabilities.includes('quic')) {
     transportSet.add('quic')
   }
-
-  transportSet.add(selected)
+  if (transportSet.size === 0) {
+    transportSet.add('tcp')
+  }
   return Array.from(transportSet).sort((a, b) => a.localeCompare(b))
 }
 
-function getSecurityOptions(capabilities: string[], selected: string): string[] {
-  const securitySet = new Set<string>(['none'])
+function getAllowedSecurityOptions(capabilities: string[]): string[] {
+  const securitySet = new Set<string>()
 
-  if (capabilities.includes('tls')) {
-    securitySet.add('tls')
-  }
   if (capabilities.includes('reality')) {
     securitySet.add('reality')
   }
-
-  securitySet.add(selected)
+  if (capabilities.includes('tls') || capabilities.includes('hysteria2') || capabilities.includes('tuic') || capabilities.includes('https')) {
+    securitySet.add('tls')
+  }
+  if (securitySet.size === 0) {
+    securitySet.add('none')
+  }
   return Array.from(securitySet).sort((a, b) => a.localeCompare(b))
 }
 
@@ -2036,10 +2174,11 @@ function formToRequest(
   if (!form.name.trim()) {
     throw new Error(t('Name is required.'))
   }
-  const config_json = parseProfileConfigJson(form.configJson, t)
+  const config_json = mergeProfileConfig(
+    parseProfileConfigJson(form.configJson, t),
+    buildProfileConfigFromForm(form, adapterCapabilities),
+  )
   const metadata_json = parseProfileMetadataJson(form.metadataJson, t)
-  config_json.security = form.security
-  config_json.transport = form.transport
   if (adapterCapabilities.includes('reality') && form.flow.trim()) {
     config_json.flow = form.flow.trim()
   } else {
@@ -2062,6 +2201,153 @@ function formToRequest(
     squad_id: form.squadId || null,
     status: form.status,
   }
+}
+
+function buildProfileConfigFromForm(
+  form: ProfileFormState,
+  adapterCapabilities: string[],
+): Record<string, unknown> {
+  const security = buildSecurityConfig(form)
+  const config: Record<string, unknown> = {
+    transport: form.transport,
+    security,
+  }
+
+  if (form.tag.trim()) {
+    config.tag = form.tag.trim()
+  }
+  if (form.flow.trim() && adapterCapabilities.includes('reality')) {
+    config.flow = form.flow.trim()
+  }
+  if (['ws', 'xhttp', 'httpupgrade', 'splithttp'].includes(form.transport)) {
+    config.path = normalizedPath(form.path)
+    if (form.serverName.trim()) {
+      config.host = form.serverName.trim()
+    }
+  }
+  if (form.transport === 'grpc') {
+    config.serviceName = form.serviceName.trim() || 'lumen'
+  }
+  if (adapterCapabilities.includes('shadowsocks')) {
+    config.method = form.method.trim() || defaultCipherMethod(form.adapter)
+    config.network = form.network.trim() || 'tcp,udp'
+  }
+  if (form.adapter === 'shadowsocks-v2ray-plugin') {
+    config.plugin = 'v2ray-plugin'
+    config.plugin_opts = form.serverName.trim()
+      ? `server;tls;host=${form.serverName.trim()};path=${normalizedPath(form.path)}`
+      : `server;path=${normalizedPath(form.path)}`
+  }
+  if (form.adapter === 'shadowsocks-obfs') {
+    config.plugin = 'obfs-server'
+    config.plugin_opts = form.serverName.trim()
+      ? `obfs=tls;obfs-host=${form.serverName.trim()}`
+      : 'obfs=http'
+  }
+  if (adapterCapabilities.includes('wireguard')) {
+    config.mtu = 1420
+    config.persistent_keepalive = 25
+  }
+  if (adapterCapabilities.includes('hysteria2')) {
+    config.tls = form.serverName.trim() ? { serverName: form.serverName.trim() } : {}
+    if (adapterCapabilities.includes('obfs')) {
+      config.obfs = { type: 'salamander' }
+    }
+  }
+  if (adapterCapabilities.includes('tuic')) {
+    config.congestion_control = 'bbr'
+    if (form.serverName.trim()) {
+      config.server_name = form.serverName.trim()
+    }
+  }
+  if (adapterCapabilities.includes('naiveproxy')) {
+    config.tls = form.serverName.trim() ? { serverName: form.serverName.trim() } : {}
+  }
+  if (adapterCapabilities.includes('openvpn')) {
+    config.dev = form.portProtocol === 'udp' ? 'tun' : 'tun'
+    config.proto = form.portProtocol
+  }
+  return compactProfileConfig(config)
+}
+
+function buildSecurityConfig(form: ProfileFormState): string | Record<string, unknown> {
+  if (form.security === 'reality') {
+    const serverName = form.serverName.trim() || 'www.cloudflare.com'
+    return compactProfileConfig({
+      type: 'reality',
+      serverName,
+      dest: form.realityDestination.trim() || `${serverName}:443`,
+      shortId: form.realityShortId.trim(),
+    })
+  }
+  if (form.security === 'tls') {
+    return compactProfileConfig({
+      type: 'tls',
+      serverName: form.serverName.trim(),
+    })
+  }
+  return form.security
+}
+
+function mergeProfileConfig(
+  rawConfig: Record<string, unknown>,
+  builderConfig: Record<string, unknown>,
+): Record<string, unknown> {
+  return deepMergeProfileConfig(rawConfig, builderConfig)
+}
+
+function deepMergeProfileConfig(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(override)) {
+    const existing = merged[key]
+    if (isPlainProfileObject(existing) && isPlainProfileObject(value)) {
+      merged[key] = deepMergeProfileConfig(existing, value)
+    } else {
+      merged[key] = value
+    }
+  }
+  return compactProfileConfig(merged)
+}
+
+function compactProfileConfig<T extends Record<string, unknown>>(value: T): T {
+  const compacted: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (child === undefined || child === null || child === '') {
+      continue
+    }
+    if (Array.isArray(child) && child.length === 0) {
+      continue
+    }
+    if (isPlainProfileObject(child)) {
+      const nested = compactProfileConfig(child)
+      if (Object.keys(nested).length === 0) {
+        continue
+      }
+      compacted[key] = nested
+      continue
+    }
+    compacted[key] = child
+  }
+  return compacted as T
+}
+
+function isPlainProfileObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizedPath(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return '/'
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+}
+
+function defaultCipherMethod(adapter: string): string {
+  return adapter === 'shadowsocks-2022' ? '2022-blake3-aes-128-gcm' : 'aes-256-gcm'
 }
 
 function parseProfileConfigJson(value: string, t: (value: string) => string): Record<string, unknown> {
