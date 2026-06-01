@@ -80,6 +80,17 @@ test("renderHysteria2SingBoxConfig emits a runnable sing-box inbound", () => {
   assert.equal(rendered.inbounds[0].tls.certificate_path, "/etc/hysteria/cert.pem");
 });
 
+test("renderHysteria2SingBoxConfig preserves obfs settings", () => {
+  const rendered = renderHysteria2SingBoxConfig({
+    ...validConfig(),
+    obfs: { type: "salamander", password: "lumen-obfs-secret" }
+  });
+  assert.deepEqual(rendered.inbounds[0].obfs, {
+    type: "salamander",
+    password: "lumen-obfs-secret"
+  });
+});
+
 test("applyHysteria2Config process mode validates and starts managed sing-box", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lumen-hy2-process-"));
   const configPath = join(dir, "config.json");

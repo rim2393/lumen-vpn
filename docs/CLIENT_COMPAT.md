@@ -22,9 +22,9 @@ private keys, access tokens, or generated subscription URLs.
 | Format | Target | Status | Notes |
 | --- | --- | --- | --- |
 | `lumen-json` | Lumen clients | Stable schema v1 | Stable internal shape, no inline secrets |
-| `sing-box` | sing-box family | VLESS Reality/TLS runnable config | Requires secure credential seed |
-| `clash-meta` | Clash Meta family | VLESS Reality/TLS runnable YAML | Alias of Mihomo renderer |
-| `mihomo` | Mihomo family | VLESS Reality/TLS runnable YAML | Requires secure credential seed |
+| `sing-box` | sing-box family | Multi-protocol runnable config | Requires secure credential seed |
+| `clash-meta` | Clash Meta family | Multi-protocol runnable YAML | Alias of Mihomo renderer |
+| `mihomo` | Mihomo family | Multi-protocol runnable YAML | Requires secure credential seed |
 
 ## Protocol Matrix
 
@@ -32,6 +32,8 @@ private keys, access tokens, or generated subscription URLs.
 | --- | --- | --- | --- | --- |
 | `vless-reality` | Yes | Yes | Yes | Reality public metadata plus derived UUID |
 | `vless-tcp-tls` | Yes | Yes | Yes | `allowInsecure` is rejected |
+| `hysteria2` | Yes | Yes | Yes | Derived Hysteria2 password |
+| `hysteria2-obfs` | Yes | Yes | Yes | Derived Hysteria2 password plus derived obfs password |
 | Catalog-only protocols | Yes | Not emitted | Not emitted | Hidden from production provisioning until their adapter is implemented |
 
 ## Fallback Landing

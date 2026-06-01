@@ -246,7 +246,8 @@ async def build_subscription_manifest(
                         "endpoint": {
                             "host": endpoint_host,
                             "port": endpoint_port,
-                            "transport": delivery.get("transport") or "tcp",
+                            "transport": delivery.get("transport")
+                            or _default_transport(protocol_type),
                             "network": delivery.get("network") or "public",
                         },
                         "security": _manifest_security(
@@ -610,6 +611,12 @@ def _default_security(protocol_type: str) -> str:
     return "none"
 
 
+def _default_transport(protocol_type: str) -> str:
+    if protocol_type.startswith(("hysteria2", "tuic", "wireguard")):
+        return "udp"
+    return "tcp"
+
+
 def _manifest_alpn(*, security: dict[str, object], delivery: dict[str, str]) -> list[str]:
     if isinstance(security.get("alpn"), list):
         return [str(value) for value in security["alpn"]]
@@ -632,12 +639,16 @@ def _manifest_renderer_hints(
         "liveDiagnostic": False,
         "name": profile_title,
         "method": delivery.get("method"),
+        "obfs": delivery.get("obfs"),
         "address": delivery.get("address"),
         "allowedIps": delivery.get("allowed_ips"),
         "mtu": delivery.get("mtu"),
         "persistentKeepalive": delivery.get("persistent_keepalive"),
     }
     profile_config = profile.config_json if profile is not None else {}
+    obfs_config = profile_config.get("obfs") if isinstance(profile_config.get("obfs"), dict) else {}
+    if hints.get("obfs") is None and obfs_config.get("type") is not None:
+        hints["obfs"] = obfs_config["type"]
     interface_config = (
         profile_config.get("interface") if isinstance(profile_config.get("interface"), dict) else {}
     )
@@ -655,6 +666,7 @@ def _manifest_credentials(credentials) -> dict[str, str]:
         "password": credentials.password,
         "shadowsocksPassword": credentials.shadowsocks_password,
         "hysteriaPassword": credentials.hysteria_password,
+        "hysteriaObfsPassword": credentials.hysteria_obfs_password,
         "wireguardPrivateKey": credentials.wireguard_private_key,
         "wireguardPublicKey": credentials.wireguard_public_key,
     }

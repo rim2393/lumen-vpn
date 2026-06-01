@@ -83,6 +83,7 @@ class ClientCredential:
     password: str
     shadowsocks_password: str
     hysteria_password: str
+    hysteria_obfs_password: str
     wireguard_private_key: str
     wireguard_public_key: str
 
@@ -281,9 +282,13 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
 
     if protocol_type == "hysteria2":
         security = protocol.get("security", {})
+        hints = protocol.get("rendererHints", {})
         query = {}
         if security.get("serverName"):
             query["sni"] = str(security["serverName"])
+        if hints.get("obfs"):
+            query["obfs"] = str(hints["obfs"])
+            query["obfs-password"] = credentials.hysteria_obfs_password
         return build_uri("hysteria2", credentials.hysteria_password, protocol, query, label)
 
     if protocol_type == "tuic":
@@ -466,9 +471,13 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
         return base
 
     if protocol_type == "hysteria2":
+        hints = protocol.get("rendererHints", {})
         base.update({"password": credentials.hysteria_password, "udp": True})
         if security.get("serverName"):
             base["sni"] = security["serverName"]
+        if hints.get("obfs"):
+            base["obfs"] = str(hints["obfs"])
+            base["obfs-password"] = credentials.hysteria_obfs_password
         return base
 
     if protocol_type == "tuic":
@@ -607,7 +616,13 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
         )
         return compact_object(base)
     if protocol_type == "hysteria2":
+        hints = protocol.get("rendererHints", {})
         base.update({"password": credentials.hysteria_password, "tls": sing_box_tls(protocol)})
+        if hints.get("obfs"):
+            base["obfs"] = {
+                "type": str(hints["obfs"]),
+                "password": credentials.hysteria_obfs_password,
+            }
         return compact_object(base)
     if protocol_type == "tuic":
         base.update(
@@ -927,6 +942,7 @@ def derive_client_credentials(
         password=password,
         shadowsocks_password=_secret_text(seed, f"{base}|ss", 32),
         hysteria_password=_secret_text(seed, f"{base}|hy2", 24),
+        hysteria_obfs_password=_secret_text(seed, f"{base}|hy2-obfs", 24),
         wireguard_private_key=wireguard_private_key,
         wireguard_public_key=wireguard_public_key,
     )

@@ -232,6 +232,25 @@ def test_hysteria2_payload_uses_concrete_runtime_clients_when_available():
     assert config["auth"] == {"type": "password", "password": "hy2-live-password"}
 
 
+def test_hysteria2_obfs_payload_uses_concrete_runtime_obfs_secret():
+    payload = build_node_outbound_payload(
+        _profile("hysteria2-obfs", config_json={"obfs": {"type": "salamander"}}),
+        _inbounds(443),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "hysteria_password": "hy2-live-password",
+                "hysteria_obfs_password": "hy2-obfs-live-password",
+            }
+        ],
+    )
+
+    config = payload["hysteria2Config"]
+    assert "clientsRef" not in config
+    assert config["auth"] == {"type": "password", "password": "hy2-live-password"}
+    assert config["obfs"] == {"type": "salamander", "password": "hy2-obfs-live-password"}
+
+
 def test_tuic_payload_uses_concrete_runtime_clients_when_available():
     payload = build_node_outbound_payload(
         _profile("tuic-v5"),

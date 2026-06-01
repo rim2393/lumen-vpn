@@ -26,10 +26,12 @@ The control-plane API exposes a product-size adapter catalog through
 VMess, Trojan, Shadowsocks, WireGuard/AmneziaWG, Hysteria2, TUIC, NaiveProxy,
 SOCKS/HTTP proxy entries, and legacy aliases.
 
-The currently executable runtime slice is VLESS TCP Reality/TLS. Other catalog
-entries are accepted as profile metadata only when their backend contract exists;
-they are not registered as live node-agent provisioning adapters until their
-install, health, export, conflict, and client compatibility tests are completed.
+The currently executable runtime slice includes the adapters that have passed
+backend renderer tests, node-agent runtime tests, and live VPS validation:
+VLESS/VMess/Trojan TCP variants, Shadowsocks native, SOCKS5, HTTP proxy,
+Hysteria2, TUIC v5, WireGuard native, and AmneziaWG. Catalog entries outside
+that set remain metadata only until install, health, export, conflict, and
+client compatibility tests are completed.
 
 The VLESS Reality adapter expects public client subscription fields:
 
@@ -44,6 +46,12 @@ The VLESS TCP TLS adapter expects:
 - `security.serverName`
 - optional `security.alpn`
 - `security.allowInsecure` must remain false
+
+The Hysteria2 Obfs adapter expects:
+
+- `rendererHints.obfs`, normally `salamander`
+- a derived per-subscription `hysteriaObfsPassword`
+- node-agent process mode with sing-box Hysteria2 inbound support
 
 ## Runtime Enablement
 

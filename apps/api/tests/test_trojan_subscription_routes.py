@@ -332,6 +332,56 @@ async def test_hysteria2_subscription_renders_client_formats(route_app: RouteTes
     assert 'type: "hysteria2"' in mihomo.text
 
 
+async def test_hysteria2_obfs_subscription_renders_client_formats(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    create = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "hysteria2-obfs",
+                "adapter": "hysteria2-obfs",
+                "profile_title": "Lumen HY2 Obfs",
+                "server_name": "hy2.example.test",
+                "obfs": "salamander",
+                "port": "8444",
+            },
+            "config_hash": "sha256:hy2-obfs",
+        },
+    )
+    assert create.status_code == 201, create.text
+    public_id = create.json()["public_id"]
+
+    raw = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=happ",
+    )
+    assert raw.status_code == 200
+    assert raw.text.startswith("hysteria2://")
+    assert "obfs=salamander" in raw.text
+    assert "obfs-password=" in raw.text
+
+    sing_box = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
+    )
+    assert sing_box.status_code == 200
+    outbound = sing_box.json()["outbounds"][0]
+    assert outbound["type"] == "hysteria2"
+    assert outbound["obfs"]["type"] == "salamander"
+    assert outbound["obfs"]["password"]
+
+    mihomo = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=mihomo",
+    )
+    assert mihomo.status_code == 200
+    assert "obfs:" in mihomo.text
+    assert "salamander" in mihomo.text
+    assert "obfs-password:" in mihomo.text
+
+
 async def test_wireguard_subscription_renders_structured_formats(
     route_app: RouteTestApp,
 ) -> None:

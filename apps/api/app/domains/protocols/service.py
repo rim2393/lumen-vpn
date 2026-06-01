@@ -1440,6 +1440,7 @@ async def list_profile_runtime_clients(
                 "password": credentials.password,
                 "shadowsocks_password": credentials.shadowsocks_password,
                 "hysteria_password": credentials.hysteria_password,
+                "hysteria_obfs_password": credentials.hysteria_obfs_password,
                 "wireguard_private_key": credentials.wireguard_private_key,
                 "wireguard_public_key": credentials.wireguard_public_key,
                 "flow": delivery.get("flow") or profile.config_json.get("flow"),
@@ -1464,6 +1465,11 @@ def _computed_hysteria2_config(
             "type": "password",
             "password": str(clients[0]["hysteria_password"]),
         }
+        if profile.adapter == "hysteria2-obfs":
+            obfs = dict(config.get("obfs") or {})
+            obfs.setdefault("type", "salamander")
+            obfs["password"] = str(clients[0]["hysteria_obfs_password"])
+            config["obfs"] = obfs
         config.pop("clientsRef", None)
     else:
         config["clientsRef"] = profile.credentials_ref
