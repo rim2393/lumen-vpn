@@ -560,6 +560,32 @@ async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRout
     assert bulk_user_response.json()["updated"] == 1
     assert bulk_user_response.json()["items"][0]["traffic_used_gb"] == 0
 
+    disable_response = await foundation_app.client.post(f"/api/v1/users/{user_id}/disable")
+    assert disable_response.status_code == 200
+    assert disable_response.json()["status"] == "disabled"
+
+    enable_response = await foundation_app.client.post(f"/api/v1/users/{user_id}/enable")
+    assert enable_response.status_code == 200
+    assert enable_response.json()["status"] == "active"
+
+    reset_response = await foundation_app.client.post(f"/api/v1/users/{user_id}/reset-traffic")
+    assert reset_response.status_code == 200
+    assert reset_response.json()["traffic_used_gb"] == 0
+
+    revoke_response = await foundation_app.client.post(f"/api/v1/users/{user_id}/revoke")
+    assert revoke_response.status_code == 200
+    assert revoke_response.json()["status"] == "revoked"
+
+    audit_response = await foundation_app.client.get("/api/v1/audit/events")
+    assert audit_response.status_code == 200
+    actions = {event["action"] for event in audit_response.json()["items"]}
+    assert {
+        "user.disabled",
+        "user.enabled",
+        "user.traffic.reset",
+        "user.revoked",
+    }.issubset(actions)
+
 
 async def test_user_list_returns_existing_local_service_addresses(
     foundation_app: FoundationRouteApp,

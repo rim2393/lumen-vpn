@@ -34,7 +34,9 @@ from app.domains.users.service import list_user_tags as list_user_tag_records
 from app.domains.users.service import list_users as list_user_records
 from app.domains.users.service import list_users_by_tag as list_users_by_tag_records
 from app.domains.users.service import lookup_users as lookup_user_records
+from app.domains.users.service import reset_user_traffic as reset_user_traffic_record
 from app.domains.users.service import resolve_user as resolve_user_record
+from app.domains.users.service import set_user_status as set_user_status_record
 from app.domains.users.service import update_user as update_user_record
 
 router = APIRouter()
@@ -161,6 +163,30 @@ async def resolve_user(
     return user_to_response(user)
 
 
+@router.post("/bulk/{action}", response_model=UserBulkActionResponse)
+async def bulk_user_action(
+    action: str,
+    request: UserBulkActionRequest,
+    principal: UserManager,
+    session: DbSession,
+) -> UserBulkActionResponse:
+    users = await apply_bulk_user_action(
+        session, request=request, action=action, principal=principal
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action=f"user.bulk.{action}",
+        resource_type="user",
+        metadata_json={"user_ids": [str(user_id) for user_id in request.user_ids]},
+    )
+    await session.commit()
+    return UserBulkActionResponse(
+        updated=len(users),
+        items=[user_to_response(user) for user in users],
+    )
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
@@ -251,6 +277,97 @@ async def update_user(
     return user_to_response(user)
 
 
+@router.post("/{user_id}/enable", response_model=UserResponse)
+async def enable_user(
+    user_id: UUID,
+    principal: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await set_user_status_record(
+        session,
+        user_id=user_id,
+        principal=principal,
+        status_value="active",
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.enabled",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+    await session.commit()
+    return user_to_response(user)
+
+
+@router.post("/{user_id}/disable", response_model=UserResponse)
+async def disable_user(
+    user_id: UUID,
+    principal: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await set_user_status_record(
+        session,
+        user_id=user_id,
+        principal=principal,
+        status_value="disabled",
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.disabled",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+    await session.commit()
+    return user_to_response(user)
+
+
+@router.post("/{user_id}/revoke", response_model=UserResponse)
+async def revoke_user(
+    user_id: UUID,
+    principal: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await set_user_status_record(
+        session,
+        user_id=user_id,
+        principal=principal,
+        status_value="revoked",
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.revoked",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+    await session.commit()
+    return user_to_response(user)
+
+
+@router.post("/{user_id}/reset-traffic", response_model=UserResponse)
+async def reset_user_traffic(
+    user_id: UUID,
+    principal: UserManager,
+    session: DbSession,
+) -> UserResponse:
+    user = await reset_user_traffic_record(
+        session,
+        user_id=user_id,
+        principal=principal,
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="user.traffic.reset",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+    await session.commit()
+    return user_to_response(user)
+
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: UUID,
@@ -267,26 +384,3 @@ async def delete_user(
     )
     await session.commit()
 
-
-@router.post("/bulk/{action}", response_model=UserBulkActionResponse)
-async def bulk_user_action(
-    action: str,
-    request: UserBulkActionRequest,
-    principal: UserManager,
-    session: DbSession,
-) -> UserBulkActionResponse:
-    users = await apply_bulk_user_action(
-        session, request=request, action=action, principal=principal
-    )
-    await record_audit_event(
-        session,
-        principal=principal,
-        action=f"user.bulk.{action}",
-        resource_type="user",
-        metadata_json={"user_ids": [str(user_id) for user_id in request.user_ids]},
-    )
-    await session.commit()
-    return UserBulkActionResponse(
-        updated=len(users),
-        items=[user_to_response(user) for user in users],
-    )

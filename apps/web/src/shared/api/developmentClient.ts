@@ -1189,6 +1189,38 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       }
       return { items: selected, updated: selected.length }
     },
+    disableUser: async (userId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      user.status = 'disabled'
+      return user
+    },
+    enableUser: async (userId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      user.status = 'active'
+      return user
+    },
+    resetUserTraffic: async (userId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      user.traffic_used_gb = 0
+      return user
+    },
+    revokeUser: async (userId: string) => {
+      const user = users.find((item) => item.id === userId)
+      if (!user) {
+        throw new Error('User not found')
+      }
+      user.status = 'revoked'
+      return user
+    },
     updateHost: async (hostId: string, request) => {
       const host = hosts.find((item) => item.id === hostId)
       if (!host) {

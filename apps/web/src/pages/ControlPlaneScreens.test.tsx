@@ -7,7 +7,6 @@ import type {
   SettingUpdateRequest,
   SquadCreateRequest,
   UserRecord,
-  UserUpdateRequest,
 } from '../shared/api/types'
 import { developmentSession } from '../shared/data/developmentFixtures'
 import { renderWithRouter } from '../test/renderWithRouter'
@@ -220,15 +219,27 @@ describe('Control plane resource screens', () => {
         username: 'lifecycle',
       },
     ]
-    const updateUser = vi.fn(async (userId: string, request: UserUpdateRequest) => ({
+    const disableUser = vi.fn(async (userId: string) => ({
       ...users[0],
       id: userId,
-      ...request,
+      status: 'disabled',
+    }))
+    const resetUserTraffic = vi.fn(async (userId: string) => ({
+      ...users[0],
+      id: userId,
+      traffic_used_gb: 0,
+    }))
+    const revokeUser = vi.fn(async (userId: string) => ({
+      ...users[0],
+      id: userId,
+      status: 'revoked',
     }))
     const apiClient: LumenApiClient = {
       ...createDevelopmentLumenApiClient(),
       listUsers: async () => ({ items: users }),
-      updateUser,
+      disableUser,
+      resetUserTraffic,
+      revokeUser,
     }
 
     renderWithRouter('/users', { apiClient, initialSession: developmentSession })
@@ -238,10 +249,9 @@ describe('Control plane resource screens', () => {
     await user.click(screen.getByRole('button', { name: /reset traffic lifecycle user/i }))
     await user.click(screen.getByRole('button', { name: /revoke lifecycle user/i }))
 
-    await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(3))
-    expect(updateUser.mock.calls[0]).toEqual(['usr_lifecycle', { status: 'disabled' }])
-    expect(updateUser.mock.calls[1]).toEqual(['usr_lifecycle', { traffic_used_gb: 0 }])
-    expect(updateUser.mock.calls[2]).toEqual(['usr_lifecycle', { status: 'revoked' }])
+    await waitFor(() => expect(disableUser).toHaveBeenCalledWith('usr_lifecycle'))
+    await waitFor(() => expect(resetUserTraffic).toHaveBeenCalledWith('usr_lifecycle'))
+    await waitFor(() => expect(revokeUser).toHaveBeenCalledWith('usr_lifecycle'))
   })
 
   it('wires user detail HWID device deletion controls to backend requests', async () => {

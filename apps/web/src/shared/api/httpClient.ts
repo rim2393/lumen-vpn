@@ -170,6 +170,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/response-rules', { body: payload, method: 'POST' }),
     createUser: (payload: UserCreateRequest) =>
       request('/api/v1/users', { body: payload, method: 'POST' }),
+    disableUser: (userId: string) =>
+      request(`/api/v1/users/${userId}/disable`, { method: 'POST' }),
     deleteHost: (hostId: string) => request(`/api/v1/hosts/${hostId}`, { method: 'DELETE' }),
     deleteProfile: (profileId: string) =>
       request(`/api/v1/profiles/${profileId}`, { method: 'DELETE' }),
@@ -181,6 +183,8 @@ export function createHttpLumenApiClient({
     deleteResponseRule: (ruleId: string) =>
       request(`/api/v1/response-rules/${ruleId}`, { method: 'DELETE' }),
     deleteUser: (userId: string) => request(`/api/v1/users/${userId}`, { method: 'DELETE' }),
+    enableUser: (userId: string) =>
+      request(`/api/v1/users/${userId}/enable`, { method: 'POST' }),
     clearUserDevices: (userId: string) =>
       request(`/api/v1/users/${userId}/devices`, { method: 'DELETE' }),
     deleteUserDevice: (userId: string, deviceId: string) =>
@@ -232,6 +236,10 @@ export function createHttpLumenApiClient({
     deleteToolSnippet: (snippetId: string) =>
       request(`/api/v1/tools/snippets/${snippetId}`, { method: 'DELETE' }),
     listUsers: () => request('/api/v1/users'),
+    resetUserTraffic: (userId: string) =>
+      request(`/api/v1/users/${userId}/reset-traffic`, { method: 'POST' }),
+    revokeUser: (userId: string) =>
+      request(`/api/v1/users/${userId}/revoke`, { method: 'POST' }),
     lookupUsers: (query: string) => request(`/api/v1/users/lookup?query=${encodeURIComponent(query)}`),
     getSession: async () => {
       try {

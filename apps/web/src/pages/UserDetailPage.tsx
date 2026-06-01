@@ -2,10 +2,12 @@ import { Link, useParams } from 'react-router-dom'
 import type React from 'react'
 import { Ban, CheckCircle2, ExternalLink, RotateCcw, ShieldX, Trash2 } from 'lucide-react'
 import {
-  useBulkUsers,
   useClearUserDevices,
   useDeleteUserDevice,
-  useUpdateUser,
+  useDisableUser,
+  useEnableUser,
+  useResetUserTraffic,
+  useRevokeUser,
   useUserDetailData,
 } from '../shared/api/resourceHooks'
 import type { SubscriptionRecord, UserRecord } from '../shared/api/types'
@@ -29,18 +31,26 @@ export function UserDetailPage() {
   const { t } = useI18n()
   const { userId } = useParams()
   const query = useUserDetailData(userId)
-  const updateUser = useUpdateUser()
-  const bulkUsers = useBulkUsers()
+  const enableUser = useEnableUser()
+  const disableUser = useDisableUser()
+  const revokeUser = useRevokeUser()
+  const resetUserTraffic = useResetUserTraffic()
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
   const detail = query.data
   const user = detail?.user
 
-  async function setStatus(status: string) {
+  async function setStatus(status: 'active' | 'disabled' | 'revoked') {
     if (!user) {
       return
     }
-    await updateUser.mutateAsync({ id: user.id, request: { status } })
+    if (status === 'active') {
+      await enableUser.mutateAsync(user.id)
+    } else if (status === 'disabled') {
+      await disableUser.mutateAsync(user.id)
+    } else {
+      await revokeUser.mutateAsync(user.id)
+    }
     await query.refetch()
   }
 
@@ -48,10 +58,7 @@ export function UserDetailPage() {
     if (!user) {
       return
     }
-    await bulkUsers.mutateAsync({
-      action: 'reset-traffic',
-      request: { user_ids: [user.id] },
-    })
+    await resetUserTraffic.mutateAsync(user.id)
     await query.refetch()
   }
 

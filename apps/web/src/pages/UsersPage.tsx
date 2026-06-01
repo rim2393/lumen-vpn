@@ -5,7 +5,11 @@ import {
   useBulkUsers,
   useCreateUser,
   useDeleteUser,
+  useDisableUser,
+  useEnableUser,
   useLookupUsers,
+  useResetUserTraffic,
+  useRevokeUser,
   useUpdateUser,
   useUsersPageData,
 } from '../shared/api/resourceHooks'
@@ -46,6 +50,10 @@ export function UsersPage() {
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
+  const enableUser = useEnableUser()
+  const disableUser = useDisableUser()
+  const revokeUser = useRevokeUser()
+  const resetUserTraffic = useResetUserTraffic()
   const bulkUsers = useBulkUsers()
   const lookupUsers = useLookupUsers()
   const users = query.data?.items ?? []
@@ -214,12 +222,11 @@ export function UsersPage() {
                     type="button"
                     className="icon-button"
                     aria-label={t('Toggle status {name}', { name: formatUserName(user) })}
-                    disabled={updateUser.isPending}
+                    disabled={enableUser.isPending || disableUser.isPending}
                     onClick={() =>
-                      void updateUser.mutateAsync({
-                        id: user.id,
-                        request: { status: user.status === 'active' ? 'disabled' : 'active' },
-                      })
+                      void (user.status === 'active'
+                        ? disableUser.mutateAsync(user.id)
+                        : enableUser.mutateAsync(user.id))
                     }
                   >
                     <Ban size={16} aria-hidden="true" />
@@ -228,13 +235,8 @@ export function UsersPage() {
                     type="button"
                     className="icon-button"
                     aria-label={t('Reset traffic {name}', { name: formatUserName(user) })}
-                    disabled={updateUser.isPending}
-                    onClick={() =>
-                      void updateUser.mutateAsync({
-                        id: user.id,
-                        request: { traffic_used_gb: 0 },
-                      })
-                    }
+                    disabled={resetUserTraffic.isPending}
+                    onClick={() => void resetUserTraffic.mutateAsync(user.id)}
                   >
                     <RotateCcw size={16} aria-hidden="true" />
                   </button>
@@ -242,13 +244,8 @@ export function UsersPage() {
                     type="button"
                     className="icon-button"
                     aria-label={t('Revoke {name}', { name: formatUserName(user) })}
-                    disabled={updateUser.isPending}
-                    onClick={() =>
-                      void updateUser.mutateAsync({
-                        id: user.id,
-                        request: { status: 'revoked' },
-                      })
-                    }
+                    disabled={revokeUser.isPending}
+                    onClick={() => void revokeUser.mutateAsync(user.id)}
                   >
                     <Ban size={16} aria-hidden="true" />
                   </button>
@@ -381,6 +378,34 @@ export function UsersPage() {
             message={
               updateUser.isError
                 ? getErrorMessage(updateUser.error, t('User could not be updated.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              enableUser.isError
+                ? getErrorMessage(enableUser.error, t('User could not be updated.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              disableUser.isError
+                ? getErrorMessage(disableUser.error, t('User could not be updated.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              revokeUser.isError
+                ? getErrorMessage(revokeUser.error, t('User could not be updated.'))
+                : null
+            }
+          />
+          <FormError
+            message={
+              resetUserTraffic.isError
+                ? getErrorMessage(resetUserTraffic.error, t('User could not be updated.'))
                 : null
             }
           />

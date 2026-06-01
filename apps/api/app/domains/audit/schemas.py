@@ -12,7 +12,7 @@ class AuditEventCreate(BaseModel):
     action: str = Field(min_length=1, max_length=128)
     resource_type: str = Field(min_length=1, max_length=64)
     resource_id: str | None = Field(default=None, max_length=128)
-    metadata_json: dict[str, str] = Field(default_factory=dict)
+    metadata_json: dict[str, object] = Field(default_factory=dict)
 
 
 class AuditEventResponse(BaseModel):
@@ -22,7 +22,7 @@ class AuditEventResponse(BaseModel):
     action: str
     resource_type: str
     resource_id: str | None
-    metadata_json: dict[str, str]
+    metadata_json: dict[str, object]
     created_at: datetime
 
 

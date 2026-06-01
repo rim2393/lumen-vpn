@@ -172,7 +172,7 @@ export type AuditEventRecord = {
   actor_subject: string
   created_at: string
   id: string
-  metadata_json: Record<string, string>
+  metadata_json: Record<string, unknown>
   resource_id: string | null
   resource_type: string
 }
@@ -1093,6 +1093,7 @@ export type LumenApiClient = {
   ) => Promise<SubscriptionTemplateRecord>
   createResponseRule: (request: ResponseRuleCreateRequest) => Promise<ResponseRuleRecord>
   createUser: (request: UserCreateRequest) => Promise<UserRecord>
+  disableUser: (userId: string) => Promise<UserRecord>
   deleteHost: (hostId: string) => Promise<void>
   deleteProfile: (profileId: string) => Promise<void>
   deleteSquad: (squadId: string) => Promise<void>
@@ -1100,6 +1101,7 @@ export type LumenApiClient = {
   deleteSubscription: (subscriptionId: string) => Promise<void>
   deleteResponseRule: (ruleId: string) => Promise<void>
   deleteUser: (userId: string) => Promise<void>
+  enableUser: (userId: string) => Promise<UserRecord>
   clearUserDevices: (userId: string) => Promise<UserDetailResponse>
   deleteUserDevice: (userId: string, deviceId: string) => Promise<UserDetailResponse>
   revokeToolSession: (sessionId: string) => Promise<SessionInspectorResponse>
@@ -1143,6 +1145,8 @@ export type LumenApiClient = {
   deleteToolSnippet: (snippetId: string) => Promise<ToolSnippetListResponse>
   listUsers: () => Promise<UserListResponse>
   lookupUsers: (query: string) => Promise<UserLookupResponse>
+  resetUserTraffic: (userId: string) => Promise<UserRecord>
+  revokeUser: (userId: string) => Promise<UserRecord>
   login: (request: LoginRequest) => Promise<AuthSession | MfaChallenge>
   listLoginMethods: () => Promise<LoginMethodsResponse>
   startOAuth: (provider: string, redirect?: string) => Promise<OAuthStartResponse>

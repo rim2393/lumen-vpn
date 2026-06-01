@@ -282,6 +282,33 @@ async def update_user(
     return user
 
 
+async def set_user_status(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    principal: Principal,
+    status_value: str,
+) -> User:
+    user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
+    user.status = status_value
+    await session.flush()
+    return user
+
+
+async def reset_user_traffic(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    principal: Principal,
+) -> User:
+    user = await get_user(session, user_id)
+    _ensure_actor_can_manage_user(principal=principal, user=user)
+    user.traffic_used_gb = 0.0
+    await session.flush()
+    return user
+
+
 async def delete_user(session: AsyncSession, *, user_id: UUID, principal: Principal) -> None:
     user = await get_user(session, user_id)
     _ensure_actor_can_manage_user(principal=principal, user=user)

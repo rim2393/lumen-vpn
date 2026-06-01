@@ -1089,6 +1089,58 @@ export function useDeleteUser() {
   })
 }
 
+export function useEnableUser() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.enableUser(id),
+    onSuccess: (_user, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(id) })
+    },
+  })
+}
+
+export function useDisableUser() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.disableUser(id),
+    onSuccess: (_user, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(id) })
+    },
+  })
+}
+
+export function useRevokeUser() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.revokeUser(id),
+    onSuccess: (_user, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(id) })
+    },
+  })
+}
+
+export function useResetUserTraffic() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.resetUserTraffic(id),
+    onSuccess: (_user, id) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.userDetail(id) })
+    },
+  })
+}
+
 export function useDeleteUserDevice() {
   const apiClient = useApiClient()
   const queryClient = useQueryClient()
