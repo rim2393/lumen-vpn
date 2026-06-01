@@ -682,6 +682,7 @@ async def complete_node_command(
             message="Node command must be claimed before it can be completed.",
             status_code=status.HTTP_409_CONFLICT,
         )
+    _reject_dry_run_success(command=command, request=request)
     command.status = request.status
     command.result_json = request.result_json
     command.error_code = request.error_code
@@ -696,6 +697,32 @@ async def complete_node_command(
             _clear_pending_control_action(node, command)
     await session.flush()
     return command
+
+
+def _reject_dry_run_success(
+    *,
+    command: NodeCommand,
+    request: NodeCommandResultRequest,
+) -> None:
+    if request.status != "succeeded":
+        return
+    outputs = request.result_json.get("outputs")
+    if not isinstance(outputs, dict):
+        return
+    implementation_status = str(outputs.get("implementationStatus") or "")
+    dry_run = outputs.get("dryRun")
+    is_dry_run_result = dry_run is True or implementation_status.endswith("-dry-run")
+    if not is_dry_run_result:
+        return
+    raise APIError(
+        code="node_command_dry_run_success_forbidden",
+        message=(
+            "Dry-run node command results cannot be completed as succeeded in "
+            "production command history."
+        ),
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        details=[command.command_type, implementation_status or "dryRun=true"],
+    )
 
 
 async def record_node_metric(

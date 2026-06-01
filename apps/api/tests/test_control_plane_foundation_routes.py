@@ -1485,6 +1485,37 @@ async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp
     assert complete_response.status_code == 200
     assert complete_response.json()["completed_at"] is not None
 
+    dry_run_command_response = await foundation_app.client.post(
+        f"/api/v1/nodes/{node_id}/commands",
+        json={"command_type": "conflict.scan", "payload_json": {"profile_id": profile_id}},
+    )
+    assert dry_run_command_response.status_code == 201
+    dry_run_command_id = dry_run_command_response.json()["id"]
+
+    dry_run_claim_response = await foundation_app.client.get(
+        f"/api/v1/nodes/{node_id}/commands/next",
+        headers={"X-Lumen-Node-Token": NODE_TOKEN},
+    )
+    assert dry_run_claim_response.status_code == 200
+    dry_run_complete_response = await foundation_app.client.post(
+        f"/api/v1/nodes/{node_id}/commands/{dry_run_command_id}/result",
+        headers={"X-Lumen-Node-Token": NODE_TOKEN},
+        json={
+            "status": "succeeded",
+            "result_json": {
+                "outputs": {
+                    "dryRun": True,
+                    "implementationStatus": "xray-dry-run",
+                },
+            },
+        },
+    )
+    assert dry_run_complete_response.status_code == 422
+    assert (
+        dry_run_complete_response.json()["error"]["code"]
+        == "node_command_dry_run_success_forbidden"
+    )
+
     skipped_command_response = await foundation_app.client.post(
         f"/api/v1/nodes/{node_id}/commands",
         json={

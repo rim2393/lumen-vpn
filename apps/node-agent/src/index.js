@@ -92,6 +92,7 @@ export {
   HEARTBEAT_PAYLOAD_VERSION,
   NODE_AGENT_DRY_RUN_REPORT_VERSION,
   NODE_AGENT_RUNTIME_CONFIG_VERSION,
+  assertLiveRuntimeMode,
   buildNodeAgentDryRun,
   createHeartbeatPayload,
   createNodeAgentRuntimeConfig,

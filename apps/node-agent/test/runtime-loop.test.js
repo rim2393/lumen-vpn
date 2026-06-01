@@ -7,7 +7,8 @@ import {
   NODE_AGENT_RUNTIME_CONFIG_VERSION,
   buildNodeAgentDryRun,
   createHeartbeatPayload,
-  loadNodeAgentConfigFromEnv
+  loadNodeAgentConfigFromEnv,
+  assertLiveRuntimeMode
 } from "../src/index.js";
 
 test("loads runtime config from env without exposing secret env values", () => {
@@ -29,7 +30,28 @@ test("loads runtime config from env without exposing secret env values", () => {
   assert.equal(config.pollIntervalMs, 2000);
   assert.equal(config.capabilities["runtime.xray_core"], true);
   assert.deepEqual(config.tags, ["edge", "ams"]);
+  assert.equal(config.dryRun, false);
   assert.equal(JSON.stringify(config).includes("very-secret-value"), false);
+});
+
+test("live loop defaults to real runtime mode and refuses explicit dry-run", () => {
+  const liveConfig = loadNodeAgentConfigFromEnv({
+    LUMEN_NODE_ID: "ams-1",
+    LUMEN_CONTROL_PLANE_URL: "https://control.example/"
+  });
+  assert.equal(liveConfig.dryRun, false);
+  assert.doesNotThrow(() => assertLiveRuntimeMode(liveConfig, ["--run"]));
+
+  const dryConfig = loadNodeAgentConfigFromEnv({
+    LUMEN_NODE_ID: "ams-1",
+    LUMEN_CONTROL_PLANE_URL: "https://control.example/",
+    LUMEN_DRY_RUN: "true"
+  });
+  assert.equal(dryConfig.dryRun, true);
+  assert.throws(
+    () => assertLiveRuntimeMode(dryConfig, ["--run-once"]),
+    /Refusing to run live node-agent loop/
+  );
 });
 
 test("loads runtime config from installer-compatible env aliases", () => {
@@ -91,6 +113,7 @@ test("CLI prints dry-run JSON without secret env values", () => {
       ...process.env,
       LUMEN_NODE_ID: "ams-1",
       LUMEN_CONTROL_PLANE_URL: "https://control.example",
+      LUMEN_DRY_RUN: "true",
       LUMEN_INSTALL_TOKEN: "very-secret-value"
     }
   });

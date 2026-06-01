@@ -8,6 +8,7 @@ export const NODE_AGENT_DRY_RUN_REPORT_VERSION = "lumen.node-agent.dry-run-repor
 const DEFAULT_CONTROL_PLANE_BASE_URL = "https://control-plane.invalid";
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
+const LIVE_COMMANDS = Object.freeze(new Set(["--run", "--run-once"]));
 
 function freezeArray(value) {
   return Object.freeze([...(value ?? [])]);
@@ -59,6 +60,27 @@ function parseCapabilityFlags(value) {
   return freezeObject(flags);
 }
 
+function parseDryRun(value, fallback) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  if (value === true || value === false) {
+    return value;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  throw new Error("LUMEN_DRY_RUN must be true or false when set");
+}
+
+function isLiveCommand(argv = []) {
+  return argv.some((arg) => LIVE_COMMANDS.has(arg));
+}
+
 function normalizeBaseUrl(value) {
   const baseUrl = value ?? DEFAULT_CONTROL_PLANE_BASE_URL;
   try {
@@ -95,7 +117,7 @@ export function createNodeAgentRuntimeConfig(input = {}) {
     ),
     capabilities: freezeObject(input.capabilities),
     tags: freezeArray(input.tags),
-    dryRun: input.dryRun ?? true
+    dryRun: input.dryRun ?? false
   });
 }
 
@@ -108,8 +130,14 @@ export function loadNodeAgentConfigFromEnv(env = {}) {
     pollIntervalMs: env.LUMEN_POLL_INTERVAL_MS,
     capabilities: parseCapabilityFlags(env.LUMEN_CAPABILITIES),
     tags: parseCsv(env.LUMEN_NODE_TAGS),
-    dryRun: env.LUMEN_DRY_RUN === undefined ? true : env.LUMEN_DRY_RUN !== "false"
+    dryRun: parseDryRun(env.LUMEN_DRY_RUN, false)
   });
+}
+
+export function assertLiveRuntimeMode(config, argv = []) {
+  if (isLiveCommand(argv) && config.dryRun !== false) {
+    throw new Error("Refusing to run live node-agent loop with LUMEN_DRY_RUN enabled.");
+  }
 }
 
 export function createHeartbeatPayload(input = {}) {

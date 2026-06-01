@@ -6,7 +6,7 @@ import {
   redactNodeResponse,
   sendHeartbeat
 } from "./control-plane-client.js";
-import { buildNodeAgentDryRun, loadNodeAgentConfigFromEnv } from "./runtime-loop.js";
+import { assertLiveRuntimeMode, buildNodeAgentDryRun, loadNodeAgentConfigFromEnv } from "./runtime-loop.js";
 import { runNodeAgentLoop } from "./runtime-runner.js";
 import { readSecretFromEnv } from "./secret-input.js";
 
@@ -30,6 +30,7 @@ async function main(argv, env) {
   }
 
   if (argv.includes("--run") || argv.includes("--run-once")) {
+    assertLiveRuntimeMode(loadNodeAgentConfigFromEnv(env), argv);
     const result = await runNodeAgentLoop({
       env,
       once: argv.includes("--run-once")
