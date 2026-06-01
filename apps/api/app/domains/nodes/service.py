@@ -133,6 +133,7 @@ def ensure_supported_node_command(request: NodeCommandCreateRequest) -> None:
         has_live_payload = (
             isinstance(request.payload_json.get("xrayConfig"), dict)
             or isinstance(request.payload_json.get("hysteria2Config"), dict)
+            or isinstance(request.payload_json.get("singBoxShadowsocksConfig"), dict)
             or isinstance(request.payload_json.get("tuicConfig"), dict)
             or isinstance(request.payload_json.get("wireguardConfig"), dict)
             or adapter == "tcp-diagnostic-listener"
@@ -142,10 +143,11 @@ def ensure_supported_node_command(request: NodeCommandCreateRequest) -> None:
                 code="node_command_payload_not_live",
                 message=(
                     "outbound.apply requires a live Xray, Hysteria2, TUIC, or "
-                    "WireGuard config, or a tcp diagnostic listener payload."
+                    "WireGuard config, managed sing-box Shadowsocks config, "
+                    "or a tcp diagnostic listener payload."
                 ),
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                details=["payload_json.xrayConfig"],
+                details=["payload_json.xrayConfig", "payload_json.singBoxShadowsocksConfig"],
             )
 
 

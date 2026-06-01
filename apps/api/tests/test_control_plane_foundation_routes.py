@@ -689,10 +689,11 @@ async def test_profile_computed_config_and_inbounds_are_derived_from_bindings(
     assert computed_config["inbounds"][0]["settings"]["clientsRef"] == (
         "vault://protocols/computed-reality"
     )
-    assert computed_config["inbounds"][0]["streamSettings"] == {
-        "network": "tcp",
-        "security": "reality",
-    }
+    stream_settings = computed_config["inbounds"][0]["streamSettings"]
+    assert stream_settings["network"] == "tcp"
+    assert stream_settings["security"] == "reality"
+    assert stream_settings["realitySettings"]["dest"] == "www.example.com:443"
+    assert stream_settings["realitySettings"]["serverNames"] == ["www.example.com"]
 
 
 async def test_host_bulk_actions_and_reorder_are_persisted(
