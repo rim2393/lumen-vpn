@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.67` |
-| Product repo head | `6aed6ff Track profile host runtime apply state` |
-| Public installer manifest | `rim2393/lumen_vpn@70cab94` |
+| Latest production release | `v0.1.68` |
+| Product repo head | `2bf2979 Complete profile detail editor metadata parity` |
+| Public installer manifest | `rim2393/lumen_vpn@74325ec` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -63,8 +63,8 @@ evidence here is wrong or stale.
 | PH-004 | Host fields affect computed Xray runtime config | DONE | Computed config applies host path/SNI/security/xHTTP/mux/sockopt, tests prove `streamSettings` | `0606e89`, `test_control_plane_foundation_routes.py`, `24 passed` |
 | PH-005 | Host policy affects public subscription renderers | DONE | Hidden/excluded hosts blocked, visible hosts auto-selected, shuffle deterministic, final mask and Mihomo X25519 exported | `cda23ee`, `test_license_subscription_routes.py`, `18 passed`, `v0.1.66` |
 | PH-006 | Profile/host changes auto-sync or require explicit dirty/apply state | DONE | After profile/host mutation the UI/API clearly marks affected node/profile as pending apply, and a real sync/apply operation applies it. No silent stale runtime. | `6aed6ff`, `v0.1.67`, release run `26778396746`, installer/deploy run `26778480970`, manifest `rim2393/lumen_vpn@70cab94`; `ruff`, `pytest tests/test_apply_profile_to_node_routes.py` 6 passed, web `tsc`; prod health OK and `/hosts` shows `Рантайм`/`Еще не применялось` after signed deploy. |
-| PH-007 | Profiles detail editor parity | NEXT | Detail page/editor covers profile name/status/node/squad/adapter/config/ports/credentials metadata with validation | Not started |
-| PH-008 | Profiles reorder parity | OPEN | Real backend reorder endpoint and UI controls persist order, tests cover order | Not started |
+| PH-007 | Profiles detail editor parity | DONE | Detail page/editor covers profile name/status/node/squad/adapter/config/ports/credentials metadata with validation | `2bf2979`, `v0.1.68`, release run `26779454552`, installer/deploy run `26779535240`, manifest `rim2393/lumen_vpn@74325ec`; web `tsc` passed; local Vitest hung on Windows and was recorded in wiki; prod health OK and `/profiles` editor shows `JSON метаданных профиля`. |
+| PH-008 | Profiles reorder parity | NEXT | Real backend reorder endpoint and UI controls persist order, tests cover order | Not started |
 | PH-009 | Protocol-specific profile builders | OPEN | Builders for supported adapters produce valid payloads and port reservations, no raw JSON-only requirement | Not started |
 | PH-010 | Profile JSON editor with validation | OPEN | JSON editor validates schema/secret rules and shows backend errors without fake success | Not started |
 
