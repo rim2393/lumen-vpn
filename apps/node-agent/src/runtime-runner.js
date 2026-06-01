@@ -120,7 +120,7 @@ function writeSecret(path, value) {
 function scheduleNodeAgentRestart(input = {}) {
   const spawnImpl = input.spawnImpl ?? spawn;
   const command = input.env?.LUMEN_NODE_AGENT_RESTART_COMMAND ??
-    "sleep 3; kill -TERM 1";
+    "sleep 3; kill -KILL 1";
   const child = spawnImpl("sh", ["-lc", `nohup sh -c ${JSON.stringify(command)} >/dev/null 2>&1 &`], {
     detached: true,
     stdio: "ignore"
@@ -130,7 +130,7 @@ function scheduleNodeAgentRestart(input = {}) {
   }
   return Object.freeze({
     implementationStatus: "node-agent-restart-scheduled",
-    command: "kill -TERM 1"
+    command: "kill -KILL 1"
   });
 }
 

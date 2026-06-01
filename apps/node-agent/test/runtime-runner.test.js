@@ -1248,7 +1248,7 @@ test("run once executes node restart as a deferred container restart", async () 
 
     assert.equal(result.command.status, "succeeded");
     assert.equal(spawned[0].binary, "sh");
-    assert.match(spawned[0].args.join(" "), /kill -TERM 1/);
+    assert.match(spawned[0].args.join(" "), /kill -KILL 1/);
     const completed = JSON.parse(calls[2].options.body);
     assert.equal(completed.result_json.outputs.implementationStatus, "node-agent-restart-scheduled");
   } finally {
