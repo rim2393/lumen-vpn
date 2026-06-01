@@ -354,12 +354,21 @@ async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
         )
     node = await _get_profile_node(session, profile)
     inbounds = await list_profile_inbounds(session, profile_id=profile.id)
+    runtime_clients = await list_profile_runtime_clients(session, profile=profile)
+    if not runtime_clients:
+        raise APIError(
+            code="profile_runtime_clients_required",
+            message=(
+                "Profile apply requires at least one active real subscription "
+                "bound to this profile and node."
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
     plugins = await list_effective_node_plugins(session, node_id=node.id)
     runtime_policy = build_node_runtime_policy(
         plugins=plugin_policy_records(plugins),
         ip_control=await build_ip_control_policy(session),
     )
-    runtime_clients = await list_profile_runtime_clients(session, profile=profile)
     payload = build_node_outbound_payload(
         profile,
         inbounds,

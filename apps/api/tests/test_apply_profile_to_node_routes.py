@@ -13,9 +13,13 @@ from app.core.rbac import Permission, Principal, Role, get_current_principal
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
 from app.domains.ip_control.models import IpControlRule
+from app.domains.licenses.models import License
+from app.domains.licenses.service import hash_license_key
 from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import Node, NodeCommand
 from app.domains.protocols.models import ProtocolProfile
+from app.domains.subscriptions.models import Subscription
+from app.domains.users.models import User
 from app.main import create_app
 
 
@@ -62,7 +66,11 @@ async def route_app(tmp_path) -> AsyncIterator[RouteApp]:
 
 
 async def _seed_profile(
-    route_app: RouteApp, adapter: str, *, status: str = "active"
+    route_app: RouteApp,
+    adapter: str,
+    *,
+    status: str = "active",
+    with_subscription: bool = True,
 ) -> tuple[str, str]:
     async with route_app.sessionmaker() as session:
         node = Node(
@@ -85,6 +93,32 @@ async def _seed_profile(
             credentials_ref="vault://subscriptions/profile/creds",
         )
         session.add(profile)
+        if with_subscription:
+            user = User(email=f"{adapter}-{uuid4().hex[:8]}@example.test", status="active")
+            license_record = License(
+                license_key_hash=hash_license_key(f"{adapter}-{uuid4()}"),
+                customer_ref=f"customer-{adapter}",
+                status="active",
+                max_devices=3,
+                metadata_json={},
+            )
+            session.add_all([user, license_record])
+            await session.flush()
+            session.add(
+                Subscription(
+                    public_id=f"lumen_sub_{uuid4().hex}",
+                    user_id=user.id,
+                    license_id=license_record.id,
+                    node_id=node.id,
+                    status="active",
+                    delivery_profile={
+                        "profile_id": str(profile.id),
+                        "protocol": adapter,
+                        "adapter": adapter,
+                    },
+                    config_hash="sha256:test",
+                )
+            )
         await session.commit()
         return str(profile.id), str(node.id)
 
@@ -106,7 +140,8 @@ async def test_apply_hysteria2_profile_queues_outbound_apply(route_app: RouteApp
         ).scalar_one()
         assert command.command_type == "outbound.apply"
         assert "hysteria2Config" in command.payload_json
-        assert command.payload_json["hysteria2Config"]["clientsRef"]
+        assert "clientsRef" not in command.payload_json["hysteria2Config"]
+        assert command.payload_json["hysteria2Config"]["auth"]["password"]
 
 
 async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
@@ -148,6 +183,8 @@ async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
         assert policy["ipControl"]["maxActiveIps"] == 2
         assert policy["plugins"][0]["kind"] == "torrent-blocker"
         xray_config = command.payload_json["xrayConfig"]
+        assert "clientsRef" not in xray_config["inbounds"][0]["settings"]
+        assert xray_config["inbounds"][0]["settings"]["clients"]
         assert {"tag": "blocked", "protocol": "blackhole"} in xray_config["outbounds"]
         assert xray_config["routing"]["rules"][0]["protocol"] == ["bittorrent"]
         assert xray_config["routing"]["rules"][0]["outboundTag"] == "blocked"
@@ -158,3 +195,10 @@ async def test_apply_inactive_profile_is_rejected(route_app: RouteApp) -> None:
     response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "profile_not_active"
+
+
+async def test_apply_profile_without_real_subscription_is_rejected(route_app: RouteApp) -> None:
+    profile_id, _ = await _seed_profile(route_app, "hysteria2", with_subscription=False)
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "profile_runtime_clients_required"
