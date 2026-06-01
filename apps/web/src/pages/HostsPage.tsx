@@ -21,9 +21,11 @@ import {
 import { OperatorGuide } from '../shared/components/OperatorGuide'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { sectionSpecs } from '../shared/data/resourceMeta'
+import { useI18n } from '../shared/i18n/I18nProvider'
 import { toneForStatus } from '../shared/utils/resourceFormat'
 
 export function HostsPage() {
+  const { t } = useI18n()
   const query = useHostsPageData()
   const nodesQuery = useNodesPageData()
   const profilesQuery = useProfilesPageData()
@@ -104,22 +106,22 @@ export function HostsPage() {
       createForm={
         <ScreenForm onSubmit={handleSubmit}>
           <div>
-            <p className="eyebrow">Add host</p>
-            <h2>Ingress mapping</h2>
-            <p>Bind a public hostname to node/profile/squad routing metadata.</p>
+            <p className="eyebrow">{t('Add host')}</p>
+            <h2>{t('Ingress mapping')}</h2>
+            <p>{t('Bind a public hostname to node/profile/squad routing metadata.')}</p>
           </div>
           <label htmlFor="host-name">
-            Name
+            {t('Name')}
             <input id="host-name" required value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label htmlFor="host-hostname">
-            Hostname
+            {t('Hostname')}
             <input id="host-hostname" required value={hostname} onChange={(event) => setHostname(event.target.value)} />
           </label>
           <label htmlFor="host-node">
-            Node
+            {t('Node')}
             <select id="host-node" required value={nodeId} onChange={(event) => setNodeId(event.target.value)}>
-              <option value="">Select node</option>
+              <option value="">{t('Select node')}</option>
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
                   {node.name}
@@ -128,9 +130,9 @@ export function HostsPage() {
             </select>
           </label>
           <label htmlFor="host-profile">
-            Profile
+            {t('Profile')}
             <select id="host-profile" value={profileId} onChange={(event) => setProfileId(event.target.value)}>
-              <option value="">None</option>
+              <option value="">{t('None')}</option>
               {profiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
                   {profile.name}
@@ -139,9 +141,9 @@ export function HostsPage() {
             </select>
           </label>
           <label htmlFor="host-squad">
-            Squad
+            {t('Squad')}
             <select id="host-squad" value={squadId} onChange={(event) => setSquadId(event.target.value)}>
-              <option value="">None</option>
+              <option value="">{t('None')}</option>
               {squads.map((squad) => (
                 <option key={squad.id} value={squad.id}>
                   {squad.name}
@@ -150,11 +152,11 @@ export function HostsPage() {
             </select>
           </label>
           <label htmlFor="host-tags">
-            Tags
+            {t('Tags')}
             <input id="host-tags" value={tags} onChange={(event) => setTags(event.target.value)} />
           </label>
           <FormError message={formError} />
-          <SubmitButton pending={createHost.isPending}>Add host</SubmitButton>
+          <SubmitButton pending={createHost.isPending}>{t('Add host')}</SubmitButton>
         </ScreenForm>
       }
       emptyDescription="Hosts appear here after domain mappings are created."
@@ -262,6 +264,7 @@ function HostBulkPanel({
   onReorder: () => void
   selectedCount: number
 }) {
+  const { t } = useI18n()
   const [inboundTag, setInboundTag] = useState('DEFAULT_INBOUND')
   const [port, setPort] = useState('443')
   const parsedPort = Number(port)
@@ -270,22 +273,22 @@ function HostBulkPanel({
     <article className="panel">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">Bulk host actions</p>
-          <h2>{selectedCount} selected</h2>
+          <p className="eyebrow">{t('Bulk host actions')}</p>
+          <h2>{t('{count} selected', { count: selectedCount })}</h2>
         </div>
       </div>
       <div className="inline-actions">
         <button type="button" className="button button--secondary" onClick={() => void onBulk('enable')}>
-          Enable
+          {t('Enable')}
         </button>
         <button type="button" className="button button--secondary" onClick={() => void onBulk('disable')}>
-          Disable
+          {t('Disable')}
         </button>
         <button type="button" className="button button--secondary" onClick={() => void onBulk('delete')}>
-          Delete
+          {t('Delete')}
         </button>
         <button type="button" className="button button--secondary" onClick={onReorder}>
-          Reverse order
+          {t('Reverse order')}
         </button>
       </div>
       <label htmlFor="bulk-inbound-tag">
@@ -293,10 +296,10 @@ function HostBulkPanel({
         <input id="bulk-inbound-tag" value={inboundTag} onChange={(event) => setInboundTag(event.target.value)} />
       </label>
       <button type="button" className="button button--secondary" onClick={() => void onBulk('set-inbound', { inbound_tag: inboundTag })}>
-        Set inbound
+        {t('Set inbound')}
       </button>
       <label htmlFor="bulk-port">
-        Port
+        {t('Port')}
         <input id="bulk-port" inputMode="numeric" value={port} onChange={(event) => setPort(event.target.value)} />
       </label>
       <button
@@ -305,7 +308,7 @@ function HostBulkPanel({
         disabled={!Number.isInteger(parsedPort)}
         onClick={() => void onBulk('set-port', { port: parsedPort })}
       >
-        Set port
+        {t('Set port')}
       </button>
     </article>
   )
@@ -326,6 +329,7 @@ function HostEditor({
   profiles: Array<{ id: string; name: string }>
   squads: Array<{ id: string; name: string }>
 }) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState<HostUpdateRequest>({})
   const [metadataJson, setMetadataJson] = useState('{}')
   const [error, setError] = useState<string | null>(null)
@@ -373,9 +377,9 @@ function HostEditor({
   return (
     <ScreenForm onSubmit={handleSubmit}>
       <div>
-        <p className="eyebrow">Host editor</p>
-        <h2>{host?.name ?? 'Select host'}</h2>
-        <p>Edit public endpoint, routing bindings, inbound tag, port and metadata.</p>
+        <p className="eyebrow">{t('Host editor')}</p>
+        <h2>{host?.name ?? t('Select host')}</h2>
+        <p>{t('Edit public endpoint, routing bindings, inbound tag, port and metadata.')}</p>
       </div>
       <label htmlFor="editor-host-name">
         Name

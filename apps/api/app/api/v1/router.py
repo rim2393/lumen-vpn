@@ -5,7 +5,11 @@ from app.domains.api_keys.router import router as api_keys_router
 from app.domains.audit.router import router as audit_router
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.social_router import router as auth_social_router
+from app.domains.infra_billing.router import router as infra_billing_router
+from app.domains.ip_control.router import router as ip_control_router
 from app.domains.licenses.router import router as licenses_router
+from app.domains.metrics.router import router as metrics_router
+from app.domains.node_plugins.router import router as node_plugins_router
 from app.domains.nodes.router import router as nodes_router
 from app.domains.protocols.router import (
     hosts_router,
@@ -44,6 +48,10 @@ api_v1_router.include_router(
 )
 api_v1_router.include_router(audit_router, prefix="/audit", tags=["audit"])
 api_v1_router.include_router(tools_router, prefix="/tools", tags=["tools"])
+api_v1_router.include_router(metrics_router, prefix="/metrics", tags=["metrics"])
+api_v1_router.include_router(ip_control_router, prefix="/ip-control", tags=["ip-control"])
+api_v1_router.include_router(node_plugins_router, prefix="/node-plugins", tags=["node-plugins"])
+api_v1_router.include_router(infra_billing_router, prefix="/infra-billing", tags=["infra-billing"])
 api_v1_router.include_router(protocols_router, prefix="/protocols", tags=["protocols"])
 api_v1_router.include_router(profiles_router, prefix="/profiles", tags=["profiles"])
 api_v1_router.include_router(hosts_router, prefix="/hosts", tags=["hosts"])

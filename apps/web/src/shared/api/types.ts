@@ -876,6 +876,87 @@ export type InstallTokenExchangeResponse = {
   provisioning_job_id: string
 }
 
+export type NodePluginRecord = {
+  id: string
+  node_id: string | null
+  kind: string
+  name: string
+  config_json: Record<string, unknown>
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type NodePluginListResponse = { items: NodePluginRecord[] }
+
+export type NodePluginCreateRequest = {
+  node_id?: string | null
+  kind: string
+  name: string
+  config_json?: Record<string, unknown>
+  enabled?: boolean
+}
+
+export type NodePluginUpdateRequest = {
+  node_id?: string | null
+  kind?: string
+  name?: string
+  config_json?: Record<string, unknown>
+  enabled?: boolean
+}
+
+export type InfraProviderRecord = {
+  id: string
+  name: string
+  login_url: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InfraProviderListResponse = { items: InfraProviderRecord[] }
+
+export type InfraProviderCreateRequest = {
+  name: string
+  login_url?: string | null
+  notes?: string | null
+}
+
+export type InfraBillingRecordRecord = {
+  id: string
+  provider_id: string
+  node_id: string | null
+  amount: number
+  currency: string
+  period: string
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InfraBillingRecordListResponse = { items: InfraBillingRecordRecord[] }
+
+export type InfraBillingRecordCreateRequest = {
+  provider_id: string
+  node_id?: string | null
+  amount: number
+  currency?: string
+  period: string
+  note?: string | null
+}
+
+export type InfraBillingCurrencyTotal = {
+  currency: string
+  total: number
+  records: number
+}
+
+export type InfraBillingSummaryResponse = {
+  providers: number
+  records: number
+  totals_by_currency: InfraBillingCurrencyTotal[]
+}
+
 export type LumenApiClient = {
   bulkUsers: (
     action: string,
@@ -1009,6 +1090,21 @@ export type LumenApiClient = {
   updateSetting: (key: string, request: SettingUpdateRequest) => Promise<SettingRecord>
   updateSquad: (squadId: string, request: SquadUpdateRequest) => Promise<SquadRecord>
   updateUser: (userId: string, request: UserUpdateRequest) => Promise<UserRecord>
+  listNodePlugins: (nodeId?: string) => Promise<NodePluginListResponse>
+  createNodePlugin: (request: NodePluginCreateRequest) => Promise<NodePluginRecord>
+  updateNodePlugin: (
+    pluginId: string,
+    request: NodePluginUpdateRequest,
+  ) => Promise<NodePluginRecord>
+  deleteNodePlugin: (pluginId: string) => Promise<void>
+  listInfraProviders: () => Promise<InfraProviderListResponse>
+  createInfraProvider: (request: InfraProviderCreateRequest) => Promise<InfraProviderRecord>
+  deleteInfraProvider: (providerId: string) => Promise<void>
+  listInfraBillingRecords: () => Promise<InfraBillingRecordListResponse>
+  createInfraBillingRecord: (
+    request: InfraBillingRecordCreateRequest,
+  ) => Promise<InfraBillingRecordRecord>
+  infraBillingSummary: () => Promise<InfraBillingSummaryResponse>
 }
 
 export type LoginMethod = {

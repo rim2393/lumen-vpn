@@ -5,14 +5,18 @@ from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.security import generate_opaque_token
+from app.domains.ip_control.service import build_ip_control_policy
 from app.domains.licenses.models import License
+from app.domains.node_plugins.service import list_effective_node_plugins, plugin_policy_records
 from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.settings.models import PanelSetting
 from app.domains.subscriptions.models import Subscription
+from app.domains.subscriptions.renderers import derive_client_credentials
 from app.domains.subscriptions.schemas import (
     SubscriptionCreateRequest,
     SubscriptionResponse,
@@ -35,7 +39,15 @@ SECRET_FIELD_FRAGMENTS = frozenset(
         "runtime_config",
     }
 )
-RENDERABLE_PROTOCOL_PREFIXES = ("vless", "vmess", "trojan", "shadowsocks", "tuic", "wireguard")
+RENDERABLE_PROTOCOL_PREFIXES = (
+    "vless",
+    "vmess",
+    "trojan",
+    "shadowsocks",
+    "hysteria2",
+    "tuic",
+    "wireguard",
+)
 
 
 def utc_now() -> datetime:
@@ -154,6 +166,13 @@ async def build_subscription_manifest(
         subscription=subscription,
         protocol_type=protocol_type,
     )
+    credentials = derive_client_credentials(
+        settings=get_settings(),
+        subscription_id=subscription.public_id,
+        credentials_ref=credentials_ref,
+        protocol_id=delivery.get("protocol_id") or protocol_type,
+        protocol_type=protocol_type,
+    )
     page_settings = await _subscription_page_settings(session)
     profile_title = (
         delivery.get("profile_title")
@@ -168,6 +187,14 @@ async def build_subscription_manifest(
     )
     profile_page_url = _setting_string(page_settings, "profile_page_url")
     provider_name = delivery.get("provider_name") or profile_title
+    access_policy = await build_ip_control_policy(session, user_id=str(user.id))
+    node_plugins = await list_effective_node_plugins(session, node_id=node.id)
+    node_policy = {
+        "modelVersion": "lumen.node-policy.v1",
+        "plugins": plugin_policy_records(node_plugins),
+    }
+    if access_policy is not None:
+        node_policy["ipControl"] = access_policy
 
     return {
         "schemaVersion": "lumen.subscription-manifest.v1",
@@ -209,6 +236,7 @@ async def build_subscription_manifest(
                         ),
                         "flow": delivery.get("flow"),
                         "credentialsRef": credentials_ref,
+                        "credentials": _manifest_credentials(credentials),
                         "capabilities": _manifest_capabilities(protocol_type),
                         "rendererHints": {
                             "liveDiagnostic": False,
@@ -220,7 +248,9 @@ async def build_subscription_manifest(
                         },
                     }
                 ],
-                "metadata": {},
+                "metadata": {
+                    "nodePolicy": node_policy,
+                },
             }
         ],
         "renderHints": {"preferredFormats": [delivery.get("format") or "lumen-json"]},
@@ -234,6 +264,7 @@ async def build_subscription_manifest(
             "trafficUsedGb": user.traffic_used_gb,
             "trafficUploadGb": delivery.get("traffic_upload_gb"),
             "updateIntervalHours": update_interval_hours,
+            "accessPolicy": access_policy,
         },
     }
 
@@ -572,6 +603,17 @@ def _manifest_alpn(*, security: dict[str, object], delivery: dict[str, str]) -> 
 
 def _manifest_capabilities(protocol_type: str) -> list[str]:
     return ["subscription"]
+
+
+def _manifest_credentials(credentials) -> dict[str, str]:
+    return {
+        "uuid": credentials.uuid,
+        "password": credentials.password,
+        "shadowsocksPassword": credentials.shadowsocks_password,
+        "hysteriaPassword": credentials.hysteria_password,
+        "wireguardPrivateKey": credentials.wireguard_private_key,
+        "wireguardPublicKey": credentials.wireguard_public_key,
+    }
 
 
 def _ensure_subscription_can_be_served(subscription: Subscription) -> None:

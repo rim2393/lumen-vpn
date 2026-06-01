@@ -18,6 +18,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import type { MetricTone } from '../shared/data/resourceMeta'
 import { sectionSpecs } from '../shared/data/resourceMeta'
+import { useI18n } from '../shared/i18n/I18nProvider'
 import { useSearchParams } from 'react-router-dom'
 
 type ProvisioningFormState = {
@@ -329,6 +330,7 @@ function ProvisioningJobPanel({ job }: { job: ProvisioningJobResponse | null }) 
 }
 
 export function NodesPage() {
+  const { t } = useI18n()
   const spec = sectionSpecs.nodes
   const query = useNodesPageData()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -500,12 +502,12 @@ export function NodesPage() {
           <button
             type="button"
             className="button button--secondary"
-            aria-label="Refresh nodes"
+            aria-label={t('Refresh nodes')}
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
             <RefreshCw size={18} aria-hidden="true" />
-            Refresh
+            {t('Refresh')}
           </button>
         }
       />
@@ -525,10 +527,10 @@ export function NodesPage() {
           <article className="panel panel--wide">
             <div className="panel__header">
               <div>
-                <p className="eyebrow">Infrastructure mesh</p>
-                <h2>Node inventory</h2>
+                <p className="eyebrow">{t('Infrastructure mesh')}</p>
+                <h2>{t('Node inventory')}</h2>
               </div>
-              <StatusBadge>{`${nodes.length} nodes`}</StatusBadge>
+              <StatusBadge>{t('{count} nodes', { count: nodes.length })}</StatusBadge>
             </div>
             <DataTable
               caption="Node provisioning and heartbeat inventory"
@@ -550,11 +552,11 @@ export function NodesPage() {
                     node.region,
                     node.public_address,
                     formatCapabilities(node.capabilities),
-                    getHeartbeatLabel(node),
+                    t(getHeartbeatLabel(node)),
                     <>
                       <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
                       <br />
-                      <small>{state.detail}</small>
+                      <small>{t(state.detail)}</small>
                     </>,
                     <div className="inline-actions">
                       <button
@@ -564,7 +566,7 @@ export function NodesPage() {
                           setSelectedNodeId(node.id)
                         }}
                       >
-                        Inspect
+                        {t('Inspect')}
                       </button>
                       <button
                         type="button"
@@ -577,7 +579,7 @@ export function NodesPage() {
                           })
                         }
                       >
-                        Pause
+                        {t('Pause')}
                       </button>
                       <button
                         type="button"
@@ -593,7 +595,7 @@ export function NodesPage() {
                           })
                         }
                       >
-                        Resume
+                        {t('Resume')}
                       </button>
                       <button
                         type="button"
@@ -606,7 +608,7 @@ export function NodesPage() {
                           })
                         }
                       >
-                        Quarantine
+                        {t('Quarantine')}
                       </button>
                     </div>,
                   ],

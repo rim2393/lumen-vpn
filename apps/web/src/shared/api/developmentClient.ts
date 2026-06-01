@@ -22,7 +22,14 @@ import type {
   HwidInspectorResponse,
   HostListResponse,
   HostRecord,
+  InfraBillingRecordCreateRequest,
+  InfraBillingRecordRecord,
+  InfraProviderCreateRequest,
+  InfraProviderRecord,
   LumenApiClient,
+  NodePluginCreateRequest,
+  NodePluginRecord,
+  NodePluginUpdateRequest,
   NodeCommandCreateRequest,
   NodeCommandRecord,
   NodeListResponse,
@@ -163,6 +170,9 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
   const subscriptions = [...subscriptionRecords]
   const templates: SubscriptionTemplateRecord[] = []
   const responseRules: ResponseRuleRecord[] = []
+  const nodePlugins: NodePluginRecord[] = []
+  const infraProviders: InfraProviderRecord[] = []
+  const infraBillingRecords: InfraBillingRecordRecord[] = []
   const nodeCommands: NodeCommandRecord[] = []
   const authProviders: AuthProviderRecord[] = [
     {
@@ -1074,6 +1084,99 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       }
       Object.assign(user, request, { updated_at: new Date().toISOString() })
       return user
+    },
+    listNodePlugins: async (nodeId?: string) => ({
+      items: nodePlugins.filter(
+        (plugin) => !nodeId || plugin.node_id === nodeId || plugin.node_id === null,
+      ),
+    }),
+    createNodePlugin: async (request: NodePluginCreateRequest): Promise<NodePluginRecord> => {
+      const now = new Date().toISOString()
+      const plugin: NodePluginRecord = {
+        id: `plugin_${Date.now()}`,
+        node_id: request.node_id ?? null,
+        kind: request.kind,
+        name: request.name,
+        config_json: request.config_json ?? {},
+        enabled: request.enabled ?? true,
+        created_at: now,
+        updated_at: now,
+      }
+      nodePlugins.unshift(plugin)
+      return plugin
+    },
+    updateNodePlugin: async (pluginId: string, request: NodePluginUpdateRequest) => {
+      const plugin = nodePlugins.find((item) => item.id === pluginId)
+      if (!plugin) {
+        throw new Error('Node plugin not found')
+      }
+      Object.assign(plugin, request, { updated_at: new Date().toISOString() })
+      return plugin
+    },
+    deleteNodePlugin: async (pluginId: string) => {
+      const index = nodePlugins.findIndex((item) => item.id === pluginId)
+      if (index >= 0) {
+        nodePlugins.splice(index, 1)
+      }
+    },
+    listInfraProviders: async () => ({ items: infraProviders }),
+    createInfraProvider: async (
+      request: InfraProviderCreateRequest,
+    ): Promise<InfraProviderRecord> => {
+      const now = new Date().toISOString()
+      const provider: InfraProviderRecord = {
+        id: `provider_${Date.now()}`,
+        name: request.name,
+        login_url: request.login_url ?? null,
+        notes: request.notes ?? null,
+        created_at: now,
+        updated_at: now,
+      }
+      infraProviders.unshift(provider)
+      return provider
+    },
+    deleteInfraProvider: async (providerId: string) => {
+      const index = infraProviders.findIndex((item) => item.id === providerId)
+      if (index >= 0) {
+        infraProviders.splice(index, 1)
+      }
+    },
+    listInfraBillingRecords: async () => ({ items: infraBillingRecords }),
+    createInfraBillingRecord: async (
+      request: InfraBillingRecordCreateRequest,
+    ): Promise<InfraBillingRecordRecord> => {
+      const now = new Date().toISOString()
+      const record: InfraBillingRecordRecord = {
+        id: `billing_${Date.now()}`,
+        provider_id: request.provider_id,
+        node_id: request.node_id ?? null,
+        amount: request.amount,
+        currency: (request.currency ?? 'USD').toUpperCase(),
+        period: request.period,
+        note: request.note ?? null,
+        created_at: now,
+        updated_at: now,
+      }
+      infraBillingRecords.unshift(record)
+      return record
+    },
+    infraBillingSummary: async () => {
+      const totals = new Map<string, { total: number; records: number }>()
+      for (const record of infraBillingRecords) {
+        const current = totals.get(record.currency) ?? { total: 0, records: 0 }
+        current.total += record.amount
+        current.records += 1
+        totals.set(record.currency, current)
+      }
+      return {
+        providers: infraProviders.length,
+        records: infraBillingRecords.length,
+        totals_by_currency: Array.from(totals.entries()).map(([currency, value]) => ({
+          currency,
+          total: value.total,
+          records: value.records,
+        })),
+      }
     },
     clearUserDevices: async (userId: string) => {
       const user = users.find((item) => item.id === userId)

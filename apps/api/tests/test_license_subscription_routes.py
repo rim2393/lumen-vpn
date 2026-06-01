@@ -14,8 +14,10 @@ from app.core.rbac import Permission, Principal, Role, get_current_principal
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
 from app.domains.audit.models import AuditEvent
+from app.domains.ip_control.models import IpControlRule
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
+from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile
 from app.domains.users.models import User
@@ -290,6 +292,25 @@ async def test_subscription_manifest_route_renders_vless_profile_protocol(
             tags=["vless"],
         )
         session.add(host)
+        session.add(
+            NodePlugin(
+                node_id=node.id,
+                kind="domain-filter",
+                name="Block bad domains",
+                config_json={"action": "block", "domains": ["domain:bad.example"]},
+                enabled=True,
+            )
+        )
+        session.add(
+            IpControlRule(
+                name="subscriber-ip-cap",
+                scope="user",
+                target_id=str(user.id),
+                max_active_ips=1,
+                action="block",
+                enabled=True,
+            )
+        )
         await session.commit()
 
     create_response = await route_app.client.post(
@@ -337,6 +358,13 @@ async def test_subscription_manifest_route_renders_vless_profile_protocol(
     public_manifest = public_manifest_response.json()
     assert public_manifest["subscription"]["id"] == create_response.json()["public_id"]
     assert public_manifest["nodes"][0]["protocols"][0]["type"] == "vless-tcp-tls"
+    node_policy = public_manifest["nodes"][0]["metadata"]["nodePolicy"]
+    assert node_policy["plugins"][0]["kind"] == "domain-filter"
+    assert node_policy["ipControl"]["maxActiveIps"] == 1
+    assert (
+        public_manifest["metadata"]["accessPolicy"]["ruleId"]
+        == node_policy["ipControl"]["ruleId"]
+    )
 
     async with route_app.sessionmaker() as session:
         audit_result = await session.execute(

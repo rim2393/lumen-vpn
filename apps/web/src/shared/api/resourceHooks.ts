@@ -6,6 +6,10 @@ import type {
   HostBulkActionRequest,
   HostCreateRequest,
   HostUpdateRequest,
+  InfraBillingRecordCreateRequest,
+  InfraProviderCreateRequest,
+  NodePluginCreateRequest,
+  NodePluginUpdateRequest,
   NodeCommandCreateRequest,
   NodePauseRequest,
   NodeQuarantineRequest,
@@ -54,6 +58,10 @@ export const resourceQueryKeys = {
   subscriptions: ['resource', 'subscriptions'] as const,
   subscriptionTemplates: ['resource', 'subscription-templates'] as const,
   responseRules: ['resource', 'response-rules'] as const,
+  nodePlugins: ['resource', 'node-plugins'] as const,
+  infraProviders: ['resource', 'infra-billing', 'providers'] as const,
+  infraBillingRecords: ['resource', 'infra-billing', 'records'] as const,
+  infraBillingSummary: ['resource', 'infra-billing', 'summary'] as const,
   toolSummary: ['resource', 'tools', 'summary'] as const,
   toolHwid: ['resource', 'tools', 'hwid'] as const,
   toolSrh: ['resource', 'tools', 'srh'] as const,
@@ -935,5 +943,118 @@ export function useBulkUsers() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.users })
     },
+  })
+}
+
+export function useNodePluginsData(nodeId?: string) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: () => apiClient.listNodePlugins(nodeId),
+    queryKey: nodeId ? [...resourceQueryKeys.nodePlugins, nodeId] : resourceQueryKeys.nodePlugins,
+  })
+}
+
+export function useCreateNodePlugin() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: NodePluginCreateRequest) => apiClient.createNodePlugin(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodePlugins })
+    },
+  })
+}
+
+export function useUpdateNodePlugin() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: NodePluginUpdateRequest }) =>
+      apiClient.updateNodePlugin(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodePlugins })
+    },
+  })
+}
+
+export function useDeleteNodePlugin() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteNodePlugin(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodePlugins })
+    },
+  })
+}
+
+export function useInfraProvidersData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listInfraProviders,
+    queryKey: resourceQueryKeys.infraProviders,
+  })
+}
+
+export function useInfraBillingRecordsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listInfraBillingRecords,
+    queryKey: resourceQueryKeys.infraBillingRecords,
+  })
+}
+
+export function useInfraBillingSummary() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.infraBillingSummary,
+    queryKey: resourceQueryKeys.infraBillingSummary,
+  })
+}
+
+function useInvalidateInfraBilling() {
+  const queryClient = useQueryClient()
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.infraProviders })
+    void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.infraBillingRecords })
+    void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.infraBillingSummary })
+  }
+}
+
+export function useCreateInfraProvider() {
+  const apiClient = useApiClient()
+  const invalidate = useInvalidateInfraBilling()
+
+  return useMutation({
+    mutationFn: (request: InfraProviderCreateRequest) => apiClient.createInfraProvider(request),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteInfraProvider() {
+  const apiClient = useApiClient()
+  const invalidate = useInvalidateInfraBilling()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteInfraProvider(id),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCreateInfraBillingRecord() {
+  const apiClient = useApiClient()
+  const invalidate = useInvalidateInfraBilling()
+
+  return useMutation({
+    mutationFn: (request: InfraBillingRecordCreateRequest) =>
+      apiClient.createInfraBillingRecord(request),
+    onSuccess: invalidate,
   })
 }

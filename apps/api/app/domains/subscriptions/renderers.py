@@ -856,6 +856,8 @@ def normalize_protocol_type(value: object) -> str:
         return "vmess"
     if raw.startswith("shadowsocks"):
         return "shadowsocks"
+    if raw.startswith("hysteria2"):
+        return "hysteria2"
     if raw.startswith("tuic"):
         return "tuic"
     if raw.startswith("wireguard"):

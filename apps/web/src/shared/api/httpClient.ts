@@ -10,6 +10,10 @@ import type {
   LoginMethodsResponse,
   MfaChallengeVerifyRequest,
   LumenApiClient,
+  NodePluginCreateRequest,
+  NodePluginUpdateRequest,
+  InfraProviderCreateRequest,
+  InfraBillingRecordCreateRequest,
   OAuthStartResponse,
   TelegramLoginPayload,
   WebAuthnOptionsApiResponse,
@@ -333,6 +337,23 @@ export function createHttpLumenApiClient({
       request(`/api/v1/squads/${squadId}`, { body: payload, method: 'PATCH' }),
     updateUser: (userId: string, payload: UserUpdateRequest) =>
       request(`/api/v1/users/${userId}`, { body: payload, method: 'PATCH' }),
+    listNodePlugins: (nodeId?: string) =>
+      request(`/api/v1/node-plugins${nodeId ? `?node_id=${encodeURIComponent(nodeId)}` : ''}`),
+    createNodePlugin: (payload: NodePluginCreateRequest) =>
+      request('/api/v1/node-plugins', { body: payload, method: 'POST' }),
+    updateNodePlugin: (pluginId: string, payload: NodePluginUpdateRequest) =>
+      request(`/api/v1/node-plugins/${pluginId}`, { body: payload, method: 'PATCH' }),
+    deleteNodePlugin: (pluginId: string) =>
+      request(`/api/v1/node-plugins/${pluginId}`, { method: 'DELETE' }),
+    listInfraProviders: () => request('/api/v1/infra-billing/providers'),
+    createInfraProvider: (payload: InfraProviderCreateRequest) =>
+      request('/api/v1/infra-billing/providers', { body: payload, method: 'POST' }),
+    deleteInfraProvider: (providerId: string) =>
+      request(`/api/v1/infra-billing/providers/${providerId}`, { method: 'DELETE' }),
+    listInfraBillingRecords: () => request('/api/v1/infra-billing/records'),
+    createInfraBillingRecord: (payload: InfraBillingRecordCreateRequest) =>
+      request('/api/v1/infra-billing/records', { body: payload, method: 'POST' }),
+    infraBillingSummary: () => request('/api/v1/infra-billing/summary'),
   }
 
   async function readSessionAfterTokenIssue(tokenPair: TokenPairResponse): Promise<AuthSession> {

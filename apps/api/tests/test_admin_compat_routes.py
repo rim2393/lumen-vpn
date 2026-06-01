@@ -154,10 +154,11 @@ async def seed_compat_data(compat_app: CompatRouteApp) -> SeededCompatData:
             created_at=now - timedelta(days=3),
             updated_at=now - timedelta(days=1),
         )
+        session_expires_at = datetime.now(UTC) + timedelta(days=5)
         user_session = UserSession(
             user_id=owner.id,
             token_hash=SESSION_DIGEST,
-            expires_at=datetime(2026, 6, 1, 1, tzinfo=UTC),
+            expires_at=session_expires_at,
             created_at=now - timedelta(hours=2),
             updated_at=now - timedelta(hours=2),
         )
@@ -191,7 +192,7 @@ async def test_compat_session_returns_web_auth_session_shape(
     assert response.status_code == 200
     body = response.json()
     assert body["email"] == "owner.admin@example.com"
-    assert body["expiresAt"].startswith("2026-06-01T01:00:00")
+    assert body["expiresAt"].startswith(seeded.session_expires_at.isoformat()[:19])
     assert body["name"] == "Owner Admin"
     assert body["role"] == "owner"
     assert body["scopes"] == ["api_key:manage", "user:manage"]

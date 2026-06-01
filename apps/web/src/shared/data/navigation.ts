@@ -8,11 +8,13 @@ import {
   LayoutDashboard,
   Layers3,
   Network,
+  Plug,
   Radar,
   RadioTower,
   Rss,
   ShieldCheck,
   UsersRound,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -34,6 +36,7 @@ export const navigationGroups: NavigationGroup[] = [
       { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
       { label: 'Users', to: '/users', icon: UsersRound },
       { label: 'Nodes', to: '/nodes', icon: Network },
+      { label: 'Node plugins', to: '/node-plugins', icon: Plug },
       { label: 'Hosts', to: '/hosts', icon: Globe2 },
     ],
   },
@@ -53,6 +56,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: 'Governance',
     items: [
       { label: 'License', to: '/license', icon: BadgeCheck },
+      { label: 'Infra billing', to: '/infra-billing', icon: Wallet },
       { label: 'API keys', to: '/api-keys', icon: KeyRound },
       { label: 'Guard portal', to: '/guard/portal', icon: ShieldCheck },
     ],

@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -1134,7 +1134,7 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
             token_hash="tools-session-token",  # noqa: S106 - deterministic test hash.
             ip_hash="ip-hash-abcdef",
             user_agent_hash="ua-hash-abcdef",
-            expires_at=datetime(2026, 6, 1, tzinfo=UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=5),
         )
         torrent_event = AuditEvent(
             actor_subject=str(user.id),

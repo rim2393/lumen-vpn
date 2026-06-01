@@ -60,7 +60,7 @@ SUPPORTED_NODE_COMMAND_TYPES = frozenset(
         "conflict.scan",
         "desired-state.apply",
         "desired-state.validate",
-        "firewall-plan.apply",
+        "firewall.plan.apply",
         "node.pause",
         "node.quarantine",
         "node.resume",

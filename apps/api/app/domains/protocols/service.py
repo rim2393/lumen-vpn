@@ -5,6 +5,7 @@ from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
@@ -38,6 +39,8 @@ from app.domains.protocols.schemas import (
     SquadUserMutationRequest,
     SquadUserResponse,
 )
+from app.domains.subscriptions.models import Subscription
+from app.domains.subscriptions.renderers import derive_client_credentials
 from app.domains.users.models import User
 
 
@@ -334,6 +337,11 @@ async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
     node (node commands must never carry inline secrets).
     """
 
+    from app.domains.ip_control.service import build_ip_control_policy
+    from app.domains.node_plugins.service import (
+        list_effective_node_plugins,
+        plugin_policy_records,
+    )
     from app.domains.nodes.schemas import NodeCommandCreateRequest
     from app.domains.nodes.service import enqueue_node_command
 
@@ -346,7 +354,18 @@ async def apply_profile_to_node(session: AsyncSession, *, profile_id: UUID):
         )
     node = await _get_profile_node(session, profile)
     inbounds = await list_profile_inbounds(session, profile_id=profile.id)
-    payload = build_node_outbound_payload(profile, inbounds)
+    plugins = await list_effective_node_plugins(session, node_id=node.id)
+    runtime_policy = build_node_runtime_policy(
+        plugins=plugin_policy_records(plugins),
+        ip_control=await build_ip_control_policy(session),
+    )
+    runtime_clients = await list_profile_runtime_clients(session, profile=profile)
+    payload = build_node_outbound_payload(
+        profile,
+        inbounds,
+        runtime_policy=runtime_policy,
+        runtime_clients=runtime_clients,
+    )
     return await enqueue_node_command(
         session,
         node_id=node.id,
@@ -1149,23 +1168,32 @@ def _profile_inbound_response(
 def _computed_xray_config(
     profile: ProtocolProfile,
     inbounds: list[ProfileInboundResponse],
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     config = deepcopy(profile.config_json)
     if not isinstance(config, dict):
         config = {}
     config.setdefault("log", {"loglevel": "warning"})
     config.setdefault("routing", {"rules": []})
-    config.setdefault("inbounds", [_xray_inbound(inbound) for inbound in inbounds])
+    config.setdefault(
+        "inbounds",
+        [_xray_inbound(inbound, runtime_clients=runtime_clients) for inbound in inbounds],
+    )
     return config
 
 
-def _xray_inbound(inbound: ProfileInboundResponse) -> dict[str, object]:
+def _xray_inbound(
+    inbound: ProfileInboundResponse,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     return {
         "tag": inbound.tag,
         "listen": inbound.listen,
         "port": inbound.port,
         "protocol": inbound.protocol,
-        "settings": _xray_inbound_settings(inbound),
+        "settings": _xray_inbound_settings(inbound, runtime_clients=runtime_clients),
         "streamSettings": {
             "network": inbound.transport,
             "security": inbound.security,
@@ -1173,12 +1201,52 @@ def _xray_inbound(inbound: ProfileInboundResponse) -> dict[str, object]:
     }
 
 
-def _xray_inbound_settings(inbound: ProfileInboundResponse) -> dict[str, object]:
+def _xray_inbound_settings(
+    inbound: ProfileInboundResponse,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    clients = runtime_clients or []
     if inbound.protocol == "vless":
-        settings: dict[str, object] = {"decryption": "none"}
+        settings: dict[str, object] = {
+            "decryption": "none",
+            "clients": [
+                {
+                    "id": str(client["uuid"]),
+                    "email": str(client["public_id"]),
+                    **(
+                        {"flow": str(client["flow"])}
+                        if str(client.get("flow") or "").strip()
+                        else {}
+                    ),
+                }
+                for client in clients
+            ],
+        }
+    elif inbound.protocol == "vmess":
+        settings = {
+            "clients": [
+                {
+                    "id": str(client["uuid"]),
+                    "alterId": 0,
+                    "email": str(client["public_id"]),
+                }
+                for client in clients
+            ],
+        }
+    elif inbound.protocol == "trojan":
+        settings = {
+            "clients": [
+                {
+                    "password": str(client["password"]),
+                    "email": str(client["public_id"]),
+                }
+                for client in clients
+            ],
+        }
     else:
         settings = {}
-    if inbound.credentials_ref is not None:
+    if not clients and inbound.credentials_ref is not None:
         settings["clientsRef"] = inbound.credentials_ref
     return settings
 
@@ -1220,64 +1288,275 @@ def _profile_config_dict(profile: ProtocolProfile) -> dict[str, object]:
     return config if isinstance(config, dict) else {}
 
 
+async def list_profile_runtime_clients(
+    session: AsyncSession,
+    *,
+    profile: ProtocolProfile,
+) -> list[dict[str, object]]:
+    """Return concrete per-subscription credentials for this profile's node config."""
+
+    result = await session.execute(
+        select(Subscription).where(
+            Subscription.node_id == profile.node_id,
+            Subscription.status.in_(["active", "paid", "trial"]),
+        )
+    )
+    subscriptions = list(result.scalars().all())
+    clients: list[dict[str, object]] = []
+    settings = get_settings()
+    for subscription in subscriptions:
+        delivery = (
+            subscription.delivery_profile
+            if isinstance(subscription.delivery_profile, dict)
+            else {}
+        )
+        delivery_profile_id = str(delivery.get("profile_id") or "")
+        delivery_adapter = str(delivery.get("adapter") or delivery.get("protocol") or "")
+        if delivery_profile_id and delivery_profile_id != str(profile.id):
+            continue
+        if not delivery_profile_id and delivery_adapter and delivery_adapter != profile.adapter:
+            continue
+        if not delivery_profile_id and not delivery_adapter:
+            continue
+
+        protocol_type = str(delivery.get("protocol") or profile.adapter)
+        credentials = derive_client_credentials(
+            settings=settings,
+            subscription_id=subscription.public_id,
+            credentials_ref=profile.credentials_ref,
+            protocol_id=delivery.get("protocol_id") or protocol_type,
+            protocol_type=protocol_type,
+        )
+        clients.append(
+            {
+                "public_id": subscription.public_id,
+                "uuid": credentials.uuid,
+                "password": credentials.password,
+                "shadowsocks_password": credentials.shadowsocks_password,
+                "hysteria_password": credentials.hysteria_password,
+                "wireguard_private_key": credentials.wireguard_private_key,
+                "wireguard_public_key": credentials.wireguard_public_key,
+                "flow": delivery.get("flow") or profile.config_json.get("flow"),
+                "address": delivery.get("address"),
+            }
+        )
+    return clients
+
+
 def _computed_hysteria2_config(
     profile: ProtocolProfile,
     port: int | None,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     config = _profile_config_dict(profile)
     config.setdefault("listen", f":{port}" if port else ":443")
     config.setdefault("tls", config.get("tls") or {})
-    config["clientsRef"] = profile.credentials_ref
+    clients = runtime_clients or []
+    if clients:
+        config["auth"] = {
+            "type": "password",
+            "password": str(clients[0]["hysteria_password"]),
+        }
+        config.pop("clientsRef", None)
+    else:
+        config["clientsRef"] = profile.credentials_ref
     return config
 
 
-def _computed_tuic_config(profile: ProtocolProfile, port: int | None) -> dict[str, object]:
+def _computed_tuic_config(
+    profile: ProtocolProfile,
+    port: int | None,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     config = _profile_config_dict(profile)
     config.setdefault("server", f":{port}" if port else ":443")
     config.setdefault("congestion_control", config.get("congestion_control") or "bbr")
-    config["clientsRef"] = profile.credentials_ref
+    clients = runtime_clients or []
+    if clients:
+        config["users"] = {
+            str(client["uuid"]): str(client["password"])
+            for client in clients
+        }
+        config.pop("clientsRef", None)
+    else:
+        config["clientsRef"] = profile.credentials_ref
     return config
 
 
 def _computed_wireguard_config(
     profile: ProtocolProfile,
     port: int | None,
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     config = _profile_config_dict(profile)
     interface = dict(config.get("interface") or {})
     interface.setdefault("listen_port", port or 51820)
+    interface.setdefault("address", config.get("address") or "10.66.0.1/24")
     config["interface"] = interface
-    config["clientsRef"] = profile.credentials_ref
+    clients = runtime_clients or []
+    if clients:
+        config["peers"] = [
+            {
+                "public_key": str(client["wireguard_public_key"]),
+                "allowed_ips": str(client.get("address") or f"10.66.0.{index + 2}/32"),
+            }
+            for index, client in enumerate(clients)
+        ]
+        config.pop("clientsRef", None)
+    else:
+        config["clientsRef"] = profile.credentials_ref
     return config
 
 
 def compute_node_outbound_config(
     profile: ProtocolProfile,
     inbounds: list[ProfileInboundResponse],
+    *,
+    runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     family = _adapter_family(profile.adapter)
     if family == "hysteria2":
-        return _computed_hysteria2_config(profile, _first_inbound_port(inbounds))
+        return _computed_hysteria2_config(
+            profile,
+            _first_inbound_port(inbounds),
+            runtime_clients=runtime_clients,
+        )
     if family == "tuic":
-        return _computed_tuic_config(profile, _first_inbound_port(inbounds))
+        return _computed_tuic_config(
+            profile,
+            _first_inbound_port(inbounds),
+            runtime_clients=runtime_clients,
+        )
     if family == "wireguard":
-        return _computed_wireguard_config(profile, _first_inbound_port(inbounds))
-    return _computed_xray_config(profile, inbounds)
+        return _computed_wireguard_config(
+            profile,
+            _first_inbound_port(inbounds),
+            runtime_clients=runtime_clients,
+        )
+    return _computed_xray_config(profile, inbounds, runtime_clients=runtime_clients)
 
 
 def build_node_outbound_payload(
     profile: ProtocolProfile,
     inbounds: list[ProfileInboundResponse],
+    *,
+    runtime_policy: dict[str, object] | None = None,
+    runtime_clients: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Build the ``outbound.apply`` command payload the panel sends to a node."""
 
     family = _adapter_family(profile.adapter)
     config_key = _NODE_CONFIG_KEY_BY_FAMILY[family]
-    return {
+    config = compute_node_outbound_config(profile, inbounds, runtime_clients=runtime_clients)
+    if family == "xray" and runtime_policy is not None:
+        config = _apply_xray_policy(config, runtime_policy)
+    payload = {
         "adapter": profile.adapter,
         "profileId": str(profile.id),
-        config_key: compute_node_outbound_config(profile, inbounds),
+        config_key: config,
     }
+    if runtime_policy is not None:
+        payload["nodePolicy"] = runtime_policy
+    return payload
+
+
+def build_node_runtime_policy(
+    *,
+    plugins: list[dict[str, object]],
+    ip_control: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if not plugins and ip_control is None:
+        return None
+    policy: dict[str, object] = {
+        "modelVersion": "lumen.node-policy.v1",
+        "plugins": plugins,
+    }
+    if ip_control is not None:
+        policy["ipControl"] = ip_control
+    return policy
+
+
+def _apply_xray_policy(
+    config: dict[str, object],
+    policy: dict[str, object],
+) -> dict[str, object]:
+    next_config = deepcopy(config)
+    plugins = policy.get("plugins")
+    if not isinstance(plugins, list):
+        return next_config
+    blocking_rules = _xray_blocking_rules_from_plugins(plugins)
+    if not blocking_rules:
+        return next_config
+
+    outbounds = next_config.get("outbounds")
+    if not isinstance(outbounds, list):
+        outbounds = []
+    if not any(isinstance(item, dict) and item.get("tag") == "blocked" for item in outbounds):
+        outbounds.append({"tag": "blocked", "protocol": "blackhole"})
+    next_config["outbounds"] = outbounds
+
+    routing = next_config.get("routing")
+    if not isinstance(routing, dict):
+        routing = {}
+    existing_rules = routing.get("rules")
+    if not isinstance(existing_rules, list):
+        existing_rules = []
+    routing["rules"] = blocking_rules + existing_rules
+    next_config["routing"] = routing
+    return next_config
+
+
+def _xray_blocking_rules_from_plugins(plugins: list[object]) -> list[dict[str, object]]:
+    rules: list[dict[str, object]] = []
+    for item in plugins:
+        if not isinstance(item, dict) or item.get("enabled") is False:
+            continue
+        kind = str(item.get("kind") or "")
+        config = item.get("config")
+        config_dict = config if isinstance(config, dict) else {}
+        action = str(config_dict.get("action") or config_dict.get("mode") or "block")
+        if action not in {"block", "drop", "blackhole"}:
+            continue
+        if kind == "torrent-blocker":
+            rules.append(
+                {
+                    "type": "field",
+                    "protocol": ["bittorrent"],
+                    "outboundTag": "blocked",
+                }
+            )
+        elif kind == "domain-filter":
+            domains = _string_list(config_dict.get("domains"))
+            if domains:
+                rules.append(
+                    {
+                        "type": "field",
+                        "domain": domains,
+                        "outboundTag": "blocked",
+                    }
+                )
+        elif kind == "geoip-filter":
+            countries = _string_list(config_dict.get("countries") or config_dict.get("geoip"))
+            if countries:
+                rules.append(
+                    {
+                        "type": "field",
+                        "ip": [f"geoip:{country.lower()}" for country in countries],
+                        "outboundTag": "blocked",
+                    }
+                )
+    return rules
+
+
+def _string_list(value: object) -> list[str]:
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
 
 
 def _host_binding_response(host: Host) -> ProfileInboundHostBindingResponse:

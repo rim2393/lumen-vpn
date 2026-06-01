@@ -1,3 +1,4 @@
 {"ts":"2026-05-28T16:19:01.258Z","event":"plan_created","message":"1 goal(s) created"}
 {"ts":"2026-05-28T16:19:08.895Z","event":"goal_started","goalId":"G001-remnawave-functional-parity-sprint-f","status":"in_progress","message":"Attempt 1"}
 {"ts":"2026-05-28T19:27:09.541Z","event":"goal_resumed","goalId":"G001-remnawave-functional-parity-sprint-f","status":"in_progress","message":"Resuming active ultragoal"}
+{"ts":"2026-06-01T01:59:47.031Z","event":"goal_resumed","goalId":"G001-remnawave-functional-parity-sprint-f","status":"in_progress","message":"Resuming active ultragoal"}

@@ -15,7 +15,17 @@ def _profile(adapter: str, config_json: dict | None = None) -> ProtocolProfile:
 
 
 def _inbounds(port: int):
-    return [SimpleNamespace(port=port)]
+    return [
+        SimpleNamespace(
+            tag="inbound-test",
+            listen="0.0.0.0",  # noqa: S104
+            port=port,
+            protocol="vless",
+            transport="tcp",
+            security="tls",
+            credentials_ref="vault://subscriptions/p/creds",
+        )
+    ]
 
 
 def test_hysteria2_profile_builds_hysteria2_payload():
@@ -49,3 +59,64 @@ def test_xray_profile_still_builds_xray_payload():
     assert payload["adapter"] == "vless-tcp-tls"
     assert "xrayConfig" in payload
     assert "inbounds" in payload["xrayConfig"]
+
+
+def test_xray_payload_uses_concrete_runtime_clients_when_available():
+    payload = build_node_outbound_payload(
+        _profile("vless-tcp-tls"),
+        _inbounds(443),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "uuid": "11111111-1111-4111-8111-111111111111",
+                "flow": "xtls-rprx-vision",
+            }
+        ],
+    )
+
+    settings = payload["xrayConfig"]["inbounds"][0]["settings"]
+    assert "clientsRef" not in settings
+    assert settings["clients"] == [
+        {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "email": "lumen_sub_live",
+            "flow": "xtls-rprx-vision",
+        }
+    ]
+
+
+def test_hysteria2_payload_uses_concrete_runtime_clients_when_available():
+    payload = build_node_outbound_payload(
+        _profile("hysteria2"),
+        _inbounds(443),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "hysteria_password": "hy2-live-password",
+            }
+        ],
+    )
+
+    config = payload["hysteria2Config"]
+    assert "clientsRef" not in config
+    assert config["auth"] == {"type": "password", "password": "hy2-live-password"}
+
+
+def test_tuic_payload_uses_concrete_runtime_clients_when_available():
+    payload = build_node_outbound_payload(
+        _profile("tuic-v5"),
+        _inbounds(8443),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "uuid": "11111111-1111-4111-8111-111111111111",
+                "password": "tuic-live-password",
+            }
+        ],
+    )
+
+    config = payload["tuicConfig"]
+    assert "clientsRef" not in config
+    assert config["users"] == {
+        "11111111-1111-4111-8111-111111111111": "tuic-live-password",
+    }

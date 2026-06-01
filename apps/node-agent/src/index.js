@@ -81,6 +81,14 @@ export {
   validateFallbackLandingPlan
 } from "./fallback-landing-plan.js";
 export {
+  DEFAULT_NODE_POLICY_DIR,
+  NODE_POLICY_APPLY_MODEL_VERSION,
+  NODE_POLICY_MODEL_VERSION,
+  applyNodePolicy,
+  createNodePolicyApplyPlan,
+  validateNodePolicy
+} from "./policy-runtime.js";
+export {
   HEARTBEAT_PAYLOAD_VERSION,
   NODE_AGENT_DRY_RUN_REPORT_VERSION,
   NODE_AGENT_RUNTIME_CONFIG_VERSION,

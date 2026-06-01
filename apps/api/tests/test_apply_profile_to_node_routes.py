@@ -12,6 +12,8 @@ from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, Role, get_current_principal
 from app.db.base import Base
 from app.db.session import create_engine, get_db_session
+from app.domains.ip_control.models import IpControlRule
+from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import Node, NodeCommand
 from app.domains.protocols.models import ProtocolProfile
 from app.main import create_app
@@ -105,6 +107,50 @@ async def test_apply_hysteria2_profile_queues_outbound_apply(route_app: RouteApp
         assert command.command_type == "outbound.apply"
         assert "hysteria2Config" in command.payload_json
         assert command.payload_json["hysteria2Config"]["clientsRef"]
+
+
+async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(route_app, "vless-tcp-tls")
+    async with route_app.sessionmaker() as session:
+        session.add(
+            NodePlugin(
+                node_id=None,
+                kind="torrent-blocker",
+                name="Fleet torrent blocker",
+                config_json={"mode": "block"},
+                enabled=True,
+            )
+        )
+        session.add(
+            IpControlRule(
+                name="global-ip-cap",
+                scope="global",
+                max_active_ips=2,
+                action="block",
+                enabled=True,
+            )
+        )
+        await session.commit()
+
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 202, response.text
+
+    async with route_app.sessionmaker() as session:
+        command = (
+            await session.execute(
+                select(NodeCommand).where(NodeCommand.node_id == UUID(node_id))
+            )
+        ).scalar_one()
+        policy = command.payload_json["nodePolicy"]
+        assert policy["modelVersion"] == "lumen.node-policy.v1"
+        assert policy["ipControl"]["maxActiveIps"] == 2
+        assert policy["plugins"][0]["kind"] == "torrent-blocker"
+        xray_config = command.payload_json["xrayConfig"]
+        assert {"tag": "blocked", "protocol": "blackhole"} in xray_config["outbounds"]
+        assert xray_config["routing"]["rules"][0]["protocol"] == ["bittorrent"]
+        assert xray_config["routing"]["rules"][0]["outboundTag"] == "blocked"
 
 
 async def test_apply_inactive_profile_is_rejected(route_app: RouteApp) -> None:

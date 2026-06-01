@@ -29,6 +29,7 @@ import { applyXrayConfig, createXrayApplyPlan } from "./xray-runtime.js";
 import { applyHysteria2Config, createHysteria2ApplyPlan } from "./hysteria2-runtime.js";
 import { applyTuicConfig, createTuicApplyPlan } from "./tuic-runtime.js";
 import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
+import { applyNodePolicy, createNodePolicyApplyPlan } from "./policy-runtime.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
@@ -40,21 +41,24 @@ const APPLY_FAILURE_CODES = Object.freeze({
   "xray.apply": "xray_apply_failed",
   "hysteria2.apply": "hysteria2_apply_failed",
   "tuic.apply": "tuic_apply_failed",
-  "wireguard.apply": "wireguard_apply_failed"
+  "wireguard.apply": "wireguard_apply_failed",
+  "node-policy.apply": "node_policy_apply_failed"
 });
 
 const APPLY_DRY_RUN_STATUS = Object.freeze({
   "xray.apply": "xray-dry-run",
   "hysteria2.apply": "hysteria2-dry-run",
   "tuic.apply": "tuic-dry-run",
-  "wireguard.apply": "wireguard-dry-run"
+  "wireguard.apply": "wireguard-dry-run",
+  "node-policy.apply": "node-policy-dry-run"
 });
 
 const APPLY_PENDING_STATUS = Object.freeze({
   "xray.apply": "xray-apply-pending",
   "hysteria2.apply": "hysteria2-apply-pending",
   "tuic.apply": "tuic-apply-pending",
-  "wireguard.apply": "wireguard-apply-pending"
+  "wireguard.apply": "wireguard-apply-pending",
+  "node-policy.apply": "node-policy-apply-pending"
 });
 
 function readOptionalTrimmed(path) {
@@ -254,6 +258,18 @@ function wireguardApplyPlanFromEnvelope(envelope) {
   });
 }
 
+function nodePolicyApplyPlanFromPayload(payload, fallbackId) {
+  if (!payload?.nodePolicy) {
+    return null;
+  }
+  return createNodePolicyApplyPlan({
+    id: payload.profileId ?? payload.profile_id ?? payload.outboundId ?? fallbackId,
+    nodePolicy: payload.nodePolicy,
+    policyPath: payload.nodePolicyPath,
+    policyDir: payload.nodePolicyDir
+  });
+}
+
 function withResultOutputs(commandResult, outputs) {
   return Object.freeze({
     ...commandResult,
@@ -271,14 +287,29 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
   if (commandResult.status !== "succeeded" || !commandResult.runtimeAction) {
     return commandResult;
   }
-  if (input.dryRun !== false) {
-    return withResultOutputs(commandResult, {
-      implementationStatus:
-        APPLY_DRY_RUN_STATUS[commandResult.runtimeAction.type] ?? "live-listener-dry-run"
-    });
-  }
 
   try {
+    const payload = command?.payload_json ?? command?.payload ?? {};
+    const policyPlan = nodePolicyApplyPlanFromPayload(payload, command?.id ?? "node-policy");
+
+    if (input.dryRun !== false) {
+      let outputs = {
+        implementationStatus:
+          APPLY_DRY_RUN_STATUS[commandResult.runtimeAction.type] ?? "live-listener-dry-run"
+      };
+      if (policyPlan) {
+        outputs = {
+          ...outputs,
+          nodePolicy: await applyNodePolicy(policyPlan, { dryRun: input.dryRun })
+        };
+      }
+      return withResultOutputs(commandResult, outputs);
+    }
+
+    if (commandResult.runtimeAction.type === "node-policy.apply") {
+      const policy = await applyNodePolicy(commandResult.runtimeAction.plan, input);
+      return withResultOutputs(commandResult, policy);
+    }
     if (commandResult.runtimeAction.type === "tcp-diagnostic.start") {
       if (input.enableLiveDiagnostic !== true) {
         return failedCommandResult(command, new Error("live diagnostic listener is disabled"), "live_diagnostic_disabled");
@@ -302,7 +333,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         env: input.env,
         execFileImpl: input.execFileImpl
       });
-      return withResultOutputs(commandResult, xray);
+      const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
+      return withResultOutputs(commandResult, policy ? { ...xray, nodePolicy: policy } : xray);
     }
     if (commandResult.runtimeAction.type === "hysteria2.apply") {
       const hysteria2 = await applyHysteria2Config(commandResult.runtimeAction.plan, {
@@ -310,7 +342,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         env: input.env,
         execFileImpl: input.execFileImpl
       });
-      return withResultOutputs(commandResult, hysteria2);
+      const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
+      return withResultOutputs(commandResult, policy ? { ...hysteria2, nodePolicy: policy } : hysteria2);
     }
     if (commandResult.runtimeAction.type === "tuic.apply") {
       const tuic = await applyTuicConfig(commandResult.runtimeAction.plan, {
@@ -318,7 +351,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         env: input.env,
         execFileImpl: input.execFileImpl
       });
-      return withResultOutputs(commandResult, tuic);
+      const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
+      return withResultOutputs(commandResult, policy ? { ...tuic, nodePolicy: policy } : tuic);
     }
     if (commandResult.runtimeAction.type === "wireguard.apply") {
       const wireguard = await applyWireguardConfig(commandResult.runtimeAction.plan, {
@@ -326,7 +360,8 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
         env: input.env,
         execFileImpl: input.execFileImpl
       });
-      return withResultOutputs(commandResult, wireguard);
+      const policy = policyPlan ? await applyNodePolicy(policyPlan, input) : null;
+      return withResultOutputs(commandResult, policy ? { ...wireguard, nodePolicy: policy } : wireguard);
     }
   } catch (error) {
     const code = APPLY_FAILURE_CODES[commandResult.runtimeAction.type] ?? "live_listener_failed";
@@ -445,6 +480,13 @@ export function applyNodeCommand(command, currentState, input = {}) {
       case COMMAND_TYPES.FIREWALL_PLAN_APPLY:
       case COMMAND_TYPES.OUTBOUND_APPLY:
         {
+          const nodePolicyPlan = nodePolicyApplyPlanFromPayload(envelope.payload, envelope.id);
+          if (nodePolicyPlan && envelope.command === COMMAND_TYPES.FIREWALL_PLAN_APPLY) {
+            runtimeAction = Object.freeze({
+              type: "node-policy.apply",
+              plan: nodePolicyPlan
+            });
+          }
           const xrayPlan = xrayApplyPlanFromEnvelope(envelope);
           if (xrayPlan) {
             runtimeAction = Object.freeze({

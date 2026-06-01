@@ -610,6 +610,22 @@ h2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.dashboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.dashboard-section__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #9aa4b2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .dashboard-grid,
 .section-layout {
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);

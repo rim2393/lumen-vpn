@@ -599,3 +599,125 @@ test("xray apply fails when config still contains unresolved refs", () => {
   assert.equal(result.status, "failed");
   assert.match(result.errorMessage, /unresolved refs/);
 });
+
+test("run once applies node policy artifact from outbound apply", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "lumen-state-"));
+  const xrayDir = mkdtempSync(join(tmpdir(), "lumen-xray-"));
+  const policyDir = mkdtempSync(join(tmpdir(), "lumen-policy-"));
+  const xrayConfigPath = join(xrayDir, "config.json");
+  const policyPath = join(policyDir, "profile-1.json");
+  const execCalls = [];
+  const calls = [];
+  const xrayConfig = {
+    inbounds: [
+      {
+        tag: "VLESS_REALITY",
+        port: 18443,
+        protocol: "vless",
+        settings: { clients: [{ id: "client-1" }] }
+      }
+    ],
+    outbounds: [{ tag: "direct", protocol: "freedom" }]
+  };
+
+  try {
+    writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+    writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+    const result = await runNodeAgentOnce({
+      env: {
+        LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+        LUMEN_NODE_NAME: "node-1",
+        LUMEN_STATE_DIR: stateDir,
+        LUMEN_DRY_RUN: "false",
+        LUMEN_XRAY_CONFIG_FILE: xrayConfigPath,
+        LUMEN_XRAY_BINARY: "xray-test-bin",
+        LUMEN_XRAY_RELOAD_ARGV: JSON.stringify(["systemctl", "reload", "xray"])
+      },
+      execFileImpl: async (command, args) => {
+        execCalls.push({ command, args });
+        return { stdout: "", stderr: "" };
+      },
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/heartbeat")) {
+          return jsonResponse({
+            id: "node-1",
+            name: "node-1",
+            status: "active",
+            last_seen_at: "2026-05-27T00:00:00Z",
+            capabilities: {}
+          });
+        }
+        if (url.endsWith("/commands/next")) {
+          return jsonResponse({
+            id: "cmd-policy-apply-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: "claimed",
+            payload_json: {
+              profileId: "profile-1",
+              adapter: "vless-reality",
+              xrayConfig,
+              nodePolicyPath: policyPath,
+              nodePolicy: {
+                modelVersion: "lumen.node-policy.v1",
+                ipControl: {
+                  ruleId: "rule-1",
+                  scope: "global",
+                  targetId: null,
+                  maxActiveIps: 2,
+                  action: "block"
+                },
+                plugins: [
+                  {
+                    id: "plugin-1",
+                    nodeId: null,
+                    kind: "torrent-blocker",
+                    name: "Fleet torrent blocker",
+                    config: { mode: "block" },
+                    enabled: true
+                  }
+                ]
+              }
+            },
+            created_at: "2026-05-27T00:01:00.000Z"
+          });
+        }
+        if (url.endsWith("/result")) {
+          return jsonResponse({
+            id: "cmd-policy-apply-1",
+            node_id: "node-1",
+            command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+            status: JSON.parse(options.body).status,
+            payload_json: {},
+            result_json: JSON.parse(options.body).result_json
+          });
+        }
+        return jsonResponse({
+          id: "metric-1",
+          node_id: "node-1",
+          metric_kind: "runtime",
+          values_json: JSON.parse(options.body).values_json
+        });
+      }
+    });
+
+    assert.equal(result.command.status, "succeeded");
+    assert.deepEqual(execCalls, [
+      { command: "xray-test-bin", args: ["-test", "-config", xrayConfigPath] },
+      { command: "systemctl", args: ["reload", "xray"] }
+    ]);
+    const writtenPolicy = JSON.parse(readFileSync(policyPath, "utf8"));
+    assert.equal(writtenPolicy.plugins[0].kind, "torrent-blocker");
+    assert.equal(writtenPolicy.ipControl.maxActiveIps, 2);
+    const resultBody = JSON.parse(calls[2].options.body);
+    assert.equal(
+      resultBody.result_json.outputs.nodePolicy.implementationStatus,
+      "node-policy-applied"
+    );
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+    rmSync(xrayDir, { recursive: true, force: true });
+    rmSync(policyDir, { recursive: true, force: true });
+  }
+});

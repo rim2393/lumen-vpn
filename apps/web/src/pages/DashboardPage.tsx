@@ -82,7 +82,7 @@ export function DashboardPage() {
   const subscriptions = subscriptionsQuery.data?.items ?? []
   const apiKeys = apiKeysQuery.data?.items ?? []
   const license = licenseQuery.data ?? null
-  const metrics = buildDashboardMetrics({ license, nodes, subscriptions, t, users })
+  const metricSections = buildDashboardSections({ license, nodes, subscriptions, t, users })
   const activityRows = buildActivityRows({ apiKeys, language, license, nodes, subscriptions, t, users })
   const riskRows = buildRiskRows({ apiKeys, license, nodes, subscriptions, t, users })
 
@@ -105,11 +105,16 @@ export function DashboardPage() {
 
       {!isLoading && !firstError ? (
         <>
-          <section className="metrics-grid" aria-label="Live dashboard metrics">
-            {metrics.map((metric) => (
-              <MetricCard key={metric.label} metric={metric} />
-            ))}
-          </section>
+          {metricSections.map((group) => (
+            <section key={group.title} className="dashboard-section" aria-label={t(group.title)}>
+              <h2 className="dashboard-section__title">{t(group.title)}</h2>
+              <div className="metrics-grid">
+                {group.metrics.map((metric) => (
+                  <MetricCard key={metric.label} metric={metric} />
+                ))}
+              </div>
+            </section>
+          ))}
 
           <section className="dashboard-grid">
             <article className="panel">
@@ -164,7 +169,12 @@ export function DashboardPage() {
   )
 }
 
-function buildDashboardMetrics({
+type DashboardSection = {
+  title: string
+  metrics: DashboardMetric[]
+}
+
+function buildDashboardSections({
   license,
   nodes,
   subscriptions,
@@ -174,9 +184,9 @@ function buildDashboardMetrics({
   license: LicenseSummary | null
   nodes: NodeResponse[]
   subscriptions: SubscriptionRecord[]
-  t: (value: string) => string
+  t: (value: string, params?: Record<string, string | number>) => string
   users: UserRecord[]
-}): DashboardMetric[] {
+}): DashboardSection[] {
   const activeUsers = users.filter((user) => user.status === 'active').length
   const activeNodes = nodes.filter((node) => ACTIVE_NODE_STATUSES.has(node.status)).length
   const attentionNodes = nodes.filter((node) => ATTENTION_NODE_STATUSES.has(node.status)).length
@@ -187,37 +197,73 @@ function buildDashboardMetrics({
 
   return [
     {
-      detail: t('metric.total').replace('{count}', formatInteger(users.length)),
-      icon: UsersRound,
-      label: 'Active users',
-      tone: activeUsers > 0 ? 'good' : 'neutral',
-      value: formatInteger(activeUsers),
+      title: 'Users',
+      metrics: [
+        {
+          detail: t('{count} total', { count: formatInteger(users.length) }),
+          icon: UsersRound,
+          label: 'Active users',
+          tone: activeUsers > 0 ? 'good' : 'neutral',
+          value: formatInteger(activeUsers),
+        },
+        {
+          detail: t('{count} total', { count: formatInteger(users.length) }),
+          icon: UsersRound,
+          label: 'Total users',
+          tone: users.length > 0 ? 'info' : 'neutral',
+          value: formatInteger(users.length),
+        },
+      ],
     },
     {
-      detail:
-        attentionNodes > 0
-          ? t('metric.need_attention').replace('{count}', formatInteger(attentionNodes))
-          : t('metric.total').replace('{count}', formatInteger(nodes.length)),
-      icon: Network,
-      label: 'Healthy nodes',
-      tone: attentionNodes > 0 ? 'watch' : activeNodes > 0 ? 'good' : 'neutral',
-      value: `${formatInteger(activeNodes)} / ${formatInteger(nodes.length)}`,
+      title: 'Infrastructure',
+      metrics: [
+        {
+          detail:
+            attentionNodes > 0
+              ? t('{count} need attention', { count: formatInteger(attentionNodes) })
+              : t('{count} total', { count: formatInteger(nodes.length) }),
+          icon: Network,
+          label: 'Healthy nodes',
+          tone: attentionNodes > 0 ? 'watch' : activeNodes > 0 ? 'good' : 'neutral',
+          value: `${formatInteger(activeNodes)} / ${formatInteger(nodes.length)}`,
+        },
+        {
+          detail: 'recorded by API',
+          icon: Activity,
+          label: 'Traffic used',
+          tone: trafficGb > 0 ? 'info' : 'neutral',
+          value: formatTraffic(trafficGb),
+        },
+      ],
     },
     {
-      detail: 'recorded by API',
-      icon: Activity,
-      label: 'Traffic used',
-      tone: trafficGb > 0 ? 'info' : 'neutral',
-      value: formatTraffic(trafficGb),
-    },
-    {
-      detail: license
-        ? t('metric.active_subscriptions').replace('{count}', formatInteger(activeSubscriptions))
-        : 'free mode or not synced',
-      icon: BadgeCheck,
-      label: 'License seats',
-      tone: license?.status === 'invalid' ? 'danger' : license?.status === 'expiring' ? 'watch' : 'good',
-      value: license ? `${formatInteger(license.seatsUsed)} / ${formatInteger(license.seatsLimit)}` : 'Free',
+      title: 'Subscriptions & license',
+      metrics: [
+        {
+          detail: t('{count} active subscriptions', {
+            count: formatInteger(activeSubscriptions),
+          }),
+          icon: RadioTower,
+          label: 'Active subscriptions',
+          tone: activeSubscriptions > 0 ? 'good' : 'neutral',
+          value: `${formatInteger(activeSubscriptions)} / ${formatInteger(subscriptions.length)}`,
+        },
+        {
+          detail: license ? t(license.status) : 'free mode or not synced',
+          icon: BadgeCheck,
+          label: 'License seats',
+          tone:
+            license?.status === 'invalid'
+              ? 'danger'
+              : license?.status === 'expiring'
+                ? 'watch'
+                : 'good',
+          value: license
+            ? `${formatInteger(license.seatsUsed)} / ${formatInteger(license.seatsLimit)}`
+            : 'Free',
+        },
+      ],
     },
   ]
 }

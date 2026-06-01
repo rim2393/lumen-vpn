@@ -8,7 +8,10 @@ from app.domains.auth.models import (
     WebAuthnChallenge,
     WebAuthnCredential,
 )
+from app.domains.infra_billing.models import InfraBillingRecord, InfraProvider
+from app.domains.ip_control.models import IpControlEvent, IpControlRule
 from app.domains.licenses.models import License
+from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import (
     Node,
     NodeCommand,
@@ -25,11 +28,16 @@ __all__ = [
     "ApiKey",
     "AuditEvent",
     "Host",
+    "InfraBillingRecord",
+    "InfraProvider",
+    "IpControlEvent",
+    "IpControlRule",
     "License",
     "Node",
     "NodeCommand",
     "NodeInstallToken",
     "NodeMetric",
+    "NodePlugin",
     "NodeProvisioningJob",
     "OAuthLoginState",
     "PanelSetting",

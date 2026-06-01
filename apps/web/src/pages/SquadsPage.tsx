@@ -20,9 +20,11 @@ import {
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { sectionSpecs } from '../shared/data/resourceMeta'
+import { useI18n } from '../shared/i18n/I18nProvider'
 import { formatRecord, parseKeyValueInput, toneForStatus } from '../shared/utils/resourceFormat'
 
 export function SquadsPage() {
+  const { t } = useI18n()
   const query = useSquadsPageData()
   const usersQuery = useUsersPageData()
   const createSquad = useCreateSquad()
@@ -78,12 +80,12 @@ export function SquadsPage() {
       createForm={
         <ScreenForm onSubmit={handleSubmit}>
           <div>
-            <p className="eyebrow">Create squad</p>
-            <h2>Access lane</h2>
-            <p>Group users, profiles, and hosts without storing inline credentials.</p>
+            <p className="eyebrow">{t('Create squad')}</p>
+            <h2>{t('Access lane')}</h2>
+            <p>{t('Group users, profiles, and hosts without storing inline credentials.')}</p>
           </div>
           <label htmlFor="squad-name">
-            Name
+            {t('Name')}
             <input
               id="squad-name"
               required
@@ -92,7 +94,7 @@ export function SquadsPage() {
             />
           </label>
           <label htmlFor="squad-kind">
-            Kind
+            {t('Kind')}
             <select
               id="squad-kind"
               value={kind}
@@ -103,7 +105,7 @@ export function SquadsPage() {
             </select>
           </label>
           <label htmlFor="squad-metadata">
-            Metadata
+            {t('Metadata')}
             <textarea
               id="squad-metadata"
               value={metadata}
@@ -111,7 +113,7 @@ export function SquadsPage() {
             />
           </label>
           <FormError message={formError} />
-          <SubmitButton pending={createSquad.isPending}>Create squad</SubmitButton>
+          <SubmitButton pending={createSquad.isPending}>{t('Create squad')}</SubmitButton>
         </ScreenForm>
       }
       emptyDescription="Create internal or external access lanes before assigning profiles and hosts."
@@ -188,18 +190,18 @@ export function SquadsPage() {
           <article className="panel">
             <div className="panel__header">
               <div>
-                <p className="eyebrow">Squad membership</p>
-                <h2>{detailQuery.data?.users.length ?? 0} users</h2>
+                <p className="eyebrow">{t('Squad membership')}</p>
+                <h2>{t('{count} users', { count: detailQuery.data?.users.length ?? 0 })}</h2>
               </div>
             </div>
             <label htmlFor="squad-member-user">
-              Add user
+              {t('Add user')}
               <select
                 id="squad-member-user"
                 value={memberUserId}
                 onChange={(event) => setMemberUserId(event.target.value)}
               >
-                <option value="">Select user</option>
+                <option value="">{t('Select user')}</option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.username ?? user.email}
@@ -208,7 +210,7 @@ export function SquadsPage() {
               </select>
             </label>
             <button type="button" className="button button--secondary" onClick={() => void handleAddUser()}>
-              <UserPlus size={16} aria-hidden="true" /> Add user
+              <UserPlus size={16} aria-hidden="true" /> {t('Add user')}
             </button>
             <div className="resource-list">
               {(detailQuery.data?.users ?? []).map((user) => (
@@ -235,8 +237,8 @@ export function SquadsPage() {
           <article className="panel">
             <div className="panel__header">
               <div>
-                <p className="eyebrow">Access matrix</p>
-                <h2>{detailQuery.data?.inbound_matrix.length ?? 0} inbounds</h2>
+                <p className="eyebrow">{t('Access matrix')}</p>
+                <h2>{t('{count} inbounds', { count: detailQuery.data?.inbound_matrix.length ?? 0 })}</h2>
               </div>
             </div>
             <div className="resource-list">
@@ -268,6 +270,7 @@ function SquadEditor({
   pending: boolean
   squad: SquadRecord | undefined
 }) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState<SquadUpdateRequest>({})
   const [metadataJson, setMetadataJson] = useState('{}')
   const [error, setError] = useState<string | null>(null)
@@ -305,21 +308,21 @@ function SquadEditor({
   return (
     <ScreenForm onSubmit={handleSubmit}>
       <div>
-        <p className="eyebrow">Squad editor</p>
-        <h2>Selected squad</h2>
+        <p className="eyebrow">{t('Squad editor')}</p>
+        <h2>{t('Selected squad')}</h2>
         <p>
           {squad
-            ? `Editing ${squad.name}`
-            : 'Select a squad to edit type, status, metadata, order, and membership.'}
+            ? t('Editing {name}', { name: squad.name })
+            : t('Select a squad to edit type, status, metadata, order, and membership.')}
         </p>
       </div>
       <div className="inline-actions">
         <button type="button" className="button button--secondary" onClick={onReorder}>
-          Reverse order
+          {t('Reverse order')}
         </button>
       </div>
       <label htmlFor="editor-squad-name">
-        Editor name
+        {t('Editor name')}
         <input
           id="editor-squad-name"
           value={draft.name ?? ''}
@@ -327,7 +330,7 @@ function SquadEditor({
         />
       </label>
       <label htmlFor="editor-squad-kind">
-        Editor kind
+        {t('Editor kind')}
         <select
           id="editor-squad-kind"
           value={draft.kind ?? 'internal'}
@@ -338,7 +341,7 @@ function SquadEditor({
         </select>
       </label>
       <label htmlFor="editor-squad-status">
-        Editor status
+        {t('Editor status')}
         <input
           id="editor-squad-status"
           value={draft.status ?? ''}

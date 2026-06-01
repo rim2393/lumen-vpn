@@ -6,8 +6,11 @@ import { MfaPage } from '../features/auth/MfaPage'
 import { RequireAuth } from '../features/auth/RequireAuth'
 import { ApiKeysPage } from '../pages/ApiKeysPage'
 import { DashboardPage } from '../pages/DashboardPage'
+import { ErrorPage } from '../pages/ErrorPage'
 import { HostsPage } from '../pages/HostsPage'
+import { InfraBillingPage } from '../pages/InfraBillingPage'
 import { LicensePage } from '../pages/LicensePage'
+import { NodePluginsPage } from '../pages/NodePluginsPage'
 import { NodesPage } from '../pages/NodesPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProfilesPage } from '../pages/ProfilesPage'
@@ -47,12 +50,14 @@ export const appRoutes: RouteObject[] = [
         <AppShell />
       </RequireAuth>
     ),
+    errorElement: <ErrorPage />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'users', element: <UsersPage /> },
       { path: 'users/:userId', element: <UserDetailPage /> },
       { path: 'nodes', element: <NodesPage /> },
+      { path: 'node-plugins', element: <NodePluginsPage /> },
       { path: 'hosts', element: <HostsPage /> },
       { path: 'profiles', element: <ProfilesPage /> },
       { path: 'squads', element: <SquadsPage /> },
@@ -62,6 +67,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'subscription-page', element: <SubscriptionPublicPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'license', element: <LicensePage /> },
+      { path: 'infra-billing', element: <InfraBillingPage /> },
       { path: 'api-keys', element: <ApiKeysPage /> },
       { path: 'tools', element: <ToolsPage /> },
       { path: '*', element: <NotFoundPage /> },

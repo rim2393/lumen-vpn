@@ -14,6 +14,7 @@ import {
 } from '../shared/components/ResourceScreen'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { sectionSpecs } from '../shared/data/resourceMeta'
+import { useI18n } from '../shared/i18n/I18nProvider'
 import { formatDateTime, formatRecord, parseKeyValueInput } from '../shared/utils/resourceFormat'
 
 const settingsSpec = {
@@ -27,6 +28,7 @@ const settingsSpec = {
 }
 
 export function SettingsPage() {
+  const { t } = useI18n()
   const query = useSettingsPageData()
   const providersQuery = useAuthProvidersData()
   const updateSetting = useUpdateSetting()
@@ -70,25 +72,25 @@ export function SettingsPage() {
       createForm={
         <ScreenForm onSubmit={handleSubmit}>
           <div>
-            <p className="eyebrow">Upsert setting</p>
-            <h2>Safe JSON value</h2>
-            <p>Settings are written as key=value fields; secret-like keys are rejected.</p>
+            <p className="eyebrow">{t('Upsert setting')}</p>
+            <h2>{t('Safe JSON value')}</h2>
+            <p>{t('Settings are written as key=value fields; secret-like keys are rejected.')}</p>
           </div>
           <label htmlFor="setting-key">
-            Key
+            {t('Key')}
             <input id="setting-key" required value={key} onChange={(event) => setKey(event.target.value)} />
           </label>
           <label htmlFor="setting-value">
-            Value
+            {t('Value')}
             <textarea id="setting-value" required value={value} onChange={(event) => setValue(event.target.value)} />
           </label>
           <FormError message={formError} />
           {updateSetting.isSuccess ? (
             <p className="auth-card__note" aria-live="polite">
-              Setting saved.
+              {t('Setting saved.')}
             </p>
           ) : null}
-          <SubmitButton pending={updateSetting.isPending}>Save setting</SubmitButton>
+          <SubmitButton pending={updateSetting.isPending}>{t('Save setting')}</SubmitButton>
         </ScreenForm>
       }
       emptyDescription="Panel settings appear after an administrator saves the first setting."
@@ -114,12 +116,12 @@ export function SettingsPage() {
         <article className="panel">
           <div className="panel__header">
             <div>
-              <p className="eyebrow">Authentication</p>
-              <h2>Provider toggles</h2>
+              <p className="eyebrow">{t('Authentication')}</p>
+              <h2>{t('Provider toggles')}</h2>
             </div>
             <StatusBadge tone="good">api-backed</StatusBadge>
           </div>
-          {providersQuery.isLoading ? <p className="auth-card__note">Loading providers...</p> : null}
+          {providersQuery.isLoading ? <p className="auth-card__note">{t('Loading providers...')}</p> : null}
           {providersQuery.isError ? (
             <p className="auth-card__note" role="alert">
               {providersQuery.error instanceof Error
