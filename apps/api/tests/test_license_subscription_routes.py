@@ -20,7 +20,7 @@ from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.node_plugins.models import NodePlugin
 from app.domains.nodes.models import Node
-from app.domains.protocols.models import Host, ProtocolProfile
+from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.users.models import User
 from app.main import create_app
 
@@ -688,6 +688,122 @@ async def test_subscription_manifest_applies_host_visibility_and_client_hints(
     )
     assert blocked_render.status_code == 422
     assert blocked_render.json()["error"]["code"] == "subscription_host_not_renderable"
+
+
+async def test_external_squad_subscription_overrides_affect_public_manifest_and_renderers(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await seed_subscription_dependencies(route_app)
+    async with route_app.sessionmaker() as session:
+        squad = Squad(
+            name="external-delivery-squad",
+            kind="external",
+            status="active",
+            metadata_json={
+                "user_ids": [str(user.id)],
+                "subscription_overrides": {
+                    "headers": {"X-Lumen-Partner": "partner-a"},
+                    "host": {
+                        "endpoint_host": "front.partner.example.test",
+                        "path": "/partner",
+                        "port": "2443",
+                        "sni": "sni.partner.example.test",
+                    },
+                    "hwid": {"limit": "1", "required": True},
+                    "remark": "Partner public profile",
+                    "subpage": {"title": "Partner page"},
+                    "template": "partner-template",
+                },
+            },
+        )
+        session.add(squad)
+        await session.flush()
+        profile = ProtocolProfile(
+            name="external-delivery-profile",
+            node_id=node.id,
+            squad_id=squad.id,
+            adapter="vless-tcp-tls",
+            status="active",
+            config_json={"security": {"type": "tls", "serverName": "origin.example.test"}},
+            port_reservations=[
+                {"address": "0.0.0.0", "port": 443, "protocol": "tcp"},  # noqa: S104
+            ],
+            credentials_ref="vault://subscriptions/external-delivery/client",
+        )
+        session.add(profile)
+        await session.flush()
+        host = Host(
+            name="external-delivery-host",
+            hostname="origin.partner.example.test",
+            node_id=node.id,
+            protocol_profile_id=profile.id,
+            squad_id=squad.id,
+            status="active",
+            port=443,
+        )
+        session.add(host)
+        await session.commit()
+
+    create_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "vless-tcp-tls",
+                "adapter": "vless-tcp-tls",
+                "profile_id": str(profile.id),
+                "host_id": str(host.id),
+                "format": "hiddify",
+            },
+            "config_hash": "sha256:external-squad-delivery",
+        },
+    )
+    assert create_response.status_code == 201
+    public_id = create_response.json()["public_id"]
+
+    missing_hwid_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/manifest",
+    )
+    assert missing_hwid_response.status_code == 428
+    assert missing_hwid_response.json()["error"]["code"] == "subscription_device_id_required"
+
+    manifest_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/manifest",
+        headers={"X-Lumen-HWID": "partner-device-1"},
+    )
+    assert manifest_response.status_code == 200
+    manifest = manifest_response.json()
+    protocol = manifest["nodes"][0]["protocols"][0]
+    assert protocol["endpoint"]["host"] == "front.partner.example.test"
+    assert protocol["endpoint"]["port"] == 2443
+    assert protocol["security"]["serverName"] == "sni.partner.example.test"
+    assert protocol["path"] == "/partner"
+    assert protocol["rendererHints"]["name"] == "Partner public profile"
+    assert protocol["rendererHints"]["template"] == "partner-template"
+    assert manifest["metadata"]["profileTitle"] == "Partner public profile"
+    assert manifest["metadata"]["responseHeaders"] == {"X-Lumen-Partner": "partner-a"}
+    assert manifest["metadata"]["hwidPolicy"] == {"limit": 1, "required": True}
+    assert manifest["metadata"]["subpage"] == {"title": "Partner page"}
+    assert manifest["metadata"]["externalSquad"]["name"] == "external-delivery-squad"
+
+    render_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=hiddify",
+        headers={"X-Lumen-HWID": "partner-device-1"},
+    )
+    assert render_response.status_code == 200
+    assert render_response.headers["X-Lumen-Partner"] == "partner-a"
+    assert "front.partner.example.test:2443" in render_response.text
+    assert "sni=sni.partner.example.test" in render_response.text
+    assert "Partner%20public%20profile" in render_response.text
+
+    second_device_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/manifest",
+        headers={"X-Lumen-HWID": "partner-device-2"},
+    )
+    assert second_device_response.status_code == 403
+    assert second_device_response.json()["error"]["code"] == "subscription_device_limit_exceeded"
 
 
 async def test_public_subscription_renderers_emit_client_compatible_formats(

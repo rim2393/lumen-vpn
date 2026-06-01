@@ -226,11 +226,33 @@ def build_subscription_headers(manifest: dict[str, Any]) -> dict[str, str]:
     userinfo = f"upload={upload}; download={download}; total={total}; expire={expire}"
     title = str(metadata.get("profileTitle") or manifest.get("provider", {}).get("name") or "Lumen")
     update_interval = str(metadata.get("updateIntervalHours") or 24)
-    return {
+    headers = {
         "profile-title": _base64_header_value(title),
         "profile-update-interval": update_interval,
         "subscription-userinfo": userinfo,
     }
+    response_headers = metadata.get("responseHeaders")
+    if isinstance(response_headers, dict):
+        blocked = {
+            "cache-control",
+            "content-disposition",
+            "set-cookie",
+            "x-lumen-render-target",
+        }
+        for key, value in response_headers.items():
+            normalized_key = str(key).strip()
+            normalized_value = str(value).strip()
+            if (
+                not normalized_key
+                or normalized_key.lower() in blocked
+                or "\r" in normalized_key
+                or "\n" in normalized_key
+                or "\r" in normalized_value
+                or "\n" in normalized_value
+            ):
+                continue
+            headers[normalized_key] = normalized_value
+    return headers
 
 
 def render_raw_uri_subscription(manifest: dict[str, Any], *, settings: Settings) -> str:

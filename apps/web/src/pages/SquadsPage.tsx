@@ -515,12 +515,16 @@ function SquadEditor({
   const { t } = useI18n()
   const [draft, setDraft] = useState<SquadUpdateRequest>({})
   const [metadataJson, setMetadataJson] = useState('{}')
+  const [overrideDraft, setOverrideDraft] = useState<ExternalSubscriptionOverrideDraft>(
+    emptyExternalSubscriptionOverrideDraft(),
+  )
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!squad) {
       setDraft({})
       setMetadataJson('{}')
+      setOverrideDraft(emptyExternalSubscriptionOverrideDraft())
       return
     }
     setDraft({
@@ -529,6 +533,7 @@ function SquadEditor({
       status: squad.status,
     })
     setMetadataJson(JSON.stringify(squad.metadata_json, null, 2))
+    setOverrideDraft(externalSubscriptionOverrideDraftFromMetadata(squad.metadata_json))
   }, [squad])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -538,9 +543,13 @@ function SquadEditor({
       return
     }
     try {
+      const metadata = parseMetadata(metadataJson)
+      if ((draft.kind ?? squad.kind) === 'external') {
+        metadata.subscription_overrides = externalSubscriptionOverridesFromDraft(overrideDraft)
+      }
       await onSave(squad.id, {
         ...draft,
-        metadata_json: parseMetadata(metadataJson),
+        metadata_json: metadata,
       })
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Squad could not be saved.')
@@ -599,6 +608,105 @@ function SquadEditor({
           onChange={(event) => setMetadataJson(event.target.value)}
         />
       </label>
+      {(draft.kind ?? squad?.kind) === 'external' && (
+        <div className="field-grid">
+          <div className="field-grid__full">
+            <p className="eyebrow">{t('External subscription delivery')}</p>
+            <p>{t('These settings change real public subscription manifests for users in this external squad.')}</p>
+          </div>
+          <label htmlFor="external-remark">
+            {t('Custom remark')}
+            <input
+              id="external-remark"
+              value={overrideDraft.remark}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, remark: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-template">
+            {t('Template key')}
+            <input
+              id="external-template"
+              value={overrideDraft.template}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, template: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-header-key">
+            {t('Header key')}
+            <input
+              id="external-header-key"
+              value={overrideDraft.headerKey}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, headerKey: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-header-value">
+            {t('Header value')}
+            <input
+              id="external-header-value"
+              value={overrideDraft.headerValue}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, headerValue: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-endpoint-host">
+            {t('Endpoint host override')}
+            <input
+              id="external-endpoint-host"
+              value={overrideDraft.endpointHost}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, endpointHost: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-sni">
+            {t('SNI override')}
+            <input
+              id="external-sni"
+              value={overrideDraft.sni}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, sni: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-path">
+            {t('Path override')}
+            <input
+              id="external-path"
+              value={overrideDraft.path}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, path: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-port">
+            {t('Port override')}
+            <input
+              id="external-port"
+              inputMode="numeric"
+              value={overrideDraft.port}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, port: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-hwid-limit">
+            {t('HWID limit')}
+            <input
+              id="external-hwid-limit"
+              inputMode="numeric"
+              value={overrideDraft.hwidLimit}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, hwidLimit: event.target.value })}
+            />
+          </label>
+          <label htmlFor="external-hwid-required" className="checkbox-field">
+            <input
+              id="external-hwid-required"
+              type="checkbox"
+              checked={overrideDraft.hwidRequired}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, hwidRequired: event.target.checked })}
+            />
+            {t('Require HWID')}
+          </label>
+          <label htmlFor="external-subpage-title" className="field-grid__full">
+            {t('Subpage title')}
+            <input
+              id="external-subpage-title"
+              value={overrideDraft.subpageTitle}
+              onChange={(event) => setOverrideDraft({ ...overrideDraft, subpageTitle: event.target.value })}
+            />
+          </label>
+        </div>
+      )}
       <FormError message={error} />
       <SubmitButton pending={pending || !squad}>{t('Save squad')}</SubmitButton>
     </ScreenForm>
@@ -611,6 +719,124 @@ function parseMetadata(value: string): Record<string, unknown> {
     throw new Error('metadata_json must be a JSON object.')
   }
   return parsed as Record<string, unknown>
+}
+
+type ExternalSubscriptionOverrideDraft = {
+  endpointHost: string
+  headerKey: string
+  headerValue: string
+  hwidLimit: string
+  hwidRequired: boolean
+  path: string
+  port: string
+  remark: string
+  sni: string
+  subpageTitle: string
+  template: string
+}
+
+function emptyExternalSubscriptionOverrideDraft(): ExternalSubscriptionOverrideDraft {
+  return {
+    endpointHost: '',
+    headerKey: '',
+    headerValue: '',
+    hwidLimit: '',
+    hwidRequired: false,
+    path: '',
+    port: '',
+    remark: '',
+    sni: '',
+    subpageTitle: '',
+    template: '',
+  }
+}
+
+function externalSubscriptionOverrideDraftFromMetadata(
+  metadata: Record<string, unknown>,
+): ExternalSubscriptionOverrideDraft {
+  const overrides = readObject(metadata.subscription_overrides)
+  const host = readObject(overrides.host)
+  const headers = readObject(overrides.headers)
+  const hwid = readObject(overrides.hwid)
+  const subpage = readObject(overrides.subpage)
+  const firstHeader = Object.entries(headers)[0]
+  return {
+    endpointHost: stringValue(host.endpoint_host ?? host.final_mask),
+    headerKey: firstHeader?.[0] ?? '',
+    headerValue: stringValue(firstHeader?.[1]),
+    hwidLimit: stringValue(hwid.limit),
+    hwidRequired: booleanValue(hwid.required),
+    path: stringValue(host.path),
+    port: stringValue(host.port),
+    remark: stringValue(overrides.remark ?? overrides.profile_title),
+    sni: stringValue(host.sni ?? host.server_name),
+    subpageTitle: stringValue(subpage.title),
+    template: stringValue(overrides.template),
+  }
+}
+
+function externalSubscriptionOverridesFromDraft(
+  draft: ExternalSubscriptionOverrideDraft,
+): Record<string, unknown> {
+  const headers =
+    draft.headerKey.trim() && draft.headerValue.trim()
+      ? { [draft.headerKey.trim()]: draft.headerValue.trim() }
+      : {}
+  return removeEmptyValues({
+    headers,
+    host: removeEmptyValues({
+      endpoint_host: draft.endpointHost.trim(),
+      path: draft.path.trim(),
+      port: draft.port.trim(),
+      sni: draft.sni.trim(),
+    }),
+    hwid: removeEmptyValues({
+      limit: draft.hwidLimit.trim(),
+      required: draft.hwidRequired,
+    }),
+    profile_title: draft.remark.trim(),
+    remark: draft.remark.trim(),
+    subpage: removeEmptyValues({
+      title: draft.subpageTitle.trim(),
+    }),
+    template: draft.template.trim(),
+  })
+}
+
+function removeEmptyValues(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => {
+      if (entry === '' || entry === undefined || entry === null) {
+        return false
+      }
+      if (typeof entry === 'boolean') {
+        return entry
+      }
+      if (isRecord(entry)) {
+        return Object.keys(entry).length > 0
+      }
+      return true
+    }),
+  )
+}
+
+function readObject(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function stringValue(value: unknown): string {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+function booleanValue(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value
+  }
+  return typeof value === 'string' && ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
 }
 
 function formatTags(values: string[]): string {

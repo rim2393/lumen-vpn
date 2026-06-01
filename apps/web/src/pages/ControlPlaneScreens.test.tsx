@@ -7,6 +7,7 @@ import type {
   SettingUpdateRequest,
   SquadCreateRequest,
   SquadDetailResponse,
+  SquadUpdateRequest,
   UserRecord,
 } from '../shared/api/types'
 import { developmentSession } from '../shared/data/developmentFixtures'
@@ -740,6 +741,89 @@ describe('Control plane resource screens', () => {
     expect(createSquad.mock.calls[0][0]).toMatchObject({
       kind: 'external',
       name: 'Partner lane',
+    })
+  })
+
+  it('saves external squad subscription delivery overrides through the typed API contract', async () => {
+    const user = userEvent.setup()
+    const squad = {
+      id: 'squad_external_delivery',
+      kind: 'external' as const,
+      metadata_json: {
+        user_ids: ['usr_external'],
+        subscription_overrides: {
+          headers: { 'X-Partner': 'old' },
+          host: { endpoint_host: 'old.example.test' },
+          hwid: { limit: '1', required: true },
+          remark: 'Old partner',
+        },
+      },
+      name: 'External delivery squad',
+      status: 'active',
+    }
+    const updateSquad = vi.fn(async (_squadId: string, request: SquadUpdateRequest) => ({
+      ...squad,
+      ...request,
+      metadata_json: request.metadata_json ?? squad.metadata_json,
+    }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      getSquadDetail: async () => ({
+        hosts: [],
+        inbound_matrix: [],
+        nodes: [],
+        profiles: [],
+        squad,
+        users: [],
+      }),
+      listSquads: async () => ({ items: [squad] }),
+      listUsers: async () => ({ items: [] }),
+      updateSquad,
+    }
+
+    renderWithRouter('/squads', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByDisplayValue('Old partner')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText(/custom remark/i))
+    await user.type(screen.getByLabelText(/custom remark/i), 'Partner public profile')
+    await user.clear(screen.getByLabelText(/template key/i))
+    await user.type(screen.getByLabelText(/template key/i), 'partner-template')
+    await user.clear(screen.getByLabelText(/header key/i))
+    await user.type(screen.getByLabelText(/header key/i), 'X-Lumen-Partner')
+    await user.clear(screen.getByLabelText(/header value/i))
+    await user.type(screen.getByLabelText(/header value/i), 'partner-a')
+    await user.clear(screen.getByLabelText(/endpoint host override/i))
+    await user.type(screen.getByLabelText(/endpoint host override/i), 'front.partner.example.test')
+    await user.clear(screen.getByLabelText(/sni override/i))
+    await user.type(screen.getByLabelText(/sni override/i), 'sni.partner.example.test')
+    await user.clear(screen.getByLabelText(/path override/i))
+    await user.type(screen.getByLabelText(/path override/i), '/partner')
+    await user.clear(screen.getByLabelText(/port override/i))
+    await user.type(screen.getByLabelText(/port override/i), '2443')
+    await user.clear(screen.getByLabelText(/hwid limit/i))
+    await user.type(screen.getByLabelText(/hwid limit/i), '2')
+    await user.clear(screen.getByLabelText(/subpage title/i))
+    await user.type(screen.getByLabelText(/subpage title/i), 'Partner page')
+    await user.click(screen.getByRole('button', { name: /save squad/i }))
+
+    await waitFor(() => expect(updateSquad).toHaveBeenCalledTimes(1))
+    expect(updateSquad.mock.calls[0][0]).toBe('squad_external_delivery')
+    expect(updateSquad.mock.calls[0][1].metadata_json).toMatchObject({
+      subscription_overrides: {
+        headers: { 'X-Lumen-Partner': 'partner-a' },
+        host: {
+          endpoint_host: 'front.partner.example.test',
+          path: '/partner',
+          port: '2443',
+          sni: 'sni.partner.example.test',
+        },
+        hwid: { limit: '2', required: true },
+        profile_title: 'Partner public profile',
+        remark: 'Partner public profile',
+        subpage: { title: 'Partner page' },
+        template: 'partner-template',
+      },
+      user_ids: ['usr_external'],
     })
   })
 

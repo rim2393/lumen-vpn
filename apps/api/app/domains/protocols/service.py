@@ -350,6 +350,17 @@ HOST_RUNTIME_FIELDS = frozenset(
         "xray_template_json",
     }
 )
+SQUAD_METADATA_SECRET_FRAGMENTS = frozenset(
+    {
+        "password",
+        "private_key",
+        "privatekey",
+        "secret",
+        "token",
+        "subscription_url",
+        "runtime_config",
+    }
+)
 
 
 def list_protocol_adapters() -> list[ProtocolAdapterResponse]:
@@ -691,6 +702,7 @@ async def get_squad(session: AsyncSession, *, squad_id: UUID) -> Squad:
 
 async def create_squad(session: AsyncSession, *, request: SquadCreateRequest) -> Squad:
     await _ensure_unique_name(session, model=Squad, name=request.name, code="squad_name_exists")
+    _ensure_squad_metadata_has_no_inline_secrets(request.metadata_json)
     squad = Squad(**request.model_dump())
     session.add(squad)
     await session.flush()
@@ -713,6 +725,8 @@ async def update_squad(
             code="squad_name_exists",
             exclude_id=squad.id,
         )
+    if "metadata_json" in data and data["metadata_json"] is not None:
+        _ensure_squad_metadata_has_no_inline_secrets(data["metadata_json"])
     for field, value in data.items():
         setattr(squad, field, value)
     await session.flush()
@@ -1475,6 +1489,26 @@ def _squad_user_ids(squad: Squad) -> list[str]:
     if not isinstance(user_ids, list):
         return []
     return [str(user_id) for user_id in user_ids]
+
+
+def _ensure_squad_metadata_has_no_inline_secrets(metadata: dict[str, object]) -> None:
+    def visit(value: object, path: str) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized = str(key).replace("-", "_").lower()
+                if any(fragment in normalized for fragment in SQUAD_METADATA_SECRET_FRAGMENTS):
+                    raise APIError(
+                        code="inline_secret_rejected",
+                        message="Inline secret-like fields are not accepted in squad metadata.",
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        details=[f"{path}.{key}"],
+                    )
+                visit(child, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, f"{path}[{index}]")
+
+    visit(metadata, "metadata_json")
 
 
 async def _ensure_users_exist(session: AsyncSession, *, user_ids: list[UUID]) -> None:

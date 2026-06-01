@@ -14,7 +14,7 @@ from app.domains.ip_control.service import build_ip_control_policy
 from app.domains.licenses.models import License
 from app.domains.node_plugins.service import list_effective_node_plugins, plugin_policy_records
 from app.domains.nodes.models import Node
-from app.domains.protocols.models import Host, ProtocolProfile
+from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.settings.models import PanelSetting
 from app.domains.subscriptions.models import Subscription
@@ -234,6 +234,14 @@ async def build_subscription_manifest(
         node=node,
         subscription_public_id=subscription.public_id,
     )
+    external_squad = await _external_squad_for_subscription(
+        session,
+        user=user,
+        profile=profile,
+        host=host,
+    )
+    squad_overrides = _subscription_overrides_from_squad(external_squad)
+    host_overrides = _dict_value(squad_overrides, "host")
     protocol_type = delivery.get("protocol") or (profile.adapter if profile is not None else None)
     if protocol_type is None or not str(protocol_type).startswith(RENDERABLE_PROTOCOL_PREFIXES):
         raise APIError(
@@ -246,8 +254,17 @@ async def build_subscription_manifest(
             details=["delivery_profile.protocol"],
         )
     adapter = delivery.get("adapter") or (profile.adapter if profile is not None else protocol_type)
-    endpoint_host = _manifest_endpoint_host(host=host, node=node)
-    endpoint_port = _manifest_port(delivery=delivery, profile=profile, host=host)
+    endpoint_host = _override_string(host_overrides, "endpoint_host") or _override_string(
+        host_overrides,
+        "final_mask",
+    ) or _manifest_endpoint_host(host=host, node=node)
+    endpoint_port = _override_int(
+        host_overrides,
+        "port",
+        field_name="squad.subscription_overrides.host.port",
+        min_value=1,
+        max_value=65535,
+    ) or _manifest_port(delivery=delivery, profile=profile, host=host)
     credentials_ref = _manifest_credentials_ref(
         profile=profile,
         subscription=subscription,
@@ -262,18 +279,32 @@ async def build_subscription_manifest(
     )
     page_settings = await _subscription_page_settings(session)
     profile_title = (
-        delivery.get("profile_title")
+        _override_string(squad_overrides, "profile_title")
+        or _override_string(squad_overrides, "remark")
+        or delivery.get("profile_title")
         or delivery.get("name")
         or _setting_string(page_settings, "title")
         or "Lumen"
     )
-    support_url = delivery.get("support_url") or _setting_string(page_settings, "support_url")
-    update_interval_hours = delivery.get("update_interval_hours") or _setting_string(
+    support_url = (
+        _override_string(squad_overrides, "support_url")
+        or delivery.get("support_url")
+        or _setting_string(page_settings, "support_url")
+    )
+    update_interval_hours = _override_string(
+        squad_overrides,
+        "update_interval_hours",
+    ) or delivery.get("update_interval_hours") or _setting_string(
         page_settings,
         "auto_update_hours",
     )
-    profile_page_url = _setting_string(page_settings, "profile_page_url")
-    provider_name = delivery.get("provider_name") or profile_title
+    profile_page_url = (
+        _override_string(squad_overrides, "profile_page_url")
+        or _setting_string(page_settings, "profile_page_url")
+    )
+    provider_name = _override_string(squad_overrides, "provider_name") or delivery.get(
+        "provider_name"
+    ) or profile_title
     access_policy = await build_ip_control_policy(session, user_id=str(user.id))
     node_plugins = await list_effective_node_plugins(session, node_id=node.id)
     node_policy = {
@@ -283,7 +314,25 @@ async def build_subscription_manifest(
     if access_policy is not None:
         node_policy["ipControl"] = access_policy
 
-    return {
+    security = _manifest_security(
+        profile=profile,
+        delivery=delivery,
+        protocol_type=protocol_type,
+        host=host,
+    )
+    _apply_security_overrides(security, host_overrides)
+    renderer_hints = _manifest_renderer_hints(
+        delivery=delivery,
+        host=host,
+        profile=profile,
+        profile_title=profile_title,
+    )
+    _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
+    subpage_config = _dict_value(squad_overrides, "subpage")
+    hwid_policy = _normalized_hwid_policy(_dict_value(squad_overrides, "hwid"))
+    response_headers = _safe_response_headers(_dict_value(squad_overrides, "headers"))
+
+    manifest = {
         "schemaVersion": "lumen.subscription-manifest.v1",
         "generatedAt": _isoformat(
             subscription.updated_at or subscription.created_at or datetime.now(UTC),
@@ -313,25 +362,25 @@ async def build_subscription_manifest(
                         "endpoint": {
                             "host": endpoint_host,
                             "port": endpoint_port,
-                            "transport": delivery.get("transport")
+                            "transport": _override_string(host_overrides, "transport")
+                            or delivery.get("transport")
                             or _host_transport(host)
                             or _default_transport(protocol_type),
                             "network": delivery.get("network") or "public",
                         },
-                        "security": _manifest_security(
-                            profile=profile,
-                            delivery=delivery,
-                            protocol_type=protocol_type,
-                            host=host,
-                        ),
+                        "security": security,
                         "flow": delivery.get("flow"),
-                        "path": delivery.get("path")
+                        "path": _override_string(host_overrides, "path")
+                        or delivery.get("path")
                         or _host_string(host, "path")
                         or _profile_config_string(profile, "path"),
-                        "mode": delivery.get("mode")
+                        "mode": _override_string(host_overrides, "mode")
+                        or delivery.get("mode")
                         or _host_xhttp_string(host, "mode")
                         or _profile_config_string(profile, "mode"),
-                        "serviceName": delivery.get("service_name")
+                        "serviceName": _override_string(host_overrides, "service_name")
+                        or _override_string(host_overrides, "serviceName")
+                        or delivery.get("service_name")
                         or delivery.get("serviceName")
                         or _profile_config_string(profile, "serviceName")
                         or _profile_config_string(profile, "service_name"),
@@ -346,12 +395,7 @@ async def build_subscription_manifest(
                             ),
                         ),
                         "capabilities": _manifest_capabilities(protocol_type),
-                        "rendererHints": _manifest_renderer_hints(
-                            delivery=delivery,
-                            host=host,
-                            profile=profile,
-                            profile_title=profile_title,
-                        ),
+                        "rendererHints": renderer_hints,
                     }
                 ],
                 "metadata": {
@@ -371,8 +415,18 @@ async def build_subscription_manifest(
             "trafficUploadGb": delivery.get("traffic_upload_gb"),
             "updateIntervalHours": update_interval_hours,
             "accessPolicy": access_policy,
+            "responseHeaders": response_headers,
+            "subpage": subpage_config,
+            "hwidPolicy": hwid_policy,
         },
     }
+    if external_squad is not None:
+        manifest["metadata"]["externalSquad"] = {
+            "id": str(external_squad.id),
+            "name": external_squad.name,
+            "kind": external_squad.kind,
+        }
+    return manifest
 
 
 async def build_public_subscription_manifest(
@@ -402,7 +456,14 @@ async def enforce_public_subscription_device(
             message="Subscription user was not found.",
             status_code=status.HTTP_404_NOT_FOUND,
         )
-    if user.device_limit is None:
+    squad_policy = await _subscription_device_policy(
+        session,
+        user=user,
+        subscription=subscription,
+    )
+    effective_limit = squad_policy.get("limit") if squad_policy else user.device_limit
+    requires_hwid = bool(squad_policy.get("required")) if squad_policy else False
+    if effective_limit is None and not requires_hwid:
         return None
 
     normalized_device_id = _normalize_device_id(device_id)
@@ -431,12 +492,14 @@ async def enforce_public_subscription_device(
         normalized_devices.append(device)
 
     if matching_index is None:
-        if user.device_limit <= 0 or active_count >= user.device_limit:
+        if effective_limit is not None and (
+            effective_limit <= 0 or active_count >= effective_limit
+        ):
             raise APIError(
                 code="subscription_device_limit_exceeded",
                 message="Subscription device limit has been reached.",
                 status_code=status.HTTP_403_FORBIDDEN,
-                details=[f"device_limit={user.device_limit}", f"device_count={active_count}"],
+                details=[f"device_limit={effective_limit}", f"device_count={active_count}"],
             )
         normalized_devices.append(
             {
@@ -470,6 +533,7 @@ async def enforce_public_subscription_device(
         "device_id": normalized_device_id,
         "device_status": device_status,
         "device_limit": user.device_limit,
+        "effective_device_limit": effective_limit,
         "device_count": len(
             [
                 item
@@ -687,6 +751,211 @@ def _ensure_renderable_subscription_request(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         details=["delivery_profile.protocol"],
     )
+
+
+async def _external_squad_for_subscription(
+    session: AsyncSession,
+    *,
+    user: User,
+    profile: ProtocolProfile | None,
+    host: Host | None,
+) -> Squad | None:
+    candidate_ids = [
+        value
+        for value in (
+            profile.squad_id if profile is not None else None,
+            host.squad_id if host is not None else None,
+        )
+        if value is not None
+    ]
+    if candidate_ids:
+        result = await session.execute(
+            select(Squad)
+            .where(Squad.id.in_(candidate_ids))
+            .where(Squad.kind == "external")
+            .where(Squad.status == "active")
+        )
+        squads = list(result.scalars().all())
+        user_id = str(user.id)
+        for squad in squads:
+            if user_id in _squad_user_ids_from_metadata(squad.metadata_json):
+                return squad
+    return await _external_squad_for_user(session, user=user)
+
+
+async def _external_squad_for_user(session: AsyncSession, *, user: User) -> Squad | None:
+    result = await session.execute(
+        select(Squad)
+        .where(Squad.kind == "external")
+        .where(Squad.status == "active")
+        .order_by(Squad.created_at.asc(), Squad.name.asc())
+    )
+    user_id = str(user.id)
+    for squad in result.scalars().all():
+        if user_id in _squad_user_ids_from_metadata(squad.metadata_json):
+            return squad
+    return None
+
+
+async def _subscription_device_policy(
+    session: AsyncSession,
+    *,
+    user: User,
+    subscription: Subscription,
+) -> dict[str, object]:
+    delivery = subscription.delivery_profile
+    profile = await _get_optional_profile(session, delivery.get("profile_id"))
+    host = await _get_optional_host(session, delivery.get("host_id"))
+    external_squad = await _external_squad_for_subscription(
+        session,
+        user=user,
+        profile=profile,
+        host=host,
+    )
+    overrides = _subscription_overrides_from_squad(external_squad)
+    hwid = _dict_value(overrides, "hwid")
+    limit = _override_int(
+        hwid,
+        "limit",
+        field_name="squad.subscription_overrides.hwid.limit",
+        min_value=0,
+        max_value=10000,
+    )
+    required = _override_bool(hwid, "required")
+    return {
+        "limit": limit if limit is not None else user.device_limit,
+        "required": required,
+    }
+
+
+def _subscription_overrides_from_squad(squad: Squad | None) -> dict[str, object]:
+    if squad is None or not isinstance(squad.metadata_json, dict):
+        return {}
+    overrides = squad.metadata_json.get("subscription_overrides")
+    return dict(overrides) if isinstance(overrides, dict) else {}
+
+
+def _squad_user_ids_from_metadata(metadata: dict[str, object]) -> list[str]:
+    user_ids = metadata.get("user_ids")
+    if not isinstance(user_ids, list):
+        return []
+    return [str(user_id) for user_id in user_ids]
+
+
+def _dict_value(values: dict[str, object], key: str) -> dict[str, object]:
+    value = values.get(key)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _override_string(values: dict[str, object], key: str) -> str | None:
+    value = values.get(key)
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _override_int(
+    values: dict[str, object],
+    key: str,
+    *,
+    field_name: str,
+    min_value: int,
+    max_value: int,
+) -> int | None:
+    if key not in values or values[key] is None or str(values[key]).strip() == "":
+        return None
+    return _manifest_int(
+        values[key],
+        field_name=field_name,
+        min_value=min_value,
+        max_value=max_value,
+    )
+
+
+def _override_bool(values: dict[str, object], key: str) -> bool:
+    value = values.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
+def _apply_security_overrides(
+    security: dict[str, object],
+    host_overrides: dict[str, object],
+) -> None:
+    mapping = {
+        "security": "type",
+        "sni": "serverName",
+        "server_name": "serverName",
+        "public_key": "publicKey",
+        "short_id": "shortId",
+        "fingerprint": "fingerprint",
+        "spider_x": "spiderX",
+    }
+    for source, target in mapping.items():
+        if override := _override_string(host_overrides, source):
+            security[target] = override
+    if alpn := _override_string(host_overrides, "alpn"):
+        security["alpn"] = [value.strip() for value in alpn.split(",") if value.strip()]
+
+
+def _apply_renderer_hint_overrides(
+    hints: dict[str, object],
+    *,
+    squad_overrides: dict[str, object],
+) -> None:
+    if template := _override_string(squad_overrides, "template"):
+        hints["template"] = template
+    if remark := _override_string(squad_overrides, "remark"):
+        hints["name"] = remark
+        hints["customRemark"] = remark
+    if title := _override_string(squad_overrides, "profile_title"):
+        hints["profileTitle"] = title
+
+
+def _safe_response_headers(values: dict[str, object]) -> dict[str, str]:
+    blocked = {
+        "cache-control",
+        "content-disposition",
+        "set-cookie",
+        "x-lumen-render-target",
+    }
+    headers: dict[str, str] = {}
+    for key, value in values.items():
+        normalized_key = str(key).strip()
+        if (
+            not normalized_key
+            or normalized_key.lower() in blocked
+            or "\r" in normalized_key
+            or "\n" in normalized_key
+        ):
+            continue
+        normalized_value = str(value).strip()
+        if "\r" in normalized_value or "\n" in normalized_value:
+            continue
+        headers[normalized_key] = normalized_value
+    return headers
+
+
+def _normalized_hwid_policy(values: dict[str, object]) -> dict[str, object]:
+    if not values:
+        return {}
+    normalized: dict[str, object] = {}
+    limit = _override_int(
+        values,
+        "limit",
+        field_name="squad.subscription_overrides.hwid.limit",
+        min_value=0,
+        max_value=10000,
+    )
+    if limit is not None:
+        normalized["limit"] = limit
+    if "required" in values:
+        normalized["required"] = _override_bool(values, "required")
+    return normalized
 
 
 async def _get_optional_profile(
