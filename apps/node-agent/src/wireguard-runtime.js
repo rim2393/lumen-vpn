@@ -1,15 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { basename, dirname } from "node:path";
 import { promisify } from "node:util";
 import { execFile as nodeExecFile } from "node:child_process";
 
-export const WIREGUARD_RUNTIME_MODEL_VERSION = "lumen.node-agent.wireguard-runtime.v1";
+export const WIREGUARD_RUNTIME_MODEL_VERSION = "lumen.node-agent.wireguard-runtime.v2";
 export const DEFAULT_WIREGUARD_CONFIG_PATH = "/etc/wireguard/lumen-wg.conf";
-export const DEFAULT_WIREGUARD_RELOAD_ARGV = Object.freeze([
-  "systemctl",
-  "restart",
-  "wg-quick@lumen-wg"
-]);
+export const DEFAULT_WIREGUARD_RELOAD_MODE = "wg-quick";
+export const DEFAULT_WIREGUARD_RELOAD_ARGV = Object.freeze(["wg-quick", "up"]);
 
 const execFileAsync = promisify(nodeExecFile);
 const FORBIDDEN_UNRESOLVED_FIELDS = new Set(["clientsRef", "credentialsRef"]);
@@ -69,6 +66,10 @@ function parseArgv(value, fallback) {
 
 function summarizeArgv(argv) {
   return argv.join(" ");
+}
+
+function interfaceNameFromConfigPath(configPath) {
+  return basename(configPath).replace(/\.conf$/i, "");
 }
 
 function validateWireguardConfig(config) {
@@ -152,6 +153,7 @@ export function createWireguardApplyPlan(input = {}) {
     id: input.id,
     config,
     configPath: input.configPath,
+    reloadMode: input.reloadMode,
     reloadArgv: input.reloadArgv
   });
 }
@@ -163,13 +165,22 @@ async function runExecFile(execFileImpl, command, args) {
   return await execFileAsync(command, args);
 }
 
+async function runExecFileIgnoringFailure(execFileImpl, command, args) {
+  try {
+    return await runExecFile(execFileImpl, command, args);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function applyWireguardConfig(plan, input = {}) {
   const env = input.env ?? {};
   const configPath =
     plan.configPath ?? env.LUMEN_WIREGUARD_CONFIG_FILE ?? DEFAULT_WIREGUARD_CONFIG_PATH;
+  const reloadMode = plan.reloadMode ?? env.LUMEN_WIREGUARD_RELOAD_MODE ?? DEFAULT_WIREGUARD_RELOAD_MODE;
   const reloadArgv =
     plan.reloadArgv ?? parseArgv(env.LUMEN_WIREGUARD_RELOAD_ARGV, DEFAULT_WIREGUARD_RELOAD_ARGV);
-  const reloadCommand = [reloadArgv[0], reloadArgv.slice(1)];
+  const interfaceName = env.LUMEN_WIREGUARD_INTERFACE ?? interfaceNameFromConfigPath(configPath);
 
   const rendered = renderWireguardIni(plan.config);
 
@@ -177,17 +188,30 @@ export async function applyWireguardConfig(plan, input = {}) {
     return Object.freeze({
       implementationStatus: "wireguard-dry-run",
       configPath,
+      interfaceName,
+      reloadMode,
       reloadCommand: summarizeArgv(reloadArgv)
     });
   }
 
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
   writeFileSync(configPath, rendered, { mode: 0o600 });
-  await runExecFile(input.execFileImpl, reloadCommand[0], reloadCommand[1]);
+
+  if (reloadMode === "wg-quick") {
+    await runExecFileIgnoringFailure(input.execFileImpl, "wg-quick", ["down", configPath]);
+    await runExecFile(input.execFileImpl, "wg-quick", ["up", configPath]);
+    await runExecFile(input.execFileImpl, "wg", ["show", interfaceName]);
+  } else if (reloadMode === "exec") {
+    await runExecFile(input.execFileImpl, reloadArgv[0], reloadArgv.slice(1));
+  } else {
+    throw new Error(`unsupported wireguard reload mode: ${reloadMode}`);
+  }
 
   return Object.freeze({
     implementationStatus: "wireguard-applied",
     configPath,
+    interfaceName,
+    reloadMode,
     reloadCommand: summarizeArgv(reloadArgv)
   });
 }

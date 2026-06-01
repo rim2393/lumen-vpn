@@ -254,6 +254,7 @@ function wireguardApplyPlanFromEnvelope(envelope) {
     id: envelope.payload.profileId ?? envelope.payload.profile_id ?? envelope.payload.outboundId ?? envelope.id,
     wireguardConfig: envelope.payload.wireguardConfig,
     configPath: envelope.payload.wireguardConfigPath,
+    reloadMode: envelope.payload.wireguardReloadMode,
     reloadArgv: envelope.payload.wireguardReloadArgv
   });
 }

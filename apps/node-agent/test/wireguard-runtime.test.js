@@ -77,10 +77,12 @@ test("applyWireguardConfig dry-run summarizes reload without touching disk", asy
   const plan = createWireguardApplyPlan({ config: validConfig() });
   const result = await applyWireguardConfig(plan, { dryRun: true });
   assert.equal(result.implementationStatus, "wireguard-dry-run");
+  assert.equal(result.reloadMode, "wg-quick");
+  assert.equal(result.interfaceName, "lumen-wg");
   assert.equal(result.reloadCommand, DEFAULT_WIREGUARD_RELOAD_ARGV.join(" "));
 });
 
-test("applyWireguardConfig writes the .conf and runs the reload command", async () => {
+test("applyWireguardConfig writes the .conf and manages wg-quick lifecycle", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lumen-wg-"));
   const configPath = join(dir, "lumen-wg.conf");
   const calls = [];
@@ -93,9 +95,40 @@ test("applyWireguardConfig writes the .conf and runs the reload command", async 
       }
     });
     assert.equal(result.implementationStatus, "wireguard-applied");
+    assert.equal(result.reloadMode, "wg-quick");
+    assert.equal(result.interfaceName, "lumen-wg");
     const written = readFileSync(configPath, "utf-8");
     assert.match(written, /\[Interface]/);
-    assert.deepEqual(calls[0], ["systemctl", ["restart", "wg-quick@lumen-wg"]]);
+    assert.deepEqual(calls, [
+      ["wg-quick", ["down", configPath]],
+      ["wg-quick", ["up", configPath]],
+      ["wg", ["show", "lumen-wg"]]
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("applyWireguardConfig supports explicit exec reload mode for host integrations", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lumen-wg-"));
+  const configPath = join(dir, "lumen-wg.conf");
+  const calls = [];
+  const plan = createWireguardApplyPlan({
+    config: validConfig(),
+    configPath,
+    reloadMode: "exec",
+    reloadArgv: ["systemctl", "restart", "wg-quick@lumen-wg"]
+  });
+  try {
+    const result = await applyWireguardConfig(plan, {
+      dryRun: false,
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+      }
+    });
+    assert.equal(result.implementationStatus, "wireguard-applied");
+    assert.equal(result.reloadMode, "exec");
+    assert.deepEqual(calls, [["systemctl", ["restart", "wg-quick@lumen-wg"]]]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
