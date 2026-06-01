@@ -100,6 +100,12 @@ export {
   createNodeAgentRuntimeConfig,
   loadNodeAgentConfigFromEnv
 } from "./runtime-loop.js";
+export {
+  RUNTIME_TELEMETRY_MODEL_VERSION,
+  collectRuntimeTelemetryEvents,
+  createRuntimeTelemetryPlan,
+  reportRuntimeTelemetry
+} from "./runtime-telemetry.js";
 export { applyNodeCommand, enrollNodeAgent, runNodeAgentLoop, runNodeAgentOnce } from "./runtime-runner.js";
 export { readSecretFromEnv } from "./secret-input.js";
 export {

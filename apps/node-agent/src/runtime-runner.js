@@ -41,6 +41,7 @@ import { applyNaiveConfig, createNaiveApplyPlan, ensureManagedNaiveProcess } fro
 import { applyTuicConfig, createTuicApplyPlan, ensureManagedTuicProcess } from "./tuic-runtime.js";
 import { applyWireguardConfig, createWireguardApplyPlan } from "./wireguard-runtime.js";
 import { applyNodePolicy, createNodePolicyApplyPlan } from "./policy-runtime.js";
+import { reportRuntimeTelemetry } from "./runtime-telemetry.js";
 
 const DEFAULT_STATE_DIR = "/var/lib/lumen-node";
 const NODE_TOKEN_FILE = "node-token";
@@ -825,6 +826,13 @@ export async function runNodeAgentOnce(input = {}) {
     });
   }
 
+  const telemetry = await reportRuntimeTelemetry({
+    config: enrollment.config,
+    env: input.env ?? {},
+    fetchImpl: input.fetchImpl,
+    nodeToken: enrollment.nodeToken
+  });
+
   const metric = await recordNodeMetric({
     config: enrollment.config,
     fetchImpl: input.fetchImpl,
@@ -833,6 +841,7 @@ export async function runNodeAgentOnce(input = {}) {
     valuesJson: {
       command_polled: command ? 1 : 0,
       command_completed: completedCommand ? 1 : 0,
+      runtime_events_reported: telemetry.reportedEvents,
       state_revision: latestState.revision
     }
   });
@@ -851,6 +860,7 @@ export async function runNodeAgentOnce(input = {}) {
       id: metric.id ?? null,
       metricKind: metric.metric_kind ?? "runtime"
     }),
+    telemetry,
     runtimeRestore,
     reusedExistingToken: enrollment.reusedExistingToken
   });
