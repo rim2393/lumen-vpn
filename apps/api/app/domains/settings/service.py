@@ -10,6 +10,7 @@ from app.domains.settings.models import PanelSetting
 from app.domains.settings.schemas import (
     AuthProviderResponse,
     AuthProviderUpdateRequest,
+    PublicPanelIdentityResponse,
     SettingGroupResponse,
     SettingGroupUpdateRequest,
     SettingResponse,
@@ -233,6 +234,20 @@ async def list_setting_groups(session: AsyncSession) -> list[SettingGroupRespons
         _setting_group_response(key, settings_by_key.get(key))
         for key in SETTING_GROUP_MODELS
     ]
+
+
+async def read_public_panel_identity(session: AsyncSession) -> PublicPanelIdentityResponse:
+    result = await session.execute(
+        select(PanelSetting).where(PanelSetting.key == PANEL_IDENTITY_KEY)
+    )
+    setting = result.scalar_one_or_none()
+    values = _setting_group_response(PANEL_IDENTITY_KEY, setting).value_json
+    return PublicPanelIdentityResponse(
+        product_name=str(values["product_name"]),
+        support_url=str(values["support_url"]) if values.get("support_url") else None,
+        docs_url=str(values["docs_url"]) if values.get("docs_url") else None,
+        default_locale=str(values["default_locale"]),
+    )
 
 
 async def update_setting_group(

@@ -78,6 +78,42 @@ describe('Lumen admin routing', () => {
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
   })
 
+  it('uses public panel identity and hides disabled login providers', async () => {
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      listLoginMethods: async () => ({
+        items: [
+          {
+            bot_username: null,
+            display_name: 'Passkey',
+            enabled: false,
+            kind: 'webauthn',
+            provider: 'webauthn',
+          },
+          {
+            bot_username: null,
+            display_name: 'Google',
+            enabled: true,
+            kind: 'oidc',
+            provider: 'google',
+          },
+        ],
+      }),
+      readPanelIdentity: async () => ({
+        default_locale: 'en',
+        docs_url: 'https://docs.example.com',
+        product_name: 'Acme Console',
+        support_url: 'https://support.example.com',
+      }),
+    }
+
+    renderWithRouter('/guard/login', { apiClient, initialSession: null })
+
+    expect((await screen.findAllByText(/acme console/i)).length).toBeGreaterThan(0)
+    expect(await screen.findByRole('button', { name: /continue with google/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /passkey/i })).not.toBeInTheDocument()
+  })
+
   it('renders the Lumen Guard MFA step', () => {
     renderWithRouter('/guard/mfa')
 

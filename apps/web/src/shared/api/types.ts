@@ -90,6 +90,13 @@ export type ApiKeyRecord = {
 
 export type LicenseStatus = 'valid' | 'expiring' | 'invalid'
 
+export type PanelIdentity = {
+  default_locale: 'en' | 'ru'
+  docs_url: string | null
+  product_name: string
+  support_url: string | null
+}
+
 export type LicenseSummary = {
   auditEvents: Array<{
     at: string
@@ -1297,6 +1304,7 @@ export type LumenApiClient = {
   resumeNode: (nodeId: string, request: NodeResumeRequest) => Promise<NodeResponse>
   quarantineNode: (nodeId: string, request: NodeQuarantineRequest) => Promise<NodeResponse>
   readLicense: () => Promise<LicenseSummary | null>
+  readPanelIdentity: () => Promise<PanelIdentity>
   revokeApiKey: (apiKeyId: string) => Promise<void>
   revokeSubscription: (subscriptionId: string) => Promise<SubscriptionRecord>
   addSquadUsers: (

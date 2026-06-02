@@ -367,6 +367,7 @@ export function createHttpLumenApiClient({
     quarantineNode: (nodeId: string, payload: NodeQuarantineRequest) =>
       request(`/api/v1/nodes/${nodeId}/quarantine`, { body: payload, method: 'POST' }),
     readLicense: () => request('/api/admin/license'),
+    readPanelIdentity: () => request('/api/v1/settings/public/identity'),
     revokeApiKey: (apiKeyId: string) =>
       request(`/api/v1/api-keys/${apiKeyId}`, { method: 'DELETE' }),
     revokeSubscription: (subscriptionId: string) =>

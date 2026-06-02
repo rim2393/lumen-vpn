@@ -246,6 +246,30 @@ async def test_typed_setting_groups_validate_and_block_generic_bypass(
     panel_identity = next(item for item in groups if item["key"] == "panel.identity")
     assert panel_identity["value_json"]["product_name"] == "Lumen"
     assert panel_identity["updated_at"] is None
+    public_identity = await foundation_app.client.get("/api/v1/settings/public/identity")
+    assert public_identity.status_code == 200
+    assert public_identity.json()["product_name"] == "Lumen"
+
+    identity_update = await foundation_app.client.put(
+        "/api/v1/settings/groups/panel.identity",
+        json={
+            "value_json": {
+                "product_name": "Lumen QA",
+                "support_url": "https://support.example.com",
+                "docs_url": "https://docs.example.com",
+                "default_locale": "en",
+            }
+        },
+    )
+    assert identity_update.status_code == 200
+    public_identity_after = await foundation_app.client.get("/api/v1/settings/public/identity")
+    assert public_identity_after.status_code == 200
+    assert public_identity_after.json() == {
+        "default_locale": "en",
+        "docs_url": "https://docs.example.com/",
+        "product_name": "Lumen QA",
+        "support_url": "https://support.example.com/",
+    }
 
     update_response = await foundation_app.client.put(
         "/api/v1/settings/groups/subscription.delivery",

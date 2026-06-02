@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../../features/auth/authSession'
 import { useApiClient } from '../api/apiClientContext'
+import { usePanelIdentityData } from '../api/resourceHooks'
 import { navigationGroups } from '../data/navigation'
 import { I18nProvider, useI18n, type AppLanguage } from '../i18n/I18nProvider'
 import { BrandMark } from './BrandMark'
@@ -12,25 +13,48 @@ const languageOptions: Array<{ label: string; value: AppLanguage }> = [
   { label: 'RU', value: 'ru' },
 ]
 
-const readInitialLanguage = (): AppLanguage => {
+const readStoredLanguage = (): AppLanguage | null => {
   if (typeof window === 'undefined') {
-    return 'en'
+    return null
   }
 
   const storedLanguage = window.localStorage.getItem('lumen-ui-language')
-  return storedLanguage === 'ru' ? 'ru' : 'en'
+  return storedLanguage === 'ru' || storedLanguage === 'en' ? storedLanguage : null
+}
+
+const readInitialLanguage = (): AppLanguage => {
+  return readStoredLanguage() ?? 'en'
 }
 
 export function AppShell() {
   const [language, setLanguage] = useState<AppLanguage>(readInitialLanguage)
+  const [hasStoredLanguage, setHasStoredLanguage] = useState(() => readStoredLanguage() !== null)
+  const identity = usePanelIdentityData()
+
+  function updateLanguage(value: AppLanguage) {
+    setHasStoredLanguage(true)
+    setLanguage(value)
+  }
+
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      !hasStoredLanguage &&
+      identity.data?.default_locale
+    ) {
+      setLanguage(identity.data.default_locale)
+    }
+  }, [hasStoredLanguage, identity.data?.default_locale])
 
   useEffect(() => {
     document.documentElement.lang = language
-    window.localStorage.setItem('lumen-ui-language', language)
-  }, [language])
+    if (hasStoredLanguage) {
+      window.localStorage.setItem('lumen-ui-language', language)
+    }
+  }, [hasStoredLanguage, language])
 
   return (
-    <I18nProvider language={language} setLanguage={setLanguage}>
+    <I18nProvider language={language} setLanguage={updateLanguage}>
       <AppShellLayout />
     </I18nProvider>
   )
@@ -38,6 +62,7 @@ export function AppShell() {
 
 function AppShellLayout() {
   const apiClient = useApiClient()
+  const identity = usePanelIdentityData()
   const navigate = useNavigate()
   const { clearSession, session } = useAuthSession()
   const { language, setLanguage, t } = useI18n()
@@ -45,6 +70,7 @@ function AppShellLayout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchStatus, setSearchStatus] = useState('')
   const closeSidebar = () => setIsSidebarOpen(false)
+  const productName = identity.data?.product_name ?? 'Lumen Guard'
   const searchableRoutes = useMemo(
     () =>
       navigationGroups.flatMap((group) =>
@@ -94,8 +120,8 @@ function AppShellLayout() {
       </a>
       <aside className={`sidebar ${isSidebarOpen ? 'sidebar--open' : ''}`} aria-label={t('Primary navigation')}>
         <div className="sidebar__header">
-          <Link to="/dashboard" className="sidebar__brand" aria-label="Lumen Guard dashboard">
-            <BrandMark />
+          <Link to="/dashboard" className="sidebar__brand" aria-label={`${productName} dashboard`}>
+            <BrandMark productName={productName} />
           </Link>
           <button
             type="button"

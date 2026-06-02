@@ -70,6 +70,7 @@ export const resourceQueryKeys = {
   subscriptionTemplates: ['resource', 'subscription-templates'] as const,
   responseRules: ['resource', 'response-rules'] as const,
   nodePlugins: ['resource', 'node-plugins'] as const,
+  panelIdentity: ['resource', 'settings', 'public-identity'] as const,
   infraProviders: ['resource', 'infra-billing', 'providers'] as const,
   infraBillingRecords: ['resource', 'infra-billing', 'records'] as const,
   infraBillingSummary: ['resource', 'infra-billing', 'summary'] as const,
@@ -90,6 +91,15 @@ export function useApiKeysPageData() {
   return useQuery({
     queryFn: apiClient.listApiKeys,
     queryKey: resourceQueryKeys.apiKeys,
+  })
+}
+
+export function usePanelIdentityData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.readPanelIdentity,
+    queryKey: resourceQueryKeys.panelIdentity,
   })
 }
 

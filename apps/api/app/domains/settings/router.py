@@ -11,6 +11,7 @@ from app.domains.settings.schemas import (
     AuthProviderListResponse,
     AuthProviderResponse,
     AuthProviderUpdateRequest,
+    PublicPanelIdentityResponse,
     SettingGroupListResponse,
     SettingGroupResponse,
     SettingGroupUpdateRequest,
@@ -23,6 +24,7 @@ from app.domains.settings.service import (
     list_auth_providers,
     list_setting_groups,
     list_settings,
+    read_public_panel_identity,
     setting_response,
     update_auth_provider,
     update_setting_group,
@@ -60,6 +62,11 @@ async def list_typed_setting_groups(
     session: DatabaseSession,
 ) -> SettingGroupListResponse:
     return SettingGroupListResponse(items=await list_setting_groups(session))
+
+
+@router.get("/public/identity", response_model=PublicPanelIdentityResponse)
+async def read_public_identity(session: DatabaseSession) -> PublicPanelIdentityResponse:
+    return await read_public_panel_identity(session)
 
 
 @router.put("/groups/{group_key}", response_model=SettingGroupResponse)

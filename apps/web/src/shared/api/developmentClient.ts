@@ -1271,6 +1271,12 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     quarantineNode: async (nodeId: string) =>
       asNodeResponse({ ...nodeRecords[0], id: nodeId, status: 'offline' }),
     readLicense: async () => licenseSummary,
+    readPanelIdentity: async () => ({
+      default_locale: 'ru',
+      docs_url: 'https://docs.lumentech.tel',
+      product_name: 'Lumen',
+      support_url: 'https://support.lumentech.tel',
+    }),
     revokeApiKey: async (apiKeyId: string) => {
       const record = apiKeys.find((key) => key.id === apiKeyId)
       if (record) {

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useApiClient } from '../../shared/api/apiClientContext'
+import { usePanelIdentityData } from '../../shared/api/resourceHooks'
 import type { LoginMethod, TelegramLoginPayload } from '../../shared/api/types'
 import { useAuthSession } from './authSession'
 import { isPasskeySupported, performPasskeyAuthentication } from './webauthn'
@@ -13,6 +14,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const apiClient = useApiClient()
+  const identity = usePanelIdentityData()
   const { setMfaChallenge, setSession } = useAuthSession()
   const [status, setStatus] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -135,6 +137,7 @@ export function LoginPage() {
   const hasAlternativeMethods = Boolean(
     oauthMethods.length || passkeyMethod || telegramMethod,
   )
+  const productName = identity.data?.product_name ?? 'Lumen Guard'
 
   return (
     <form className="auth-card" onSubmit={handleSubmit}>
@@ -142,7 +145,7 @@ export function LoginPage() {
         <LockKeyhole size={24} />
       </div>
       <div>
-        <p className="eyebrow">Lumen Guard</p>
+        <p className="eyebrow">{productName}</p>
         <h2>Sign in</h2>
         <p>Use an operator account. Credentials are sent to the auth API and are not stored.</p>
       </div>

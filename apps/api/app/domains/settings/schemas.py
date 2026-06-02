@@ -41,6 +41,13 @@ class SettingGroupListResponse(BaseModel):
     items: list[SettingGroupResponse]
 
 
+class PublicPanelIdentityResponse(BaseModel):
+    product_name: str
+    support_url: str | None
+    docs_url: str | None
+    default_locale: str
+
+
 class AuthProviderUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
