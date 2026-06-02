@@ -43,3 +43,8 @@ jobs:
 
       - name: Verify OpenAPI seed
         run: python -m pytest tests/test_openapi_seed.py -q
+
+      - name: Verify production-live protocol regression matrix
+        run: |
+          python -m ruff check app/domains/protocols/service.py tests/test_protocol_live_regression_matrix.py tests/test_control_plane_foundation_routes.py
+          python -m pytest tests/test_protocol_live_regression_matrix.py tests/test_control_plane_foundation_routes.py::test_active_profile_rejects_catalog_only_adapter -q
