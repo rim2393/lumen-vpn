@@ -75,7 +75,8 @@ test("managed xray process is restored from existing config", async () => {
         listen: "0.0.0.0",
         port: 18444,
         protocol: "vless",
-        settings: { decryption: "none", clients: [{ id: "client-id" }] }
+        settings: { decryption: "none", clients: [{ id: "client-id" }] },
+        streamSettings: { network: "tcp", security: "none" }
       }
     ]
   };
@@ -116,4 +117,71 @@ test("managed xray process is restored from existing config", async () => {
   assert.equal(spawned[0].command, "xray-test-bin");
 
   rmSync(tmp, { recursive: true, force: true });
+});
+
+test("xray config validation accepts edge transports with required settings", () => {
+  const baseInbound = {
+    tag: "edge",
+    listen: "0.0.0.0",
+    port: 18445,
+    protocol: "vless",
+    settings: { decryption: "none", clients: [{ id: "client-id" }] }
+  };
+  const cases = [
+    { network: "ws", security: "none", wsSettings: { path: "/ws" } },
+    { network: "grpc", security: "none", grpcSettings: { serviceName: "lumenGrpc" } },
+    { network: "httpupgrade", security: "none", httpupgradeSettings: { path: "/upgrade" } },
+    { network: "xhttp", security: "none", xhttpSettings: { path: "/xhttp", mode: "stream-up" } },
+    {
+      network: "tcp",
+      security: "tls",
+      tlsSettings: {
+        certificates: [{ certificateFile: "/runtime/tls.crt", keyFile: "/runtime/tls.key" }]
+      }
+    },
+    {
+      network: "tcp",
+      security: "reality",
+      realitySettings: {
+        privateKey: "server-private-key",
+        serverNames: ["www.example.test"],
+        shortIds: ["abcd"]
+      }
+    }
+  ];
+
+  for (const streamSettings of cases) {
+    assert.equal(
+      createXrayApplyPlan({
+        xrayConfig: { inbounds: [{ ...baseInbound, streamSettings }] }
+      }).config.inbounds[0].streamSettings.network,
+      streamSettings.network
+    );
+  }
+});
+
+test("xray config validation rejects incomplete edge transport settings", () => {
+  const baseInbound = {
+    tag: "edge",
+    listen: "0.0.0.0",
+    port: 18445,
+    protocol: "vless",
+    settings: { decryption: "none", clients: [{ id: "client-id" }] }
+  };
+  const cases = [
+    [{}, /streamSettings\.network/],
+    [{ network: "ws", security: "none" }, /wsSettings/],
+    [{ network: "grpc", security: "none", grpcSettings: {} }, /grpcSettings\.serviceName/],
+    [{ network: "httpupgrade", security: "none", httpupgradeSettings: {} }, /httpupgradeSettings\.path/],
+    [{ network: "xhttp", security: "none", xhttpSettings: { path: "/x" } }, /xhttpSettings\.mode/],
+    [{ network: "tcp", security: "tls", tlsSettings: {} }, /tlsSettings\.certificates/],
+    [{ network: "tcp", security: "reality", realitySettings: { serverNames: ["a"], shortIds: [] } }, /realitySettings\.privateKey/]
+  ];
+
+  for (const [streamSettings, pattern] of cases) {
+    assert.throws(
+      () => createXrayApplyPlan({ xrayConfig: { inbounds: [{ ...baseInbound, streamSettings }] } }),
+      pattern
+    );
+  }
 });

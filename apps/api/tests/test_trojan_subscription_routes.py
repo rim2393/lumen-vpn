@@ -339,10 +339,7 @@ async def test_xhttp_subscription_does_not_emit_fake_sing_box_transport(
         f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
     )
     assert sing_box.status_code == 200
-    assert all(
-        outbound.get("type") != "vless"
-        for outbound in sing_box.json()["outbounds"]
-    )
+    assert all(outbound.get("type") != "vless" for outbound in sing_box.json()["outbounds"])
 
     xray = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=xray-json",
@@ -351,6 +348,171 @@ async def test_xhttp_subscription_does_not_emit_fake_sing_box_transport(
     stream = xray.json()["outbounds"][0]["streamSettings"]
     assert stream["network"] == "xhttp"
     assert stream["xhttpSettings"] == {"path": "/xhttp", "mode": "auto"}
+
+
+@pytest.mark.parametrize(
+    ("adapter", "expected_protocol", "expected_network", "delivery_extra", "settings_key"),
+    [
+        ("vless-ws-tls", "vless", "ws", {"path": "/vless-ws"}, "wsSettings"),
+        ("vless-grpc-tls", "vless", "grpc", {"serviceName": "vlessGrpc"}, "grpcSettings"),
+        (
+            "vless-httpupgrade-tls",
+            "vless",
+            "httpupgrade",
+            {"path": "/vless-hu"},
+            "httpupgradeSettings",
+        ),
+        (
+            "vless-xhttp-tls",
+            "vless",
+            "xhttp",
+            {"path": "/vless-xhttp", "mode": "stream-up"},
+            "xhttpSettings",
+        ),
+        (
+            "vless-reality-grpc",
+            "vless",
+            "grpc",
+            {"serviceName": "realityGrpc", "public_key": "reality-public", "short_id": "abcd"},
+            "grpcSettings",
+        ),
+        (
+            "vless-reality-httpupgrade",
+            "vless",
+            "httpupgrade",
+            {"path": "/reality-hu", "public_key": "reality-public", "short_id": "abcd"},
+            "httpupgradeSettings",
+        ),
+        (
+            "vless-reality-xhttp",
+            "vless",
+            "xhttp",
+            {
+                "path": "/reality-xhttp",
+                "mode": "packet-up",
+                "public_key": "reality-public",
+                "short_id": "abcd",
+            },
+            "xhttpSettings",
+        ),
+        ("vmess-ws-tls", "vmess", "ws", {"path": "/vmess-ws"}, "wsSettings"),
+        ("vmess-grpc-tls", "vmess", "grpc", {"serviceName": "vmessGrpc"}, "grpcSettings"),
+        (
+            "vmess-httpupgrade-tls",
+            "vmess",
+            "httpupgrade",
+            {"path": "/vmess-hu"},
+            "httpupgradeSettings",
+        ),
+        ("trojan-ws-tls", "trojan", "ws", {"path": "/trojan-ws"}, "wsSettings"),
+        ("trojan-grpc-tls", "trojan", "grpc", {"serviceName": "trojanGrpc"}, "grpcSettings"),
+        (
+            "trojan-httpupgrade-tls",
+            "trojan",
+            "httpupgrade",
+            {"path": "/trojan-hu"},
+            "httpupgradeSettings",
+        ),
+        (
+            "trojan-xhttp-tls",
+            "trojan",
+            "xhttp",
+            {"path": "/trojan-xhttp", "mode": "stream-up"},
+            "xhttpSettings",
+        ),
+        (
+            "trojan-tcp-reality",
+            "trojan",
+            "tcp",
+            {"public_key": "trojan-reality-public", "short_id": "abcd"},
+            None,
+        ),
+    ],
+)
+async def test_xray_edge_subscription_render_matrix(
+    route_app: RouteTestApp,
+    adapter: str,
+    expected_protocol: str,
+    expected_network: str,
+    delivery_extra: dict[str, str],
+    settings_key: str | None,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    delivery_profile = {
+        "protocol": adapter,
+        "adapter": adapter,
+        "profile_title": f"Lumen {adapter}",
+        "server_name": f"{adapter}.example.test",
+        "port": "443",
+        **delivery_extra,
+    }
+    create = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": delivery_profile,
+            "config_hash": f"sha256:{adapter}",
+        },
+    )
+    assert create.status_code == 201, create.text
+    public_id = create.json()["public_id"]
+
+    raw = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=happ",
+    )
+    assert raw.status_code == 200, raw.text
+    if expected_protocol == "vmess":
+        decoded = json.loads(base64.b64decode(raw.text.removeprefix("vmess://").strip()))
+        assert decoded["net"] == expected_network
+    else:
+        assert raw.text.startswith(f"{expected_protocol}://")
+        assert f"type={expected_network}" in raw.text
+
+    xray = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=xray-json",
+    )
+    assert xray.status_code == 200, xray.text
+    outbound = xray.json()["outbounds"][0]
+    assert outbound["protocol"] == expected_protocol
+    stream = outbound["streamSettings"]
+    assert stream["network"] == expected_network
+    if settings_key is not None:
+        assert settings_key in stream
+    if "reality" in adapter:
+        assert stream["security"] == "reality"
+        assert stream["realitySettings"]["publicKey"] in {
+            "reality-public",
+            "trojan-reality-public",
+        }
+    elif expected_protocol in {"vless", "vmess", "trojan"} and "tls" in adapter:
+        assert stream["security"] == "tls"
+
+    mihomo = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=mihomo",
+    )
+    assert mihomo.status_code == 200, mihomo.text
+    if expected_network in {"ws", "httpupgrade"}:
+        assert "ws-opts:" in mihomo.text
+    if expected_network == "grpc":
+        assert "grpc-opts:" in mihomo.text
+    if expected_network == "xhttp":
+        assert "xhttp-opts:" in mihomo.text
+
+    sing_box = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
+    )
+    assert sing_box.status_code == 200, sing_box.text
+    sing_box_outbounds = [
+        outbound for outbound in sing_box.json()["outbounds"] if outbound.get("type") != "selector"
+    ]
+    if expected_network == "xhttp":
+        assert sing_box_outbounds == []
+    else:
+        assert sing_box_outbounds[0]["type"] == expected_protocol
+        if expected_network != "tcp":
+            assert sing_box_outbounds[0]["transport"]["type"] == expected_network
 
 
 async def test_tuic_subscription_renders_client_formats(route_app: RouteTestApp) -> None:

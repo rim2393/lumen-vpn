@@ -17,6 +17,7 @@ def test_protocol_adapter_catalog_contains_full_product_matrix() -> None:
         "vless-ws-tls",
         "vmess-ws-tls",
         "trojan-tcp-tls",
+        "trojan-httpupgrade-tls",
         "trojan-tcp-reality",
         "shadowsocks-2022",
         "wireguard-amneziawg",
@@ -32,4 +33,4 @@ def test_protocol_adapter_catalog_contains_full_product_matrix() -> None:
         assert "subscription" in adapter.capabilities
 
     statuses = {adapter.protocol: adapter.status for adapter in adapters}
-    assert statuses["vless-reality-httpupgrade"] == "legacy"
+    assert statuses["vless-reality-httpupgrade"] == "experimental"

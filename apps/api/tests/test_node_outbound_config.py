@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from app.domains.protocols.models import ProtocolProfile
 from app.domains.protocols.service import build_node_outbound_payload
 
@@ -32,6 +34,7 @@ def _inbounds(
             security=security,
             credentials_ref="vault://subscriptions/p/creds",
             config_json=config_json or {},
+            hosts=[],
         )
     ]
 
@@ -96,9 +99,7 @@ def test_openvpn_profile_builds_real_openvpn_payload_with_generated_pki():
     assert config["listen_port"] == 1194
     assert config["proto"] == "udp"
     assert config["network"] == "10.88.0.0/24"
-    assert config["users"] == [
-        {"username": "lumen_sub_live", "password": "openvpn-live-password"}
-    ]
+    assert config["users"] == [{"username": "lumen_sub_live", "password": "openvpn-live-password"}]
     assert "clientsRef" not in config
     assert "BEGIN CERTIFICATE" in config["pki"]["ca_cert"]
     assert "BEGIN CERTIFICATE" in config["pki"]["server_cert"]
@@ -261,6 +262,310 @@ def test_xray_transport_variants_build_server_stream_settings():
         assert stream[settings_key]
 
 
+@pytest.mark.parametrize(
+    ("adapter", "protocol", "transport", "security", "config", "settings_key", "settings_value"),
+    [
+        (
+            "vless-ws",
+            "vless",
+            "ws",
+            "none",
+            {"path": "/vless-ws"},
+            "wsSettings",
+            {"path": "/vless-ws"},
+        ),
+        (
+            "vless-ws-tls",
+            "vless",
+            "ws",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vless-ws.example.test"},
+                "path": "/vless-ws-tls",
+            },
+            "wsSettings",
+            {"path": "/vless-ws-tls"},
+        ),
+        (
+            "vless-grpc-tls",
+            "vless",
+            "grpc",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vless-grpc.example.test"},
+                "serviceName": "vlessGrpc",
+            },
+            "grpcSettings",
+            {"serviceName": "vlessGrpc"},
+        ),
+        (
+            "vless-httpupgrade-tls",
+            "vless",
+            "httpupgrade",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vless-hu.example.test"},
+                "path": "/vless-hu",
+            },
+            "httpupgradeSettings",
+            {"path": "/vless-hu"},
+        ),
+        (
+            "vless-xhttp-tls",
+            "vless",
+            "xhttp",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vless-xhttp.example.test"},
+                "path": "/vless-xhttp",
+                "mode": "stream-up",
+            },
+            "xhttpSettings",
+            {"path": "/vless-xhttp", "mode": "stream-up"},
+        ),
+        (
+            "vless-reality-grpc",
+            "vless",
+            "grpc",
+            "reality",
+            {
+                "security": {
+                    "type": "reality",
+                    "serverName": "reality-grpc.example.test",
+                    "privateKey": "server-private-key",
+                    "shortId": "abcd",
+                },
+                "serviceName": "realityGrpc",
+            },
+            "grpcSettings",
+            {"serviceName": "realityGrpc"},
+        ),
+        (
+            "vless-reality-httpupgrade",
+            "vless",
+            "httpupgrade",
+            "reality",
+            {
+                "security": {
+                    "type": "reality",
+                    "serverName": "reality-hu.example.test",
+                    "privateKey": "server-private-key",
+                    "shortId": "abcd",
+                },
+                "path": "/reality-hu",
+            },
+            "httpupgradeSettings",
+            {"path": "/reality-hu"},
+        ),
+        (
+            "vless-reality-xhttp",
+            "vless",
+            "xhttp",
+            "reality",
+            {
+                "security": {
+                    "type": "reality",
+                    "serverName": "reality-xhttp.example.test",
+                    "privateKey": "server-private-key",
+                    "shortId": "abcd",
+                },
+                "path": "/reality-xhttp",
+                "mode": "packet-up",
+            },
+            "xhttpSettings",
+            {"path": "/reality-xhttp", "mode": "packet-up"},
+        ),
+        (
+            "vmess-ws-tls",
+            "vmess",
+            "ws",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vmess-ws.example.test"},
+                "path": "/vmess-ws",
+            },
+            "wsSettings",
+            {"path": "/vmess-ws"},
+        ),
+        (
+            "vmess-grpc-tls",
+            "vmess",
+            "grpc",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vmess-grpc.example.test"},
+                "serviceName": "vmessGrpc",
+            },
+            "grpcSettings",
+            {"serviceName": "vmessGrpc"},
+        ),
+        (
+            "vmess-httpupgrade-tls",
+            "vmess",
+            "httpupgrade",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "vmess-hu.example.test"},
+                "path": "/vmess-hu",
+            },
+            "httpupgradeSettings",
+            {"path": "/vmess-hu"},
+        ),
+        (
+            "trojan-ws-tls",
+            "trojan",
+            "ws",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "trojan-ws.example.test"},
+                "path": "/trojan-ws",
+            },
+            "wsSettings",
+            {"path": "/trojan-ws"},
+        ),
+        (
+            "trojan-grpc-tls",
+            "trojan",
+            "grpc",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "trojan-grpc.example.test"},
+                "serviceName": "trojanGrpc",
+            },
+            "grpcSettings",
+            {"serviceName": "trojanGrpc"},
+        ),
+        (
+            "trojan-httpupgrade-tls",
+            "trojan",
+            "httpupgrade",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "trojan-hu.example.test"},
+                "path": "/trojan-hu",
+            },
+            "httpupgradeSettings",
+            {"path": "/trojan-hu"},
+        ),
+        (
+            "trojan-xhttp-tls",
+            "trojan",
+            "xhttp",
+            "tls",
+            {
+                "security": {"type": "tls", "serverName": "trojan-xhttp.example.test"},
+                "path": "/trojan-xhttp",
+                "mode": "stream-up",
+            },
+            "xhttpSettings",
+            {"path": "/trojan-xhttp", "mode": "stream-up"},
+        ),
+        (
+            "trojan-tcp-reality",
+            "trojan",
+            "tcp",
+            "reality",
+            {
+                "security": {
+                    "type": "reality",
+                    "serverName": "trojan-reality.example.test",
+                    "privateKey": "server-private-key",
+                    "shortId": "abcd",
+                }
+            },
+            None,
+            None,
+        ),
+    ],
+)
+def test_xray_edge_transport_matrix_builds_exact_server_stream_settings(
+    adapter: str,
+    protocol: str,
+    transport: str,
+    security: str,
+    config: dict,
+    settings_key: str | None,
+    settings_value: dict | None,
+):
+    runtime_client = {"public_id": "lumen_sub_live"}
+    if protocol in {"vless", "vmess"}:
+        runtime_client["uuid"] = "11111111-1111-4111-8111-111111111111"
+    if protocol == "trojan":
+        runtime_client["password"] = "trojan-" + "credential"
+
+    payload = build_node_outbound_payload(
+        _profile(adapter, config),
+        _inbounds(
+            18443,
+            protocol=protocol,
+            security=security,
+            transport=transport,
+            config_json=config,
+        ),
+        runtime_clients=[runtime_client],
+    )
+
+    inbound = payload["xrayConfig"]["inbounds"][0]
+    stream = inbound["streamSettings"]
+    assert stream["network"] == transport
+    assert stream["security"] == security
+    if settings_key is not None:
+        assert stream[settings_key] == settings_value
+    if security == "tls":
+        assert stream["tlsSettings"] == {
+            "certificates": [
+                {
+                    "certificateFile": "/var/lib/lumen-node/runtime/tls/live.crt",
+                    "keyFile": "/var/lib/lumen-node/runtime/tls/live.key",
+                }
+            ]
+        }
+    if security == "reality":
+        assert stream["realitySettings"]["serverNames"] == [config["security"]["serverName"]]
+        assert stream["realitySettings"]["privateKey"] == "server-private-key"
+
+
+def test_xray_payload_uses_concrete_vmess_and_trojan_runtime_clients():
+    vmess = build_node_outbound_payload(
+        _profile("vmess-ws-tls", {"security": {"type": "tls"}, "path": "/vmess"}),
+        _inbounds(
+            18444,
+            protocol="vmess",
+            security="tls",
+            transport="ws",
+            config_json={"security": {"type": "tls"}, "path": "/vmess"},
+        ),
+        runtime_clients=[
+            {
+                "public_id": "vmess_sub_live",
+                "uuid": "22222222-2222-4222-8222-222222222222",
+            }
+        ],
+    )
+    assert vmess["xrayConfig"]["inbounds"][0]["settings"]["clients"] == [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "alterId": 0,
+            "email": "vmess_sub_live",
+        }
+    ]
+
+    trojan = build_node_outbound_payload(
+        _profile("trojan-grpc-tls", {"security": {"type": "tls"}, "serviceName": "trojanGrpc"}),
+        _inbounds(
+            18445,
+            protocol="trojan",
+            security="tls",
+            transport="grpc",
+            config_json={"security": {"type": "tls"}, "serviceName": "trojanGrpc"},
+        ),
+        runtime_clients=[{"public_id": "trojan_sub_live", "password": "trojan-live-password"}],
+    )
+    assert trojan["xrayConfig"]["inbounds"][0]["settings"]["clients"] == [
+        {"password": "trojan-live-password", "email": "trojan_sub_live"}
+    ]
+
+
 def test_shadowsocks_payload_uses_concrete_runtime_password():
     payload = build_node_outbound_payload(
         _profile("shadowsocks-native", {"method": "aes-128-gcm"}),
@@ -393,9 +698,7 @@ def test_socks_payload_uses_concrete_runtime_accounts():
 
     settings = payload["xrayConfig"]["inbounds"][0]["settings"]
     assert "clientsRef" not in settings
-    assert settings["accounts"] == [
-        {"user": "lumen_sub_live", "pass": "socks-live-password"}
-    ]
+    assert settings["accounts"] == [{"user": "lumen_sub_live", "pass": "socks-live-password"}]
 
 
 def test_http_proxy_payload_uses_concrete_runtime_accounts():
@@ -412,9 +715,7 @@ def test_http_proxy_payload_uses_concrete_runtime_accounts():
 
     settings = payload["xrayConfig"]["inbounds"][0]["settings"]
     assert "clientsRef" not in settings
-    assert settings["accounts"] == [
-        {"user": "lumen_sub_live", "pass": "http-live-password"}
-    ]
+    assert settings["accounts"] == [{"user": "lumen_sub_live", "pass": "http-live-password"}]
 
 
 def test_hysteria2_payload_uses_concrete_runtime_clients_when_available():

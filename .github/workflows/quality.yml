@@ -48,3 +48,46 @@ jobs:
         run: |
           python -m ruff check app/domains/protocols/service.py tests/test_protocol_live_regression_matrix.py tests/test_control_plane_foundation_routes.py
           python -m pytest tests/test_protocol_live_regression_matrix.py tests/test_control_plane_foundation_routes.py::test_active_profile_rejects_catalog_only_adapter -q
+
+      - name: Verify Xray edge runtime and subscription matrix
+        run: |
+          python -m ruff check app/domains/protocols/service.py tests/test_node_outbound_config.py tests/test_trojan_subscription_routes.py tests/test_protocol_adapter_catalog.py
+          python -m pytest tests/test_node_outbound_config.py tests/test_trojan_subscription_routes.py::test_xray_edge_subscription_render_matrix tests/test_protocol_adapter_catalog.py -q
+
+  subscription-packages:
+    name: Subscription schema and renderers
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24"
+
+      - name: Verify subscription schema
+        working-directory: packages/subscription-schema
+        run: npm test
+
+      - name: Verify subscription renderers
+        working-directory: packages/subscription-renderers
+        run: npm test
+
+  node-agent-runtime:
+    name: Node agent runtime validation
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24"
+
+      - name: Verify node-agent Xray runtime gates
+        working-directory: apps/node-agent
+        run: node --test test/xray-runtime.test.js test/runtime-runner.test.js

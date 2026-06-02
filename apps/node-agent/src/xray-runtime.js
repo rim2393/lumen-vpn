@@ -68,6 +68,7 @@ function validateXrayConfig(config) {
       if (!Number.isInteger(inbound.port) || inbound.port < 1 || inbound.port > 65535) {
         errors.push(`xrayConfig.inbounds[${index}].port must be an integer port`);
       }
+      validateXrayStreamSettings(inbound.streamSettings, `xrayConfig.inbounds[${index}].streamSettings`, errors);
     });
   }
   const unresolved = assertNoUnresolvedRefs(config);
@@ -76,6 +77,76 @@ function validateXrayConfig(config) {
   }
   if (errors.length > 0) {
     throw new Error(errors.join("; "));
+  }
+}
+
+function requirePlainObject(value, path, errors) {
+  if (!isPlainObject(value)) {
+    errors.push(`${path} must be an object`);
+    return false;
+  }
+  return true;
+}
+
+function requireNonEmptyString(value, path, errors) {
+  if (typeof value !== "string" || value.length === 0) {
+    errors.push(`${path} must be a non-empty string`);
+    return false;
+  }
+  return true;
+}
+
+function validateXrayStreamSettings(streamSettings, path, errors) {
+  if (!requirePlainObject(streamSettings, path, errors)) {
+    return;
+  }
+  const network = streamSettings.network;
+  requireNonEmptyString(network, `${path}.network`, errors);
+  if (!["tcp", "ws", "grpc", "httpupgrade", "xhttp"].includes(network)) {
+    errors.push(`${path}.network is unsupported: ${network}`);
+  }
+  const security = streamSettings.security ?? "none";
+  if (!["none", "tls", "reality"].includes(security)) {
+    errors.push(`${path}.security is unsupported: ${security}`);
+  }
+  if (network === "ws") {
+    if (requirePlainObject(streamSettings.wsSettings, `${path}.wsSettings`, errors)) {
+      requireNonEmptyString(streamSettings.wsSettings.path, `${path}.wsSettings.path`, errors);
+    }
+  }
+  if (network === "grpc") {
+    if (requirePlainObject(streamSettings.grpcSettings, `${path}.grpcSettings`, errors)) {
+      requireNonEmptyString(streamSettings.grpcSettings.serviceName, `${path}.grpcSettings.serviceName`, errors);
+    }
+  }
+  if (network === "httpupgrade") {
+    if (requirePlainObject(streamSettings.httpupgradeSettings, `${path}.httpupgradeSettings`, errors)) {
+      requireNonEmptyString(streamSettings.httpupgradeSettings.path, `${path}.httpupgradeSettings.path`, errors);
+    }
+  }
+  if (network === "xhttp") {
+    if (requirePlainObject(streamSettings.xhttpSettings, `${path}.xhttpSettings`, errors)) {
+      requireNonEmptyString(streamSettings.xhttpSettings.path, `${path}.xhttpSettings.path`, errors);
+      requireNonEmptyString(streamSettings.xhttpSettings.mode, `${path}.xhttpSettings.mode`, errors);
+    }
+  }
+  if (security === "tls") {
+    if (requirePlainObject(streamSettings.tlsSettings, `${path}.tlsSettings`, errors)) {
+      if (!Array.isArray(streamSettings.tlsSettings.certificates) || streamSettings.tlsSettings.certificates.length === 0) {
+        errors.push(`${path}.tlsSettings.certificates must contain at least one certificate`);
+      }
+    }
+  }
+  if (security === "reality") {
+    if (requirePlainObject(streamSettings.realitySettings, `${path}.realitySettings`, errors)) {
+      requireNonEmptyString(streamSettings.realitySettings.privateKey, `${path}.realitySettings.privateKey`, errors);
+      if (!Array.isArray(streamSettings.realitySettings.serverNames) || streamSettings.realitySettings.serverNames.length === 0) {
+        errors.push(`${path}.realitySettings.serverNames must contain at least one name`);
+      }
+      if (!Array.isArray(streamSettings.realitySettings.shortIds)) {
+        errors.push(`${path}.realitySettings.shortIds must be an array`);
+      }
+    }
   }
 }
 

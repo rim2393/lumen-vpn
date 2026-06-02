@@ -215,3 +215,91 @@ test("rejects OpenVPN-over-Shadowsocks from generic sing-box and Mihomo renderer
     /not enabled for client rendering/
   );
 });
+
+test("renders VLESS VMess and Trojan edge transports for sing-box and Mihomo", () => {
+  const manifest = createSubscriptionManifest({
+    generatedAt: "2026-05-26T00:00:00.000Z",
+    provider: { id: "lumen", name: "Lumen VPN" },
+    subscription: { id: "sub_123", audience: "android" },
+    nodes: [
+      {
+        id: "ams-1",
+        displayName: "Amsterdam 1",
+        region: "nl-ams",
+        protocols: [
+          {
+            type: "vless-ws-tls",
+            endpoint: { host: "ams-1.example.net", port: 8443, transport: "ws" },
+            path: "/vless-ws",
+            security: { type: "tls", serverName: "vless-ws.example.net" },
+            credentialsRef: "vault://subscriptions/sub_123/vless-ws"
+          },
+          {
+            type: "vmess-grpc-tls",
+            endpoint: { host: "ams-1.example.net", port: 9443, transport: "grpc" },
+            serviceName: "vmessGrpc",
+            security: { type: "tls", serverName: "vmess-grpc.example.net" },
+            credentialsRef: "vault://subscriptions/sub_123/vmess-grpc"
+          },
+          {
+            type: "trojan-httpupgrade-tls",
+            endpoint: { host: "ams-1.example.net", port: 10443, transport: "httpupgrade" },
+            path: "/trojan-upgrade",
+            security: { type: "tls", serverName: "trojan-upgrade.example.net" },
+            credentialsRef: "vault://subscriptions/sub_123/trojan-upgrade"
+          }
+        ]
+      }
+    ]
+  });
+
+  const singBox = renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED });
+  assert.equal(singBox.outbounds[0].transport.type, "ws");
+  assert.equal(singBox.outbounds[0].transport.path, "/vless-ws");
+  assert.equal(singBox.outbounds[1].type, "vmess");
+  assert.equal(singBox.outbounds[1].transport.type, "grpc");
+  assert.equal(singBox.outbounds[1].transport.service_name, "vmessGrpc");
+  assert.equal(singBox.outbounds[2].type, "trojan");
+  assert.equal(singBox.outbounds[2].transport.type, "httpupgrade");
+  assert.equal(singBox.outbounds[2].transport.path, "/trojan-upgrade");
+
+  const mihomo = renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED });
+  assert.match(mihomo, /ws-opts:/);
+  assert.match(mihomo, /grpc-opts:/);
+  assert.match(mihomo, /grpc-service-name: "vmessGrpc"/);
+  assert.ok(mihomo.includes('path: "/trojan-upgrade"'));
+});
+
+test("renders XHTTP only for Mihomo until sing-box has a stable outbound shape", () => {
+  const manifest = createSubscriptionManifest({
+    generatedAt: "2026-05-26T00:00:00.000Z",
+    provider: { id: "lumen", name: "Lumen VPN" },
+    subscription: { id: "sub_123", audience: "android" },
+    nodes: [
+      {
+        id: "ams-1",
+        displayName: "Amsterdam 1",
+        region: "nl-ams",
+        protocols: [
+          {
+            type: "vless-xhttp-tls",
+            endpoint: { host: "ams-1.example.net", port: 8443, transport: "xhttp" },
+            path: "/xhttp",
+            mode: "stream-up",
+            security: { type: "tls", serverName: "xhttp.example.net" },
+            credentialsRef: "vault://subscriptions/sub_123/xhttp"
+          }
+        ]
+      }
+    ]
+  });
+
+  assert.throws(
+    () => renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED }),
+    /supported by sing-box renderer/
+  );
+  const mihomo = renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED });
+  assert.match(mihomo, /xhttp-opts:/);
+  assert.ok(mihomo.includes('path: "/xhttp"'));
+  assert.match(mihomo, /mode: "stream-up"/);
+});

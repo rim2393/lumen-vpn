@@ -3,7 +3,25 @@ export const SUBSCRIPTION_MANIFEST_SCHEMA_VERSION = "lumen.subscription-manifest
 export const SUPPORTED_SUBSCRIPTION_PROTOCOLS = Object.freeze([
   "vless-reality",
   "vless-tcp-tls",
+  "vless-ws",
+  "vless-ws-tls",
+  "vless-grpc-tls",
+  "vless-httpupgrade-tls",
+  "vless-xhttp-tls",
+  "vless-reality-grpc",
+  "vless-reality-httpupgrade",
+  "vless-reality-xhttp",
   "vless",
+  "vmess-tcp",
+  "vmess-ws-tls",
+  "vmess-grpc-tls",
+  "vmess-httpupgrade-tls",
+  "trojan-tcp-tls",
+  "trojan-ws-tls",
+  "trojan-grpc-tls",
+  "trojan-httpupgrade-tls",
+  "trojan-xhttp-tls",
+  "trojan-tcp-reality",
   "trojan",
   "shadowsocks",
   "wireguard",
@@ -15,7 +33,45 @@ export const SUPPORTED_SUBSCRIPTION_PROTOCOLS = Object.freeze([
 const SUPPORTED_PROTOCOL_SET = new Set(SUPPORTED_SUBSCRIPTION_PROTOCOLS);
 const PROTOCOL_SECURITY_DEFAULTS = Object.freeze({
   "vless-reality": "reality",
-  "vless-tcp-tls": "tls"
+  "vless-tcp-tls": "tls",
+  "vless-ws-tls": "tls",
+  "vless-grpc-tls": "tls",
+  "vless-httpupgrade-tls": "tls",
+  "vless-xhttp-tls": "tls",
+  "vless-reality-grpc": "reality",
+  "vless-reality-httpupgrade": "reality",
+  "vless-reality-xhttp": "reality",
+  "vmess-ws-tls": "tls",
+  "vmess-grpc-tls": "tls",
+  "vmess-httpupgrade-tls": "tls",
+  "trojan-tcp-tls": "tls",
+  "trojan-ws-tls": "tls",
+  "trojan-grpc-tls": "tls",
+  "trojan-httpupgrade-tls": "tls",
+  "trojan-xhttp-tls": "tls",
+  "trojan-tcp-reality": "reality"
+});
+const PROTOCOL_TRANSPORT_DEFAULTS = Object.freeze({
+  "vless-reality": "tcp",
+  "vless-tcp-tls": "tcp",
+  "vless-ws": "ws",
+  "vless-ws-tls": "ws",
+  "vless-grpc-tls": "grpc",
+  "vless-httpupgrade-tls": "httpupgrade",
+  "vless-xhttp-tls": "xhttp",
+  "vless-reality-grpc": "grpc",
+  "vless-reality-httpupgrade": "httpupgrade",
+  "vless-reality-xhttp": "xhttp",
+  "vmess-tcp": "tcp",
+  "vmess-ws-tls": "ws",
+  "vmess-grpc-tls": "grpc",
+  "vmess-httpupgrade-tls": "httpupgrade",
+  "trojan-tcp-tls": "tcp",
+  "trojan-ws-tls": "ws",
+  "trojan-grpc-tls": "grpc",
+  "trojan-httpupgrade-tls": "httpupgrade",
+  "trojan-xhttp-tls": "xhttp",
+  "trojan-tcp-reality": "tcp"
 });
 
 const SUPPORTED_SECURITY_TYPES = new Set(["none", "reality", "tls"]);
@@ -163,6 +219,9 @@ function normalizeProtocol(protocol = {}) {
     adapter: protocol.adapter ?? protocol.type,
     endpoint: normalizeProtocolEndpoint(protocol.endpoint),
     security: normalizeProtocolSecurity(protocol),
+    path: protocol.path ?? null,
+    serviceName: protocol.serviceName ?? null,
+    mode: protocol.mode ?? null,
     flow: protocol.flow ?? null,
     credentialsRef: protocol.credentialsRef,
     capabilities: Object.freeze([...(protocol.capabilities ?? [])]),
@@ -297,10 +356,11 @@ function validateShortId(value, path, errors) {
 }
 
 function validateProtocolSecurity(protocol, protocolPath, errors) {
-  const security = protocol.security ?? {
+  const security = {
     type: PROTOCOL_SECURITY_DEFAULTS[protocol.type] ?? "none",
     alpn: [],
-    allowInsecure: false
+    allowInsecure: false,
+    ...(protocol.security ?? {})
   };
   requireString(security.type, `${protocolPath}.security.type`, errors);
 
@@ -313,6 +373,9 @@ function validateProtocolSecurity(protocol, protocolPath, errors) {
   }
 
   optionalString(protocol.flow, `${protocolPath}.flow`, errors);
+  optionalString(protocol.path, `${protocolPath}.path`, errors);
+  optionalString(protocol.serviceName, `${protocolPath}.serviceName`, errors);
+  optionalString(protocol.mode, `${protocolPath}.mode`, errors);
   optionalString(security.serverName, `${protocolPath}.security.serverName`, errors);
   optionalString(security.publicKey, `${protocolPath}.security.publicKey`, errors);
   optionalString(security.shortId, `${protocolPath}.security.shortId`, errors);
@@ -326,17 +389,18 @@ function validateProtocolSecurity(protocol, protocolPath, errors) {
     errors.push(`${protocolPath}.security.fingerprint must be one of ${[...SUPPORTED_FINGERPRINTS].join(", ")}`);
   }
 
-  if ((protocol.type === "vless-reality" || protocol.type === "vless-tcp-tls") && (protocol.endpoint?.transport ?? "tcp") !== "tcp") {
-    errors.push(`${protocolPath}.endpoint.transport must be tcp for ${protocol.type}`);
+  const expectedTransport = PROTOCOL_TRANSPORT_DEFAULTS[protocol.type];
+  if (expectedTransport && (protocol.endpoint?.transport ?? "tcp") !== expectedTransport) {
+    errors.push(`${protocolPath}.endpoint.transport must be ${expectedTransport} for ${protocol.type}`);
   }
 
-  if (protocol.type === "vless-reality") {
+  if (security.type === "reality") {
     requireString(security.serverName, `${protocolPath}.security.serverName`, errors);
     requireString(security.publicKey, `${protocolPath}.security.publicKey`, errors);
     optionalString(security.spiderX, `${protocolPath}.security.spiderX`, errors);
   }
 
-  if (protocol.type === "vless-tcp-tls") {
+  if (security.type === "tls" && protocol.type in PROTOCOL_SECURITY_DEFAULTS) {
     requireString(security.serverName, `${protocolPath}.security.serverName`, errors);
     if (security.allowInsecure === true) {
       errors.push(`${protocolPath}.security.allowInsecure must remain false`);

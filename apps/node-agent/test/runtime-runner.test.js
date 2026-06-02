@@ -967,7 +967,15 @@ test("run once applies Xray config only after writing, testing, and reload", asy
           port: 18443,
           protocol: "vless",
           settings: { clients: [{ id: "7f3d9e04-3e76-46a6-9f63-ef45a3129c20" }] },
-          streamSettings: { network: "tcp", security: "reality" }
+          streamSettings: {
+            network: "tcp",
+            security: "reality",
+            realitySettings: {
+              privateKey: "server-private-key",
+              serverNames: ["reality.example.test"],
+              shortIds: ["abcd"]
+            }
+          }
         }
       ],
       outbounds: [{ protocol: "freedom", tag: "direct" }]
@@ -1134,7 +1142,8 @@ test("run once applies node policy artifact from outbound apply", async () => {
         tag: "VLESS_REALITY",
         port: 18443,
         protocol: "vless",
-        settings: { clients: [{ id: "client-1" }] }
+        settings: { clients: [{ id: "client-1" }] },
+        streamSettings: { network: "tcp", security: "none" }
       }
     ],
     outbounds: [{ tag: "direct", protocol: "freedom" }]

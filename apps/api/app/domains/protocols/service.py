@@ -183,6 +183,12 @@ PROTOCOL_ADAPTERS = (
         required_credential_refs=["password", "tls_certificate"],
     ),
     _adapter(
+        "trojan-httpupgrade-tls",
+        "Trojan HTTPUpgrade TLS",
+        capabilities=["xray", "trojan", "tls", "httpupgrade", "subscription"],
+        required_credential_refs=["password", "tls_certificate"],
+    ),
+    _adapter(
         "trojan-xhttp-tls",
         "Trojan XHTTP TLS",
         capabilities=["xray", "trojan", "tls", "xhttp", "subscription"],
@@ -1861,6 +1867,15 @@ def _xray_inbound_stream_settings(inbound: ProfileInboundResponse) -> dict[str, 
         certificates = security_config.get("certificates")
         if isinstance(certificates, list) and certificates:
             stream["tlsSettings"] = {"certificates": certificates}
+        else:
+            stream["tlsSettings"] = {
+                "certificates": [
+                    {
+                        "certificateFile": _DEFAULT_NODE_TLS_CERT_PATH,
+                        "keyFile": _DEFAULT_NODE_TLS_KEY_PATH,
+                    }
+                ]
+            }
     return _compact_object(stream)
 
 

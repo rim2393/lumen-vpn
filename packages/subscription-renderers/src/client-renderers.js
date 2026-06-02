@@ -9,8 +9,26 @@ export const SUPPORTED_RENDER_FORMATS = Object.freeze([
   "mihomo"
 ]);
 const LIVE_CLIENT_PROTOCOLS = new Set([
+  "vless-ws",
+  "vless-ws-tls",
+  "vless-grpc-tls",
+  "vless-httpupgrade-tls",
+  "vless-xhttp-tls",
+  "vless-reality-grpc",
+  "vless-reality-httpupgrade",
+  "vless-reality-xhttp",
   "vless-reality",
   "vless-tcp-tls",
+  "vmess-tcp",
+  "vmess-ws-tls",
+  "vmess-grpc-tls",
+  "vmess-httpupgrade-tls",
+  "trojan-tcp-tls",
+  "trojan-ws-tls",
+  "trojan-grpc-tls",
+  "trojan-httpupgrade-tls",
+  "trojan-xhttp-tls",
+  "trojan-tcp-reality",
   "trojan",
   "shadowsocks",
   "hysteria2"
@@ -28,8 +46,14 @@ function flattenProtocolEntries(manifest) {
 }
 
 function mapClientType(type) {
-  if (type === "vless-reality" || type === "vless-tcp-tls") {
+  if (type.startsWith("vless-")) {
     return "vless";
+  }
+  if (type.startsWith("vmess-")) {
+    return "vmess";
+  }
+  if (type.startsWith("trojan-")) {
+    return "trojan";
   }
   if (type === "hysteria2") {
     return "hysteria2";
@@ -113,6 +137,26 @@ function securityName(protocol) {
   return String(protocol.security?.type ?? "none");
 }
 
+function renderSingBoxTransport(protocol) {
+  const transport = networkType(protocol);
+  if (transport === "tcp") {
+    return null;
+  }
+  if (transport === "xhttp") {
+    return null;
+  }
+  if (transport === "ws") {
+    return compactObject({ type: "ws", path: protocol.path ?? "/" });
+  }
+  if (transport === "grpc") {
+    return compactObject({ type: "grpc", service_name: protocol.serviceName ?? "lumen" });
+  }
+  if (transport === "httpupgrade") {
+    return compactObject({ type: "httpupgrade", path: protocol.path ?? "/" });
+  }
+  return null;
+}
+
 function renderSingBoxTls(protocol) {
   const security = protocol.security ?? {};
   if (security.type === "none") {
@@ -148,17 +192,36 @@ function renderSingBoxOutbound(entry, options) {
     server: protocol.endpoint.host,
     server_port: protocol.endpoint.port
   };
+  if (["vless", "vmess", "trojan"].includes(type) && networkType(protocol) === "xhttp") {
+    return null;
+  }
 
   if (type === "vless") {
     return compactObject({
       ...base,
       uuid: credentials.uuid,
       flow: protocol.flow,
-      tls: renderSingBoxTls(protocol)
+      tls: renderSingBoxTls(protocol),
+      transport: renderSingBoxTransport(protocol)
+    });
+  }
+  if (type === "vmess") {
+    return compactObject({
+      ...base,
+      uuid: credentials.uuid,
+      security: "auto",
+      alter_id: 0,
+      tls: renderSingBoxTls(protocol),
+      transport: renderSingBoxTransport(protocol)
     });
   }
   if (type === "trojan") {
-    return compactObject({ ...base, password: credentials.password, tls: renderSingBoxTls(protocol) });
+    return compactObject({
+      ...base,
+      password: credentials.password,
+      tls: renderSingBoxTls(protocol),
+      transport: renderSingBoxTransport(protocol)
+    });
   }
   if (type === "ss") {
     return compactObject({
@@ -248,6 +311,17 @@ function addMihomoSecurity(output, protocol) {
   }
 }
 
+function addMihomoTransport(output, protocol) {
+  const transport = networkType(protocol);
+  if (transport === "ws" || transport === "httpupgrade") {
+    output["ws-opts"] = { path: protocol.path ?? "/" };
+  } else if (transport === "grpc") {
+    output["grpc-opts"] = { "grpc-service-name": protocol.serviceName ?? "lumen" };
+  } else if (transport === "xhttp") {
+    output["xhttp-opts"] = { path: protocol.path ?? "/", mode: protocol.mode ?? "auto" };
+  }
+}
+
 function renderMihomoProxy(entry, options) {
   const protocol = entry.protocol;
   assertLiveClientProtocol(protocol);
@@ -266,11 +340,26 @@ function renderMihomoProxy(entry, options) {
     if (protocol.flow) {
       proxy.flow = protocol.flow;
     }
+    addMihomoTransport(proxy, protocol);
+    addMihomoSecurity(proxy, protocol);
+    return compactObject(proxy);
+  }
+  if (type === "vmess") {
+    const proxy = {
+      ...base,
+      uuid: credentials.uuid,
+      alterId: 0,
+      cipher: "auto",
+      udp: true,
+      tls: securityName(protocol) !== "none"
+    };
+    addMihomoTransport(proxy, protocol);
     addMihomoSecurity(proxy, protocol);
     return compactObject(proxy);
   }
   if (type === "trojan") {
     const proxy = { ...base, password: credentials.password, udp: true, tls: true };
+    addMihomoTransport(proxy, protocol);
     addMihomoSecurity(proxy, protocol);
     return compactObject(proxy);
   }
