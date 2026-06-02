@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.97` |
-| Product repo head | `8fcd9f8 Apply subscription page configs at edge` |
-| Public installer manifest | `rim2393/lumen_vpn@2f0531b` |
+| Latest production release | `v0.1.98` |
+| Product repo head | `28a6e9c Complete HWID inspector tools` |
+| Public installer manifest | `rim2393/lumen_vpn@e1bfc07` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -121,8 +121,8 @@ evidence here is wrong or stale.
 
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
-| T-001 | HWID inspector and device delete/delete-all | NEXT | Device list exists for subscription admin; full tools surface open | `e8f8699` devices list; next slice must add full Tools inspector/actions and live delete evidence |
-| T-002 | Top users | OPEN | Real database stats and UI table, no fake counters | Not started |
+| T-001 | HWID inspector and device delete/delete-all | DONE | Device list exists for subscription admin; full tools surface open | `28a6e9c`, `v0.1.98`, product release run `26794957822`, installer/deploy run `26795013148`, manifest `rim2393/lumen_vpn@e1bfc07`; backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `HWID inspector` passed; prod containers `lumen-api/web/subscription` on `v0.1.98` healthy; live smoke created a temporary real user/license/subscription, public manifest registered HWID on the real user, Tools HWID lookup found `hwid`, `last_seen_at`, and `subscription_id`, delete-one removed the HWID, a second public request registered another HWID, clear-all removed every device, and cleanup left `0` QA users/licenses. |
+| T-002 | Top users | NEXT | Real database stats and UI table, no fake counters | Not started |
 | T-003 | Fetch user IPs and node user IPs | OPEN | Real session/runtime/IP-control views | Not started |
 | T-004 | Drop connections | OPEN | Backend queues/executes real node-agent disconnect operation | Not started |
 | T-005 | Full HApp routing encryption | OPEN | Utility/API/UI produce usable encrypted routing payloads | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`T-001`: HWID inspector and device delete/delete-all.
+`T-002`: Top users.
 
 Proposed implementation:
 
-1. Audit current device/HWID storage, existing subscription/user detail controls, and Tools page inspector gaps.
-2. Implement protected tools API for HWID lookup across subscriptions/users/licenses with filters and no fake devices.
-3. Wire delete-one and delete-all device actions to real subscription/user device records with audit events.
-4. Add Tools UI controls for lookup, selected device delete, subscription delete-all, and clear result states.
-5. Verify with a temporary real subscription that public requests register HWID, inspector sees it, delete removes it, and release/live smoke prove the path.
+1. Audit existing traffic/user fields and decide the exact real ranking metrics available now.
+2. Add protected tools API for top users by traffic used, traffic percent, device count, and expiration risk.
+3. Wire Tools UI table and filters without fake counters or synthetic totals.
+4. Add backend/frontend tests with seeded real users only.
+5. Release through signed manifest and verify live API/UI smoke on production data.
 
 ## Checkpoint Notes
 
