@@ -31,6 +31,7 @@ const LIVE_CLIENT_PROTOCOLS = new Set([
   "trojan-tcp-reality",
   "trojan",
   "shadowsocks",
+  "wireguard",
   "hysteria2"
 ]);
 
@@ -54,6 +55,9 @@ function mapClientType(type) {
   }
   if (type.startsWith("trojan-")) {
     return "trojan";
+  }
+  if (type === "wireguard") {
+    return "wireguard";
   }
   if (type === "hysteria2") {
     return "hysteria2";
@@ -120,7 +124,16 @@ function credentialsFor(entry, options = {}) {
     uuid: deriveUuid(entry, options),
     password: deriveCredentialText(entry, options, "password", 24),
     shadowsocksPassword: deriveCredentialText(entry, options, "shadowsocks", 32),
-    hysteriaPassword: deriveCredentialText(entry, options, "hysteria2", 24)
+    hysteriaPassword: deriveCredentialText(entry, options, "hysteria2", 24),
+    wireguardPrivateKey: createHmac("sha256", rendererSeed(options))
+      .update([
+        entry.manifest.subscription.id,
+        entry.protocol.credentialsRef,
+        entry.protocol.id,
+        entry.protocol.type,
+        "wireguard-private"
+      ].join("|"))
+      .digest("base64")
   });
 }
 
@@ -232,6 +245,18 @@ function renderSingBoxOutbound(entry, options) {
   }
   if (type === "hysteria2") {
     return compactObject({ ...base, password: credentials.hysteriaPassword, tls: renderSingBoxTls(protocol) });
+  }
+  if (type === "wireguard") {
+    return compactObject({
+      ...base,
+      local_address: String(protocol.rendererHints?.address ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      private_key: credentials.wireguardPrivateKey,
+      peer_public_key: protocol.security?.publicKey,
+      mtu: protocol.rendererHints?.mtu
+    });
   }
   return null;
 }
@@ -377,6 +402,20 @@ function renderMihomoProxy(entry, options) {
       proxy.sni = protocol.security.serverName;
     }
     return compactObject(proxy);
+  }
+  if (type === "wireguard") {
+    const address = String(protocol.rendererHints?.address ?? "")
+      .split(",")[0]
+      .split("/")[0]
+      .trim();
+    return compactObject({
+      ...base,
+      "private-key": credentials.wireguardPrivateKey,
+      "public-key": protocol.security?.publicKey,
+      ip: address,
+      udp: true,
+      mtu: protocol.rendererHints?.mtu
+    });
   }
   return null;
 }

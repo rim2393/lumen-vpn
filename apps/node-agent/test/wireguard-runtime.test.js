@@ -104,6 +104,13 @@ test("createWireguardApplyPlan rejects unresolved refs", () => {
   assert.throws(() => createWireguardApplyPlan({ config }), /unresolved refs/);
 });
 
+test("createWireguardApplyPlan rejects awg-quick without AmneziaWG options", () => {
+  assert.throws(
+    () => createWireguardApplyPlan({ config: validConfig(), reloadMode: "awg-quick" }),
+    /requires AmneziaWG interface options/
+  );
+});
+
 test("applyWireguardConfig dry-run summarizes reload without touching disk", async () => {
   const plan = createWireguardApplyPlan({ config: validConfig() });
   const result = await applyWireguardConfig(plan, { dryRun: true });

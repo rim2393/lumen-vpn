@@ -72,6 +72,7 @@ async def _seed_profile(
     *,
     status: str = "active",
     with_subscription: bool = True,
+    config_json: dict[str, object] | None = None,
 ) -> tuple[str, str]:
     async with route_app.sessionmaker() as session:
         node = Node(
@@ -89,7 +90,7 @@ async def _seed_profile(
             node_id=node.id,
             adapter=adapter,
             status=status,
-            config_json={},
+            config_json=config_json or {},
             port_reservations=[{"address": "0.0.0.0", "port": 443, "protocol": "udp"}],  # noqa: S104
             credentials_ref="vault://subscriptions/profile/creds",
         )
@@ -135,14 +136,105 @@ async def test_apply_hysteria2_profile_queues_outbound_apply(route_app: RouteApp
 
     async with route_app.sessionmaker() as session:
         command = (
-            await session.execute(
-                select(NodeCommand).where(NodeCommand.node_id == UUID(node_id))
-            )
+            await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id)))
         ).scalar_one()
         assert command.command_type == "outbound.apply"
         assert "hysteria2Config" in command.payload_json
         assert "clientsRef" not in command.payload_json["hysteria2Config"]
         assert command.payload_json["hysteria2Config"]["auth"]["password"]
+
+
+async def test_apply_wireguard_rejects_missing_server_private_key_before_queue(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(route_app, "wireguard-native")
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "wireguard_runtime_config_incomplete"
+    assert "interface.private_key" in response.json()["error"]["details"]
+
+    async with route_app.sessionmaker() as session:
+        commands = (
+            (await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id))))
+            .scalars()
+            .all()
+        )
+        assert commands == []
+
+
+async def test_apply_wireguard_profile_queues_concrete_peer_config(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(
+        route_app,
+        "wireguard-native",
+        config_json={"interface": {"private_key": "server-private", "address": "10.66.0.1/24"}},
+    )
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 202, response.text
+
+    async with route_app.sessionmaker() as session:
+        command = (
+            await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id)))
+        ).scalar_one()
+        config = command.payload_json["wireguardConfig"]
+        assert config["interface"]["private_key"] == "server-private"
+        assert config["peers"][0]["public_key"]
+        assert config["peers"][0]["allowed_ips"] == "10.66.0.2/32"
+        assert "clientsRef" not in config
+
+
+async def test_apply_amneziawg_rejects_missing_obfuscation_before_queue(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(
+        route_app,
+        "wireguard-amneziawg",
+        config_json={"interface": {"private_key": "server-private", "address": "10.77.0.1/24"}},
+    )
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "wireguard_runtime_config_incomplete"
+    assert "interface.amneziawg_obfuscation" in response.json()["error"]["details"]
+
+    async with route_app.sessionmaker() as session:
+        commands = (
+            (await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id))))
+            .scalars()
+            .all()
+        )
+        assert commands == []
+
+
+async def test_apply_amneziawg_profile_queues_awg_quick_peer_config(
+    route_app: RouteApp,
+) -> None:
+    profile_id, node_id = await _seed_profile(
+        route_app,
+        "wireguard-amneziawg",
+        config_json={
+            "interface": {
+                "private_key": "server-private",
+                "address": "10.77.0.1/24",
+                "Jc": 4,
+                "S1": 60,
+            }
+        },
+    )
+    response = await route_app.client.post(f"/api/v1/profiles/{profile_id}/apply-to-node")
+    assert response.status_code == 202, response.text
+
+    async with route_app.sessionmaker() as session:
+        command = (
+            await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id)))
+        ).scalar_one()
+        assert command.payload_json["adapter"] == "wireguard-amneziawg"
+        assert command.payload_json["wireguardReloadMode"] == "awg-quick"
+        config = command.payload_json["wireguardConfig"]
+        assert config["interface"]["Jc"] == 4
+        assert config["interface"]["S1"] == 60
+        assert config["peers"][0]["public_key"]
+        assert config["peers"][0]["allowed_ips"] == "10.66.0.2/32"
 
 
 async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
@@ -175,9 +267,7 @@ async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(
 
     async with route_app.sessionmaker() as session:
         command = (
-            await session.execute(
-                select(NodeCommand).where(NodeCommand.node_id == UUID(node_id))
-            )
+            await session.execute(select(NodeCommand).where(NodeCommand.node_id == UUID(node_id)))
         ).scalar_one()
         policy = command.payload_json["nodePolicy"]
         assert policy["modelVersion"] == "lumen.node-policy.v1"
@@ -259,9 +349,7 @@ async def test_apply_xray_profile_keeps_other_active_xray_inbounds_on_same_node(
 
     async with route_app.sessionmaker() as session:
         command = (
-            await session.execute(
-                select(NodeCommand).where(NodeCommand.node_id == node.id)
-            )
+            await session.execute(select(NodeCommand).where(NodeCommand.node_id == node.id))
         ).scalar_one()
         xray_config = command.payload_json["xrayConfig"]
         inbounds = xray_config["inbounds"]

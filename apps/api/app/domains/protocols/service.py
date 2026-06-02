@@ -307,6 +307,8 @@ PROTOCOL_ADAPTERS = (
         required_credential_refs=["private_key"],
     ),
 )
+
+
 def _protocol_adapter_by_protocol(protocol: str) -> ProtocolAdapterResponse:
     return next(
         (adapter for adapter in PROTOCOL_ADAPTERS if adapter.protocol == protocol),
@@ -365,6 +367,26 @@ SQUAD_METADATA_SECRET_FRAGMENTS = frozenset(
         "token",
         "subscription_url",
         "runtime_config",
+    }
+)
+AMNEZIA_WG_INTERFACE_KEYS = frozenset(
+    {
+        "Jc",
+        "Jmin",
+        "Jmax",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "I1",
+        "I2",
+        "I3",
+        "I4",
+        "I5",
     }
 )
 
@@ -1268,11 +1290,15 @@ async def record_outbound_apply_result(
     if not profile_ids:
         return
     profiles = (
-        await session.execute(select(ProtocolProfile).where(ProtocolProfile.id.in_(profile_ids)))
-    ).scalars().all()
+        (await session.execute(select(ProtocolProfile).where(ProtocolProfile.id.in_(profile_ids))))
+        .scalars()
+        .all()
+    )
     hosts = (
-        await session.execute(select(Host).where(Host.protocol_profile_id.in_(profile_ids)))
-    ).scalars().all()
+        (await session.execute(select(Host).where(Host.protocol_profile_id.in_(profile_ids))))
+        .scalars()
+        .all()
+    )
     if command.status == "succeeded":
         applied_at = command.completed_at.isoformat() if command.completed_at else _utc_iso()
         for profile in profiles:
@@ -1784,11 +1810,7 @@ def _xray_inbound_settings(
             ],
         }
     elif inbound.protocol == "shadowsocks":
-        password = (
-            str(clients[0]["shadowsocks_password"])
-            if clients
-            else ""
-        )
+        password = str(clients[0]["shadowsocks_password"]) if clients else ""
         settings = {
             "method": str(inbound.config_json.get("method") or "aes-256-gcm"),
             "password": password,
@@ -2128,9 +2150,7 @@ async def list_profile_runtime_clients(
     settings = get_settings()
     for subscription in subscriptions:
         delivery = (
-            subscription.delivery_profile
-            if isinstance(subscription.delivery_profile, dict)
-            else {}
+            subscription.delivery_profile if isinstance(subscription.delivery_profile, dict) else {}
         )
         delivery_profile_id = str(delivery.get("profile_id") or "")
         delivery_adapter = str(delivery.get("adapter") or delivery.get("protocol") or "")
@@ -2150,9 +2170,7 @@ async def list_profile_runtime_clients(
             protocol_type=protocol_type,
         )
         shadowsocks_method = str(
-            profile.config_json.get("method")
-            or delivery.get("method")
-            or "2022-blake3-aes-128-gcm"
+            profile.config_json.get("method") or delivery.get("method") or "2022-blake3-aes-128-gcm"
         )
         clients.append(
             {
@@ -2212,10 +2230,7 @@ def _computed_tuic_config(
     _ensure_tuic_tls_paths(config)
     clients = runtime_clients or []
     if clients:
-        config["users"] = {
-            str(client["uuid"]): str(client["password"])
-            for client in clients
-        }
+        config["users"] = {str(client["uuid"]): str(client["password"]) for client in clients}
         config.pop("clientsRef", None)
     else:
         config["clientsRef"] = profile.credentials_ref
@@ -2477,6 +2492,8 @@ def build_node_outbound_payload(
     family = _adapter_family(profile.adapter)
     config_key = _NODE_CONFIG_KEY_BY_FAMILY[family]
     config = compute_node_outbound_config(profile, inbounds, runtime_clients=runtime_clients)
+    if family == "wireguard" and runtime_clients is not None:
+        _ensure_wireguard_runtime_config_ready(profile, config)
     if family == "xray" and runtime_policy is not None:
         config = _apply_xray_policy(config, runtime_policy)
     payload = {
@@ -2491,6 +2508,42 @@ def build_node_outbound_payload(
     return payload
 
 
+def _ensure_wireguard_runtime_config_ready(
+    profile: ProtocolProfile,
+    config: dict[str, object],
+) -> None:
+    interface = config.get("interface") if isinstance(config.get("interface"), dict) else {}
+    peers = config.get("peers") if isinstance(config.get("peers"), list) else []
+    missing: list[str] = []
+    if not isinstance(interface.get("private_key"), str) or not interface["private_key"].strip():
+        missing.append("interface.private_key")
+    if not isinstance(interface.get("address"), str) or not interface["address"].strip():
+        missing.append("interface.address")
+    if not isinstance(interface.get("listen_port"), int):
+        missing.append("interface.listen_port")
+    if not peers:
+        missing.append("peers")
+    for index, peer in enumerate(peers):
+        if not isinstance(peer, dict):
+            missing.append(f"peers[{index}]")
+            continue
+        if not isinstance(peer.get("public_key"), str) or not peer["public_key"].strip():
+            missing.append(f"peers[{index}].public_key")
+        if not isinstance(peer.get("allowed_ips"), str) or not peer["allowed_ips"].strip():
+            missing.append(f"peers[{index}].allowed_ips")
+    if profile.adapter == "wireguard-amneziawg" and not any(
+        interface.get(key) is not None for key in AMNEZIA_WG_INTERFACE_KEYS
+    ):
+        missing.append("interface.amneziawg_obfuscation")
+    if missing:
+        raise APIError(
+            code="wireguard_runtime_config_incomplete",
+            message="WireGuard runtime config is incomplete for real node apply.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=missing,
+        )
+
+
 async def build_node_xray_outbound_payload(
     session: AsyncSession,
     *,
@@ -2501,15 +2554,19 @@ async def build_node_xray_outbound_payload(
     """Build a single Xray config containing every real active Xray inbound on a node."""
 
     active_profiles = (
-        await session.execute(
-            select(ProtocolProfile)
-            .where(
-                ProtocolProfile.node_id == node_id,
-                ProtocolProfile.status == "active",
+        (
+            await session.execute(
+                select(ProtocolProfile)
+                .where(
+                    ProtocolProfile.node_id == node_id,
+                    ProtocolProfile.status == "active",
+                )
+                .order_by(ProtocolProfile.created_at.asc())
             )
-            .order_by(ProtocolProfile.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     profile_payloads: list[tuple[ProtocolProfile, dict[str, object]]] = []
     target_profile_has_clients = False

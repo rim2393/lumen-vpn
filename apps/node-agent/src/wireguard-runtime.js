@@ -170,6 +170,9 @@ export function renderWireguardIni(config) {
 export function createWireguardApplyPlan(input = {}) {
   const config = input.wireguardConfig ?? input.config;
   validateWireguardConfig(config);
+  if (input.reloadMode === "awg-quick" && !containsAmneziaWireGuardOptions(config)) {
+    throw new Error("awg-quick reload mode requires AmneziaWG interface options");
+  }
   return Object.freeze({
     modelVersion: WIREGUARD_RUNTIME_MODEL_VERSION,
     id: input.id,

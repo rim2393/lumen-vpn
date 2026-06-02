@@ -153,7 +153,7 @@ test("renders Hysteria2, Trojan and Shadowsocks with real derived credentials", 
   assert.doesNotMatch(mihomo, /skeleton|placeholder|credentialsRef|privateKey|accessToken/i);
 });
 
-test("rejects WireGuard from client renderers until real key material is available", () => {
+test("renders WireGuard for sing-box and Mihomo with derived client keys", () => {
   const manifest = createSubscriptionManifest({
     generatedAt: "2026-05-26T00:00:00.000Z",
     provider: { id: "lumen", name: "Lumen VPN" },
@@ -167,6 +167,12 @@ test("rejects WireGuard from client renderers until real key material is availab
           {
             type: "wireguard",
             endpoint: { host: "ams-1.example.net", port: 51820, transport: "udp" },
+            security: { publicKey: "server-public-key" },
+            rendererHints: {
+              address: "10.66.0.2/32",
+              allowedIps: "0.0.0.0/0, ::/0",
+              mtu: 1420
+            },
             credentialsRef: "vault://subscriptions/sub_123/wireguard"
           }
         ]
@@ -174,14 +180,19 @@ test("rejects WireGuard from client renderers until real key material is availab
     ]
   });
 
-  assert.throws(
-    () => renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED }),
-    /not enabled for client rendering/
-  );
-  assert.throws(
-    () => renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED }),
-    /not enabled for client rendering/
-  );
+  const singBox = renderSingBoxConfig(manifest, { credentialSeed: CREDENTIAL_SEED });
+  assert.equal(singBox.outbounds[0].type, "wireguard");
+  assert.equal(singBox.outbounds[0].server, "ams-1.example.net");
+  assert.equal(singBox.outbounds[0].server_port, 51820);
+  assert.equal(singBox.outbounds[0].peer_public_key, "server-public-key");
+  assert.equal(singBox.outbounds[0].private_key.length, 44);
+  assert.deepEqual(singBox.outbounds[0].local_address, ["10.66.0.2/32"]);
+
+  const mihomo = renderMihomoYaml(manifest, { credentialSeed: CREDENTIAL_SEED });
+  assert.match(mihomo, /type: "wireguard"/);
+  assert.match(mihomo, /private-key:/);
+  assert.match(mihomo, /public-key: "server-public-key"/);
+  assert.match(mihomo, /ip: "10.66.0.2"/);
 });
 
 test("rejects OpenVPN-over-Shadowsocks from generic sing-box and Mihomo renderers", () => {

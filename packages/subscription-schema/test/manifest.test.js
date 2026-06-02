@@ -175,6 +175,41 @@ test("rejects plaintext credential references", () => {
   assert.match(result.errors.join("\n"), /credentialsRef must be a vault:\/\/ reference/);
 });
 
+test("validates WireGuard renderability fields early", () => {
+  const missingFields = validateSubscriptionManifest(createUncheckedManifest({
+    type: "wireguard",
+    endpoint: { host: "ams-1.example.net", port: 51820, transport: "udp" },
+    security: {}
+  }));
+  assert.equal(missingFields.ok, false);
+  assert.match(missingFields.errors.join("\n"), /security\.publicKey/);
+  assert.match(missingFields.errors.join("\n"), /rendererHints\.address/);
+  assert.match(missingFields.errors.join("\n"), /rendererHints\.allowedIps/);
+
+  const wrongTransport = validateSubscriptionManifest(createUncheckedManifest({
+    type: "wireguard",
+    endpoint: { host: "ams-1.example.net", port: 51820, transport: "tcp" },
+    security: { publicKey: "server-public-key" },
+    rendererHints: { address: "10.66.0.2/32", allowedIps: "0.0.0.0/0" }
+  }));
+  assert.equal(wrongTransport.ok, false);
+  assert.match(wrongTransport.errors.join("\n"), /endpoint\.transport must be udp/);
+
+  const amnezia = createSubscriptionManifest(createUncheckedManifest({
+    type: "wireguard-amneziawg",
+    endpoint: { host: "ams-1.example.net", port: 51821, transport: "udp" },
+    security: { publicKey: "server-public-key" },
+    rendererHints: {
+      address: "10.77.0.2/32",
+      allowedIps: "0.0.0.0/0",
+      Jc: "4",
+      S1: "60"
+    }
+  }));
+  assert.equal(validateSubscriptionManifest(amnezia).ok, true);
+  assert.equal(amnezia.nodes[0].protocols[0].type, "wireguard-amneziawg");
+});
+
 function createUncheckedManifest(protocol) {
   return {
     schemaVersion: SUBSCRIPTION_MANIFEST_SCHEMA_VERSION,

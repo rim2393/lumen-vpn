@@ -54,6 +54,11 @@ jobs:
           python -m ruff check app/domains/protocols/service.py tests/test_node_outbound_config.py tests/test_trojan_subscription_routes.py tests/test_protocol_adapter_catalog.py
           python -m pytest tests/test_node_outbound_config.py tests/test_trojan_subscription_routes.py::test_xray_edge_subscription_render_matrix tests/test_protocol_adapter_catalog.py -q
 
+      - name: Verify WireGuard and AmneziaWG runtime gates
+        run: |
+          python -m ruff check app/domains/protocols/service.py tests/test_node_outbound_config.py tests/test_apply_profile_to_node_routes.py tests/test_node_provisioning_services.py
+          python -m pytest tests/test_node_outbound_config.py tests/test_apply_profile_to_node_routes.py tests/test_node_provisioning_services.py -q
+
   subscription-packages:
     name: Subscription schema and renderers
     runs-on: ubuntu-24.04
@@ -88,6 +93,6 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Verify node-agent Xray runtime gates
+      - name: Verify node-agent runtime gates
         working-directory: apps/node-agent
-        run: node --test test/xray-runtime.test.js test/runtime-runner.test.js
+        run: node --test test/xray-runtime.test.js test/wireguard-runtime.test.js test/runtime-runner.test.js

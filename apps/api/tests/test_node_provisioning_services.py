@@ -130,6 +130,47 @@ def test_outbound_apply_accepts_openvpn_shadowsocks_live_payload() -> None:
     )
 
 
+def test_outbound_apply_accepts_wireguard_native_live_payload() -> None:
+    ensure_supported_node_command(
+        NodeCommandCreateRequest(
+            command_type="outbound.apply",
+            payload_json={
+                "adapter": "wireguard-native",
+                "wireguardConfig": {
+                    "interface": {
+                        "private_key": "server-private-key",
+                        "address": "10.66.0.1/24",
+                        "listen_port": 51820,
+                    },
+                    "peers": [{"public_key": "client-public-key", "allowed_ips": "10.66.0.2/32"}],
+                },
+            },
+        )
+    )
+
+
+def test_outbound_apply_accepts_amneziawg_live_payload() -> None:
+    ensure_supported_node_command(
+        NodeCommandCreateRequest(
+            command_type="outbound.apply",
+            payload_json={
+                "adapter": "wireguard-amneziawg",
+                "wireguardReloadMode": "awg-quick",
+                "wireguardConfig": {
+                    "interface": {
+                        "private_key": "server-private-key",
+                        "address": "10.77.0.1/24",
+                        "listen_port": 51821,
+                        "Jc": 4,
+                        "S1": 60,
+                    },
+                    "peers": [{"public_key": "client-public-key", "allowed_ips": "10.77.0.2/32"}],
+                },
+            },
+        )
+    )
+
+
 async def test_create_provisioning_job_is_idempotent_and_stores_credential_reference_only(
     db_session: tuple[AsyncSession, Settings],
 ) -> None:

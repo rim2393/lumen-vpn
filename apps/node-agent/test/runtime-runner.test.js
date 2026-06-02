@@ -1251,6 +1251,135 @@ test("run once applies node policy artifact from outbound apply", async () => {
   }
 });
 
+for (const scenario of [
+  {
+    name: "wireguard-native",
+    adapter: "wireguard-native",
+    reloadMode: undefined,
+    configPatch: {},
+    expectedCalls(configPath) {
+      return [
+        ["wg-quick", ["down", configPath]],
+        ["wg-quick", ["up", configPath]],
+        ["wg", ["show", "lumen-wg"]]
+      ];
+    }
+  },
+  {
+    name: "wireguard-amneziawg",
+    adapter: "wireguard-amneziawg",
+    reloadMode: "awg-quick",
+    configPatch: { Jc: 4, S1: 60 },
+    expectedCalls(configPath) {
+      return [
+        ["awg-quick", ["down", configPath]],
+        ["awg-quick", ["up", configPath]],
+        ["awg", ["show", "lumen-wg"]]
+      ];
+    }
+  }
+]) {
+  test(`run once applies ${scenario.name} outbound.apply via wireguard runtime`, async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
+    const wgDir = mkdtempSync(join(tmpdir(), "lumen-wg-"));
+    const configPath = join(wgDir, "lumen-wg.conf");
+    const execCalls = [];
+    const calls = [];
+    const wireguardConfig = {
+      interface: {
+        private_key: "server-private-key",
+        address: "10.66.0.1/24",
+        listen_port: 51820,
+        ...scenario.configPatch
+      },
+      peers: [
+        {
+          public_key: "client-public-key",
+          allowed_ips: "10.66.0.2/32",
+          persistent_keepalive: 25
+        }
+      ]
+    };
+
+    try {
+      writeFileSync(join(stateDir, "node-token"), "persisted-node-token\n", { mode: 0o600 });
+      writeFileSync(join(stateDir, "heartbeat-path"), "/api/v1/nodes/node-1/heartbeat\n", { mode: 0o600 });
+      const result = await runNodeAgentOnce({
+        env: {
+          LUMEN_CONTROL_PLANE_URL: "https://panel.example",
+          LUMEN_NODE_NAME: "node-1",
+          LUMEN_STATE_DIR: stateDir,
+          LUMEN_DRY_RUN: "false"
+        },
+        execFileImpl: async (command, args) => {
+          execCalls.push([command, args]);
+          return { stdout: "", stderr: "" };
+        },
+        fetchImpl: async (url, options) => {
+          calls.push({ url, options });
+          if (url.endsWith("/heartbeat")) {
+            return jsonResponse({
+              id: "node-1",
+              name: "node-1",
+              status: "active",
+              last_seen_at: "2026-05-27T00:00:00Z",
+              capabilities: {}
+            });
+          }
+          if (url.endsWith("/commands/next")) {
+            return jsonResponse({
+              id: `cmd-${scenario.name}-apply-1`,
+              node_id: "node-1",
+              command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+              status: "claimed",
+              payload_json: {
+                profileId: "profile-1",
+                adapter: scenario.adapter,
+                wireguardConfig,
+                wireguardConfigPath: configPath,
+                ...(scenario.reloadMode ? { wireguardReloadMode: scenario.reloadMode } : {})
+              },
+              created_at: "2026-05-27T00:01:00.000Z"
+            });
+          }
+          if (url.endsWith("/result")) {
+            return jsonResponse({
+              id: `cmd-${scenario.name}-apply-1`,
+              node_id: "node-1",
+              command_type: COMMAND_TYPES.OUTBOUND_APPLY,
+              status: JSON.parse(options.body).status,
+              payload_json: {},
+              result_json: JSON.parse(options.body).result_json
+            });
+          }
+          return jsonResponse({
+            id: "metric-1",
+            node_id: "node-1",
+            metric_kind: "runtime",
+            values_json: JSON.parse(options.body).values_json
+          });
+        }
+      });
+
+      assert.equal(result.command.status, "succeeded");
+      assert.deepEqual(execCalls, scenario.expectedCalls(configPath));
+      const written = readFileSync(configPath, "utf8");
+      assert.match(written, /\[Interface]/);
+      assert.match(written, /PrivateKey = server-private-key/);
+      assert.match(written, /\[Peer]/);
+      const resultBody = JSON.parse(calls[2].options.body);
+      assert.equal(resultBody.result_json.outputs.implementationStatus, "wireguard-applied");
+      assert.equal(
+        resultBody.result_json.outputs.reloadMode,
+        scenario.reloadMode ?? "wg-quick"
+      );
+    } finally {
+      rmSync(stateDir, { recursive: true, force: true });
+      rmSync(wgDir, { recursive: true, force: true });
+    }
+  });
+}
+
 test("run once executes node restart as a deferred container restart", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
   const scheduled = [];

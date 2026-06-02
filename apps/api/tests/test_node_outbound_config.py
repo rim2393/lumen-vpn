@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.errors import APIError
 from app.domains.protocols.models import ProtocolProfile
 from app.domains.protocols.service import build_node_outbound_payload
 
@@ -149,6 +150,65 @@ def test_wireguard_profile_builds_wireguard_payload():
     assert payload["wireguardConfig"]["clientsRef"] == "vault://subscriptions/p/creds"
 
 
+def test_wireguard_apply_payload_requires_real_server_key_and_peers():
+    with pytest.raises(APIError) as exc_info:
+        build_node_outbound_payload(
+            _profile("wireguard-native"),
+            _inbounds(51820, protocol="wireguard"),
+            runtime_clients=[
+                {
+                    "public_id": "lumen_sub_live",
+                    "wireguard_public_key": "client-public-key",
+                    "address": "10.66.0.2/32",
+                }
+            ],
+        )
+    assert exc_info.value.code == "wireguard_runtime_config_incomplete"
+    assert "interface.private_key" in exc_info.value.details
+
+
+def test_wireguard_apply_payload_uses_real_server_key_and_client_peer():
+    payload = build_node_outbound_payload(
+        _profile(
+            "wireguard-native",
+            {"interface": {"private_key": "server-private", "address": "10.66.0.1/24"}},
+        ),
+        _inbounds(51820, protocol="wireguard"),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "wireguard_public_key": "client-public-key",
+                "address": "10.66.0.2/32",
+            }
+        ],
+    )
+    config = payload["wireguardConfig"]
+    assert config["interface"]["private_key"] == "server-private"
+    assert config["interface"]["listen_port"] == 51820
+    assert config["peers"] == [{"public_key": "client-public-key", "allowed_ips": "10.66.0.2/32"}]
+    assert "clientsRef" not in config
+
+
+def test_amneziawg_apply_payload_requires_obfuscation_params():
+    with pytest.raises(APIError) as exc_info:
+        build_node_outbound_payload(
+            _profile(
+                "wireguard-amneziawg",
+                {"interface": {"private_key": "server-private", "address": "10.77.0.1/24"}},
+            ),
+            _inbounds(51821, protocol="wireguard"),
+            runtime_clients=[
+                {
+                    "public_id": "lumen_sub_live",
+                    "wireguard_public_key": "client-public-key",
+                    "address": "10.77.0.2/32",
+                }
+            ],
+        )
+    assert exc_info.value.code == "wireguard_runtime_config_incomplete"
+    assert "interface.amneziawg_obfuscation" in exc_info.value.details
+
+
 def test_amneziawg_profile_requests_awg_quick_runtime():
     payload = build_node_outbound_payload(
         _profile(
@@ -156,6 +216,13 @@ def test_amneziawg_profile_requests_awg_quick_runtime():
             {"interface": {"private_key": "server-private", "address": "10.77.0.1/24", "Jc": 4}},
         ),
         _inbounds(51821, protocol="wireguard"),
+        runtime_clients=[
+            {
+                "public_id": "lumen_sub_live",
+                "wireguard_public_key": "client-public-key",
+                "address": "10.77.0.2/32",
+            }
+        ],
     )
     assert payload["adapter"] == "wireguard-amneziawg"
     assert payload["wireguardReloadMode"] == "awg-quick"

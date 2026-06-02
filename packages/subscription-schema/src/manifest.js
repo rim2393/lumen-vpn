@@ -25,6 +25,7 @@ export const SUPPORTED_SUBSCRIPTION_PROTOCOLS = Object.freeze([
   "trojan",
   "shadowsocks",
   "wireguard",
+  "wireguard-amneziawg",
   "hysteria2",
   "openvpn",
   "openvpn-shadowsocks"
@@ -71,7 +72,9 @@ const PROTOCOL_TRANSPORT_DEFAULTS = Object.freeze({
   "trojan-grpc-tls": "grpc",
   "trojan-httpupgrade-tls": "httpupgrade",
   "trojan-xhttp-tls": "xhttp",
-  "trojan-tcp-reality": "tcp"
+  "trojan-tcp-reality": "tcp",
+  "wireguard": "udp",
+  "wireguard-amneziawg": "udp"
 });
 
 const SUPPORTED_SECURITY_TYPES = new Set(["none", "reality", "tls"]);
@@ -312,6 +315,7 @@ export function validateSubscriptionManifest(manifest) {
           }
 
           validateProtocolSecurity(protocol, protocolPath, errors);
+          validateProtocolRendererHints(protocol, protocolPath, errors);
         });
       }
     });
@@ -405,5 +409,21 @@ function validateProtocolSecurity(protocol, protocolPath, errors) {
     if (security.allowInsecure === true) {
       errors.push(`${protocolPath}.security.allowInsecure must remain false`);
     }
+  }
+
+  if (protocol.type === "wireguard" || protocol.type === "wireguard-amneziawg") {
+    requireString(security.publicKey, `${protocolPath}.security.publicKey`, errors);
+  }
+}
+
+function validateProtocolRendererHints(protocol, protocolPath, errors) {
+  const hints = protocol.rendererHints ?? {};
+  if (!isPlainObject(hints)) {
+    errors.push(`${protocolPath}.rendererHints must be an object`);
+    return;
+  }
+  if (protocol.type === "wireguard" || protocol.type === "wireguard-amneziawg") {
+    requireString(hints.address, `${protocolPath}.rendererHints.address`, errors);
+    requireString(hints.allowedIps, `${protocolPath}.rendererHints.allowedIps`, errors);
   }
 }

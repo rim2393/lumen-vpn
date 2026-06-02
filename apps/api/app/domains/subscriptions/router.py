@@ -224,8 +224,9 @@ async def render_public_subscription(
     target: str | None = Query(
         default=None,
         description=(
-            "Client target or renderer format: hiddify, happ, mihomo, sing-box, "
-            "v2ray, amnezia."
+            "Client target or renderer format: raw-uri, hiddify, happ, mihomo, "
+            "clash-meta, sing-box, v2ray, v2ray-base64, v2rayn, v2rayng, "
+            "streisand, shadowrocket, xray-json, amnezia."
         ),
     ),
     render_format: str | None = Query(
