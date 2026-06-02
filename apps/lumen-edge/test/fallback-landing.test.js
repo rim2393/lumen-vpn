@@ -253,6 +253,35 @@ test("escapes subscription portal fields", () => {
   assert.doesNotMatch(html, /<script>alert/);
 });
 
+test("subscription portal applies selected subpage config", () => {
+  const html = renderSubscriptionPageHtml({
+    publicUrl: "https://sub.example/sub/lumen_sub_abc1234567890xyz",
+    manifest: {
+      provider: { name: "Lumen" },
+      subscription: { id: "lumen_sub_abc1234567890xyz" },
+      metadata: {
+        profileTitle: "Default title",
+        subpage: {
+          cards: ["status", "links"],
+          configId: "subpage_qa",
+          configName: "QA public page",
+          supportText: "QA help",
+          theme: "QA Dark",
+          title: "QA configured title"
+        }
+      }
+    }
+  });
+
+  assert.match(html, /QA configured title/);
+  assert.match(html, /theme-qa-dark/);
+  assert.match(html, /data-subpage-config-id="subpage_qa"/);
+  assert.match(html, /data-subpage-config-name="QA public page"/);
+  assert.match(html, /aria-label="QA help"/);
+  assert.match(html, /Manual import URLs/);
+  assert.doesNotMatch(html, /Hiddify/);
+});
+
 test("renders v2rayNG deep link and no mojibake text", () => {
   const html = renderSubscriptionPageHtml({
     publicUrl: "https://sub.example/sub/lumen_sub_abc1234567890xyz",

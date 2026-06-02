@@ -102,13 +102,19 @@ export function wantsHtmlSubscriptionPage(request) {
 
 export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
   const provider = manifest.provider?.name || "Lumen";
-  const title = manifest.metadata?.profileTitle || provider;
+  const subpage = normalizeSubpageConfig(manifest.metadata?.subpage);
+  const title = subpage.title || manifest.metadata?.profileTitle || provider;
   const subscription = manifest.subscription ?? {};
   const expiresAt = subscription.expiresAt ? new Date(subscription.expiresAt) : null;
   const expiresText = expiresAt && !Number.isNaN(expiresAt.getTime())
     ? expiresAt.toLocaleDateString("ru-RU", { year: "numeric", month: "long", day: "numeric" })
     : "без срока";
   const supportUrl = manifest.metadata?.supportUrl || "#";
+  const supportText = subpage.supportText || "Support";
+  const enabledCards = new Set(subpage.cards);
+  const showStatus = enabledCards.size === 0 || enabledCards.has("status");
+  const showApps = enabledCards.size === 0 || enabledCards.has("apps");
+  const showLinks = enabledCards.size === 0 || enabledCards.has("links") || enabledCards.has("qr");
   const clientLinks = CLIENTS.map((client) => {
     const targetUrl = `${publicUrl}/${client.key}`;
     const encodedTargetUrl = encodeURIComponent(targetUrl);
@@ -160,13 +166,13 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
     @media (max-width: 620px) { header { padding: 18px; } .card { padding: 22px 18px; } .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
-<body>
+<body class="${escapeHtml(subpage.theme ? `theme-${cssToken(subpage.theme)}` : "")}">
   <main>
     <header>
       <div class="brand"><span class="mark" aria-hidden="true"></span>${escapeHtml(provider)}</div>
-      <a class="telegram" href="${escapeHtml(supportUrl)}" aria-label="Support">↗</a>
+      <a class="telegram" href="${escapeHtml(supportUrl)}" aria-label="${escapeHtml(supportText)}">↗</a>
     </header>
-    <section class="card">
+    ${showStatus ? `<section class="card" data-subpage-config-id="${escapeHtml(subpage.configId ?? "")}" data-subpage-config-name="${escapeHtml(subpage.configName ?? "")}">
       <div class="status">
         <div class="check">✓</div>
         <div>
@@ -180,21 +186,43 @@ export function renderSubscriptionPageHtml({ manifest, publicUrl }) {
         <div class="info"><span>Subscription ID</span><strong>${escapeHtml(subscription.id || "")}</strong></div>
         <div class="info"><span>Форматы</span><strong>URI · YAML · JSON</strong></div>
       </div>
-    </section>
-    <section class="card">
+    </section>` : ""}
+    ${showApps ? `<section class="card">
       <h2>Добавить подписку</h2>
       <div class="apps">
         ${clientLinks.map((client) => `<a class="app" href="${escapeHtml(client.importUrl)}"><strong>${escapeHtml(client.label)}</strong><span>${escapeHtml(client.platform)}</span><em>${escapeHtml(client.renderer)}</em></a>`).join("")}
       </div>
+    </section>` : ""}
+    ${showLinks ? `<section class="card">
+      <h2>Manual import URLs</h2>
       <div class="copy">
         <p class="muted">Для ручного импорта используйте универсальный URL или нужный URL формата:</p>
         <code>${escapeHtml(rawSubscriptionUrl)}</code>
         ${clientLinks.map((client) => `<code>${escapeHtml(client.targetUrl)}</code>`).join("")}
       </div>
-    </section>
+    </section>` : ""}
   </main>
 </body>
 </html>`;
+}
+
+function normalizeSubpageConfig(value) {
+  const config = value && typeof value === "object" ? value : {};
+  const cards = Array.isArray(config.cards)
+    ? config.cards.filter((card) => typeof card === "string" && card.length > 0)
+    : [];
+  return {
+    cards,
+    configId: typeof config.configId === "string" ? config.configId : null,
+    configName: typeof config.configName === "string" ? config.configName : null,
+    supportText: typeof config.supportText === "string" ? config.supportText : null,
+    theme: typeof config.theme === "string" ? config.theme : null,
+    title: typeof config.title === "string" ? config.title : null
+  };
+}
+
+function cssToken(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function escapeHtml(value) {
