@@ -1049,6 +1049,18 @@ async def test_subscription_delivery_setting_feeds_manifest_and_renderer_headers
         },
     )
     assert setting_response.status_code == 200
+    subpage_config_response = await route_app.client.post(
+        "/api/v1/subscription-page-configs",
+        json={
+            "name": "Customer page config",
+            "config_json": {
+                "title": "Configured customer page",
+                "theme": "lumen-dark",
+                "cards": ["qr", "apps"],
+            },
+        },
+    )
+    assert subpage_config_response.status_code == 201
 
     create_response = await route_app.client.post(
         "/api/v1/subscriptions",
@@ -1060,6 +1072,7 @@ async def test_subscription_delivery_setting_feeds_manifest_and_renderer_headers
                 "protocol": "vless-tcp-tls",
                 "adapter": "vless-tcp-tls",
                 "server_name": "subscription.example.test",
+                "subpage_config_id": subpage_config_response.json()["id"],
             },
             "config_hash": "sha256:subscription-info",
         },
@@ -1086,7 +1099,13 @@ async def test_subscription_delivery_setting_feeds_manifest_and_renderer_headers
     assert manifest["metadata"]["routing"] == {
         "rules": [{"domain_suffix": "example.test", "outbound": "proxy"}]
     }
-    assert manifest["metadata"]["subpage"] == {"title": "Public profile page"}
+    assert manifest["metadata"]["subpage"] == {
+        "cards": ["qr", "apps"],
+        "configId": subpage_config_response.json()["id"],
+        "configName": "Customer page config",
+        "theme": "lumen-dark",
+        "title": "Configured customer page",
+    }
 
     render_response = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=hiddify",

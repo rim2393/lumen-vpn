@@ -33,6 +33,9 @@ import type {
   SquadUpdateRequest,
   SquadUserMutationRequest,
   SubscriptionCreateRequest,
+  SubscriptionPageConfigCloneRequest,
+  SubscriptionPageConfigCreateRequest,
+  SubscriptionPageConfigUpdateRequest,
   SubscriptionTemplateCreateRequest,
   SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
@@ -70,6 +73,7 @@ export const resourceQueryKeys = {
   subscriptions: ['resource', 'subscriptions'] as const,
   subscriptionTemplates: ['resource', 'subscription-templates'] as const,
   responseRules: ['resource', 'response-rules'] as const,
+  subscriptionPageConfigs: ['resource', 'subscription-page-configs'] as const,
   nodePlugins: ['resource', 'node-plugins'] as const,
   panelIdentity: ['resource', 'settings', 'public-identity'] as const,
   infraProviders: ['resource', 'infra-billing', 'providers'] as const,
@@ -773,6 +777,90 @@ export function useTestResponseRule() {
 
   return useMutation({
     mutationFn: (request: ResponseRuleTestRequest) => apiClient.testResponseRule(request),
+  })
+}
+
+export function useSubscriptionPageConfigsData() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: apiClient.listSubscriptionPageConfigs,
+    queryKey: resourceQueryKeys.subscriptionPageConfigs,
+  })
+}
+
+export function useCreateSubscriptionPageConfig() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: SubscriptionPageConfigCreateRequest) =>
+      apiClient.createSubscriptionPageConfig(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionPageConfigs })
+    },
+  })
+}
+
+export function useUpdateSubscriptionPageConfig() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      request,
+    }: {
+      id: string
+      request: SubscriptionPageConfigUpdateRequest
+    }) => apiClient.updateSubscriptionPageConfig(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionPageConfigs })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+    },
+  })
+}
+
+export function useCloneSubscriptionPageConfig() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      request,
+    }: {
+      id: string
+      request: SubscriptionPageConfigCloneRequest
+    }) => apiClient.cloneSubscriptionPageConfig(id, request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionPageConfigs })
+    },
+  })
+}
+
+export function useDeleteSubscriptionPageConfig() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteSubscriptionPageConfig(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionPageConfigs })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptions })
+    },
+  })
+}
+
+export function useReorderSubscriptionPageConfigs() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (ids: string[]) => apiClient.reorderSubscriptionPageConfigs(ids),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.subscriptionPageConfigs })
+    },
   })
 }
 

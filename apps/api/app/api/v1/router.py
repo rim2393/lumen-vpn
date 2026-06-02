@@ -20,6 +20,7 @@ from app.domains.protocols.router import (
 from app.domains.settings.router import router as settings_router
 from app.domains.subscription_assets.router import (
     response_rules_router,
+    subpage_configs_router,
     templates_router,
 )
 from app.domains.subscriptions.router import router as subscriptions_router
@@ -45,6 +46,11 @@ api_v1_router.include_router(
     response_rules_router,
     prefix="/response-rules",
     tags=["response-rules"],
+)
+api_v1_router.include_router(
+    subpage_configs_router,
+    prefix="/subscription-page-configs",
+    tags=["subscription-page-configs"],
 )
 api_v1_router.include_router(audit_router, prefix="/audit", tags=["audit"])
 api_v1_router.include_router(tools_router, prefix="/tools", tags=["tools"])

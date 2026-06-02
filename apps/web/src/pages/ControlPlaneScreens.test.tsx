@@ -9,6 +9,10 @@ import type {
   ResponseRuleUpdateRequest,
   SettingGroupUpdateRequest,
   SettingUpdateRequest,
+  SubscriptionPageConfigCreateRequest,
+  SubscriptionPageConfigRecord,
+  SubscriptionPageConfigUpdateRequest,
+  SubscriptionRecord,
   SquadCreateRequest,
   SquadDetailResponse,
   SquadUpdateRequest,
@@ -1193,6 +1197,150 @@ describe('Control plane resource screens', () => {
         update_interval_hours: 8,
       }),
     })
+  })
+
+  it('manages subscription page configs and binds them to real subscriptions', async () => {
+    const user = userEvent.setup()
+    const configs: SubscriptionPageConfigRecord[] = [
+      {
+        config_json: { title: 'Default page', theme: 'lumen' },
+        id: 'subpage_default',
+        name: 'Default page',
+        order: 0,
+        status: 'active',
+      },
+      {
+        config_json: { title: 'Partner page' },
+        id: 'subpage_partner',
+        name: 'Partner page',
+        order: 1,
+        status: 'active',
+      },
+    ]
+    const subscriptions: SubscriptionRecord[] = [
+      {
+        config_hash: 'sha256:test',
+        created_at: '2026-05-27T00:00:00Z',
+        delivery_profile: { format: 'happ', subpage_config_id: 'subpage_default' },
+        expires_at: null,
+        id: 'sub_live',
+        license_id: 'lic_live',
+        node_id: 'node_live',
+        public_id: 'lumen_sub_live',
+        public_manifest_url: '/api/v1/subscriptions/public/lumen_sub_live/manifest',
+        public_page_url: '/sub/lumen_sub_live',
+        public_render_url: '/api/v1/subscriptions/public/lumen_sub_live/render',
+        public_render_urls: { happ: '/api/v1/subscriptions/public/lumen_sub_live/render?target=happ' },
+        render_formats: ['happ'],
+        revoked_at: null,
+        status: 'active',
+        updated_at: '2026-05-27T00:00:00Z',
+        user_id: 'user_live',
+      },
+    ]
+    const listSubscriptionPageConfigs = vi.fn(async () => ({ items: configs }))
+    const createSubscriptionPageConfig = vi.fn(
+      async (request: SubscriptionPageConfigCreateRequest): Promise<SubscriptionPageConfigRecord> => ({
+        config_json: request.config_json ?? {},
+        id: 'subpage_created',
+        name: request.name,
+        order: configs.length,
+        status: request.status ?? 'active',
+      }),
+    )
+    const updateSubscriptionPageConfig = vi.fn(
+      async (
+        configId: string,
+        request: SubscriptionPageConfigUpdateRequest,
+      ): Promise<SubscriptionPageConfigRecord> => {
+        const current = configs.find((config) => config.id === configId)!
+        return {
+          ...current,
+          ...request,
+          order: request.order ?? current.order,
+        }
+      },
+    )
+    const cloneSubscriptionPageConfig = vi.fn(
+      async (configId: string, request: { name?: string | null }): Promise<SubscriptionPageConfigRecord> => {
+        const current = configs.find((config) => config.id === configId)!
+        return {
+          ...current,
+          id: 'subpage_clone',
+          name: request.name ?? `${current.name} copy`,
+          order: configs.length,
+        }
+      },
+    )
+    const deleteSubscriptionPageConfig = vi.fn(async () => undefined)
+    const reorderSubscriptionPageConfigs = vi.fn(async (ids: string[]) => ({ updated: ids.length }))
+    const updateSubscription = vi.fn(
+      async (subscriptionId: string, request: { delivery_profile?: Record<string, string> }) => {
+        const current = subscriptions.find((subscription) => subscription.id === subscriptionId)!
+        return {
+          ...current,
+          ...request,
+        }
+      },
+    )
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      cloneSubscriptionPageConfig,
+      createSubscriptionPageConfig,
+      deleteSubscriptionPageConfig,
+      listSubscriptionPageConfigs,
+      listSubscriptions: async () => ({ items: subscriptions }),
+      reorderSubscriptionPageConfigs,
+      updateSubscription,
+      updateSubscriptionPageConfig,
+    }
+
+    renderWithRouter('/subscription-page', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('table', { name: /subscription page configs/i })).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/^config name$/i, { selector: '#subpage-config-name' }), 'Mobile profile page')
+    fireEvent.change(screen.getByLabelText(/^config json$/i, { selector: '#subpage-config-json' }), {
+      target: { value: '{"title":"Mobile profile","theme":"mobile"}' },
+    })
+    await user.click(screen.getByRole('button', { name: /create page config/i }))
+    await waitFor(() => expect(createSubscriptionPageConfig).toHaveBeenCalledWith({
+      config_json: { theme: 'mobile', title: 'Mobile profile' },
+      name: 'Mobile profile page',
+      status: 'active',
+    }))
+
+    await user.click(screen.getAllByRole('button', { name: /^edit$/i })[0])
+    await user.clear(screen.getByLabelText(/selected config name/i))
+    await user.type(screen.getByLabelText(/selected config name/i), 'Default page edited')
+    fireEvent.change(screen.getByLabelText(/selected config json/i), {
+      target: { value: '{"title":"Edited page","theme":"edited"}' },
+    })
+    await user.click(screen.getByRole('button', { name: /save selected page config/i }))
+    await waitFor(() => expect(updateSubscriptionPageConfig).toHaveBeenCalledWith('subpage_default', {
+      config_json: { theme: 'edited', title: 'Edited page' },
+      name: 'Default page edited',
+      status: 'active',
+    }))
+
+    await user.click(screen.getAllByRole('button', { name: /^clone$/i })[0])
+    await waitFor(() => expect(cloneSubscriptionPageConfig).toHaveBeenCalledWith('subpage_default', {
+      name: 'Default page copy',
+    }))
+    await user.click(screen.getAllByRole('button', { name: /^down$/i })[0])
+    await waitFor(() => expect(reorderSubscriptionPageConfigs).toHaveBeenCalledWith([
+      'subpage_partner',
+      'subpage_default',
+    ]))
+    await user.click(screen.getByRole('button', { name: /bind page config/i }))
+    await waitFor(() => expect(updateSubscription).toHaveBeenCalledWith('sub_live', {
+      delivery_profile: { format: 'happ', subpage_config_id: 'subpage_default' },
+    }))
+    await user.click(screen.getByRole('button', { name: /clear binding/i }))
+    await waitFor(() => expect(updateSubscription).toHaveBeenCalledWith('sub_live', {
+      delivery_profile: { format: 'happ' },
+    }))
+    await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    await waitFor(() => expect(deleteSubscriptionPageConfig).toHaveBeenCalledWith('subpage_default'))
   })
 
   it('edits, clones, and reorders subscription templates through real template APIs', async () => {

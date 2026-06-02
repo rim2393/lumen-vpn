@@ -18,6 +18,7 @@ from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.settings.models import PanelSetting
 from app.domains.settings.service import SUBSCRIPTION_DELIVERY_KEY
+from app.domains.subscription_assets.service import resolve_subpage_config
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.renderers import (
     derive_client_credentials,
@@ -328,10 +329,19 @@ async def build_subscription_manifest(
         profile_title=profile_title,
     )
     _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
+    subpage_asset = await resolve_subpage_config(
+        session,
+        config_id=delivery.get("subpage_config_id")
+        or _override_string(squad_overrides, "subpage_config_id"),
+    )
     subpage_config = {
         **_dict_value(page_settings, "subpage"),
+        **(subpage_asset.config_json if subpage_asset is not None else {}),
         **_dict_value(squad_overrides, "subpage"),
     }
+    if subpage_asset is not None:
+        subpage_config["configId"] = subpage_asset.id
+        subpage_config["configName"] = subpage_asset.name
     hwid_policy = _normalized_hwid_policy(_dict_value(squad_overrides, "hwid"))
     response_headers = _safe_response_headers(
         {

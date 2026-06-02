@@ -799,6 +799,32 @@ export type ResponseRuleTestResponse = {
   status_code: number
 }
 
+export type SubscriptionPageConfigRecord = {
+  config_json: Record<string, unknown>
+  id: string
+  name: string
+  order: number
+  status: string
+}
+
+export type SubscriptionPageConfigCreateRequest = {
+  config_json?: Record<string, unknown>
+  name: string
+  order?: number | null
+  status?: string
+}
+
+export type SubscriptionPageConfigUpdateRequest = Partial<SubscriptionPageConfigCreateRequest>
+
+export type SubscriptionPageConfigCloneRequest = {
+  name?: string | null
+  status?: string | null
+}
+
+export type SubscriptionPageConfigListResponse = {
+  items: SubscriptionPageConfigRecord[]
+}
+
 export type HwidInspectorRow = {
   device_count: number
   device_limit: number | null
@@ -1241,6 +1267,9 @@ export type LumenApiClient = {
     request: SubscriptionTemplateCreateRequest,
   ) => Promise<SubscriptionTemplateRecord>
   createResponseRule: (request: ResponseRuleCreateRequest) => Promise<ResponseRuleRecord>
+  createSubscriptionPageConfig: (
+    request: SubscriptionPageConfigCreateRequest,
+  ) => Promise<SubscriptionPageConfigRecord>
   createUser: (request: UserCreateRequest) => Promise<UserRecord>
   disableUser: (userId: string) => Promise<UserRecord>
   deleteHost: (hostId: string) => Promise<void>
@@ -1249,6 +1278,7 @@ export type LumenApiClient = {
   deleteSubscriptionTemplate: (templateId: string) => Promise<void>
   deleteSubscription: (subscriptionId: string) => Promise<void>
   deleteResponseRule: (ruleId: string) => Promise<void>
+  deleteSubscriptionPageConfig: (configId: string) => Promise<void>
   deleteUser: (userId: string) => Promise<void>
   enableUser: (userId: string) => Promise<UserRecord>
   clearUserDevices: (userId: string) => Promise<UserDetailResponse>
@@ -1279,6 +1309,7 @@ export type LumenApiClient = {
   listSubscriptionDevices: (subscriptionId: string) => Promise<SubscriptionDeviceListResponse>
   listSubscriptionTemplates: () => Promise<SubscriptionTemplateListResponse>
   listResponseRules: () => Promise<ResponseRuleListResponse>
+  listSubscriptionPageConfigs: () => Promise<SubscriptionPageConfigListResponse>
   readToolSummary: () => Promise<ToolSummaryResponse>
   inspectHwid: () => Promise<HwidInspectorResponse>
   inspectSrh: () => Promise<SrhInspectorResponse>
@@ -1343,7 +1374,12 @@ export type LumenApiClient = {
   reorderSquads: (ids: string[]) => Promise<ResourceBulkActionResponse>
   reorderSubscriptionTemplates: (ids: string[]) => Promise<ResourceBulkActionResponse>
   reorderResponseRules: (ids: string[]) => Promise<ResourceBulkActionResponse>
+  reorderSubscriptionPageConfigs: (ids: string[]) => Promise<ResourceBulkActionResponse>
   testResponseRule: (request: ResponseRuleTestRequest) => Promise<ResponseRuleTestResponse>
+  cloneSubscriptionPageConfig: (
+    configId: string,
+    request: SubscriptionPageConfigCloneRequest,
+  ) => Promise<SubscriptionPageConfigRecord>
   updateHost: (hostId: string, request: HostUpdateRequest) => Promise<HostRecord>
   updateProfile: (
     profileId: string,
@@ -1361,6 +1397,10 @@ export type LumenApiClient = {
     ruleId: string,
     request: ResponseRuleUpdateRequest,
   ) => Promise<ResponseRuleRecord>
+  updateSubscriptionPageConfig: (
+    configId: string,
+    request: SubscriptionPageConfigUpdateRequest,
+  ) => Promise<SubscriptionPageConfigRecord>
   verifyMfaChallenge: (request: MfaChallengeVerifyRequest) => Promise<AuthSession>
   updateAuthProvider: (
     provider: string,

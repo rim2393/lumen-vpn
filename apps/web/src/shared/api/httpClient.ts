@@ -41,6 +41,9 @@ import type {
   SquadUpdateRequest,
   SquadUserMutationRequest,
   SubscriptionCreateRequest,
+  SubscriptionPageConfigCloneRequest,
+  SubscriptionPageConfigCreateRequest,
+  SubscriptionPageConfigUpdateRequest,
   SubscriptionTemplateCreateRequest,
   SubscriptionTemplateUpdateRequest,
   SubscriptionUpdateRequest,
@@ -173,6 +176,8 @@ export function createHttpLumenApiClient({
       request('/api/v1/subscription-templates', { body: payload, method: 'POST' }),
     createResponseRule: (payload: ResponseRuleCreateRequest) =>
       request('/api/v1/response-rules', { body: payload, method: 'POST' }),
+    createSubscriptionPageConfig: (payload: SubscriptionPageConfigCreateRequest) =>
+      request('/api/v1/subscription-page-configs', { body: payload, method: 'POST' }),
     createUser: (payload: UserCreateRequest) =>
       request('/api/v1/users', { body: payload, method: 'POST' }),
     disableUser: (userId: string) =>
@@ -187,6 +192,8 @@ export function createHttpLumenApiClient({
       request(`/api/v1/subscriptions/${subscriptionId}`, { method: 'DELETE' }),
     deleteResponseRule: (ruleId: string) =>
       request(`/api/v1/response-rules/${ruleId}`, { method: 'DELETE' }),
+    deleteSubscriptionPageConfig: (configId: string) =>
+      request(`/api/v1/subscription-page-configs/${configId}`, { method: 'DELETE' }),
     deleteUser: (userId: string) => request(`/api/v1/users/${userId}`, { method: 'DELETE' }),
     enableUser: (userId: string) =>
       request(`/api/v1/users/${userId}/enable`, { method: 'POST' }),
@@ -246,6 +253,7 @@ export function createHttpLumenApiClient({
       request(`/api/v1/subscriptions/${subscriptionId}/devices`),
     listSubscriptionTemplates: () => request('/api/v1/subscription-templates'),
     listResponseRules: () => request('/api/v1/response-rules'),
+    listSubscriptionPageConfigs: () => request('/api/v1/subscription-page-configs'),
     readToolSummary: () => request('/api/v1/tools/summary'),
     inspectHwid: () => request('/api/v1/tools/hwid-inspector'),
     inspectSrh: () => request('/api/v1/tools/srh-inspector'),
@@ -387,8 +395,12 @@ export function createHttpLumenApiClient({
       request('/api/v1/subscription-templates/actions/reorder', { body: { ids }, method: 'POST' }),
     reorderResponseRules: (ids: string[]) =>
       request('/api/v1/response-rules/actions/reorder', { body: { ids }, method: 'POST' }),
+    reorderSubscriptionPageConfigs: (ids: string[]) =>
+      request('/api/v1/subscription-page-configs/actions/reorder', { body: { ids }, method: 'POST' }),
     testResponseRule: (payload) =>
       request('/api/v1/response-rules/test', { body: payload, method: 'POST' }),
+    cloneSubscriptionPageConfig: (configId: string, payload: SubscriptionPageConfigCloneRequest) =>
+      request(`/api/v1/subscription-page-configs/${configId}/clone`, { body: payload, method: 'POST' }),
     updateHost: (hostId: string, payload: HostUpdateRequest) =>
       request(`/api/v1/hosts/${hostId}`, { body: payload, method: 'PATCH' }),
     updateProfile: (profileId: string, payload: ProtocolProfileUpdateRequest) =>
@@ -401,6 +413,10 @@ export function createHttpLumenApiClient({
     ) => request(`/api/v1/subscription-templates/${templateId}`, { body: payload, method: 'PATCH' }),
     updateResponseRule: (ruleId: string, payload: ResponseRuleUpdateRequest) =>
       request(`/api/v1/response-rules/${ruleId}`, { body: payload, method: 'PATCH' }),
+    updateSubscriptionPageConfig: (
+      configId: string,
+      payload: SubscriptionPageConfigUpdateRequest,
+    ) => request(`/api/v1/subscription-page-configs/${configId}`, { body: payload, method: 'PATCH' }),
     verifyMfaChallenge: async (payload: MfaChallengeVerifyRequest) => {
       const tokenPair = await request<TokenPairResponse>('/api/v1/auth/mfa/challenge/verify', {
         body: {

@@ -13,6 +13,10 @@ from app.domains.subscription_assets.schemas import (
     ResponseRuleResponse,
     ResponseRuleTestResponse,
     ResponseRuleUpdateRequest,
+    SubscriptionPageConfigCloneRequest,
+    SubscriptionPageConfigCreateRequest,
+    SubscriptionPageConfigResponse,
+    SubscriptionPageConfigUpdateRequest,
     SubscriptionTemplateCreateRequest,
     SubscriptionTemplateResponse,
     SubscriptionTemplateUpdateRequest,
@@ -20,6 +24,7 @@ from app.domains.subscription_assets.schemas import (
 
 TEMPLATES_KEY = "subscription.templates"
 RESPONSE_RULES_KEY = "subscription.response_rules"
+SUBPAGE_CONFIGS_KEY = "subscription.subpage_configs"
 
 
 async def list_templates(session: AsyncSession) -> list[SubscriptionTemplateResponse]:
@@ -197,6 +202,126 @@ async def test_response_rule(
     )
 
 
+async def list_subpage_configs(session: AsyncSession) -> list[SubscriptionPageConfigResponse]:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    return [_subpage_config_response(item) for item in _sorted(items)]
+
+
+async def create_subpage_config(
+    session: AsyncSession,
+    *,
+    request: SubscriptionPageConfigCreateRequest,
+    principal: Principal,
+) -> SubscriptionPageConfigResponse:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    _ensure_no_secret_like_keys(request.config_json, path=("config_json",))
+    item = {
+        "id": f"subpage_{uuid4().hex[:16]}",
+        "name": request.name,
+        "status": request.status,
+        "config_json": request.config_json,
+        "order": request.order if request.order is not None else len(items),
+    }
+    items.append(item)
+    await _save_setting_items(session, key=SUBPAGE_CONFIGS_KEY, items=items, principal=principal)
+    return _subpage_config_response(item)
+
+
+async def update_subpage_config(
+    session: AsyncSession,
+    *,
+    config_id: str,
+    request: SubscriptionPageConfigUpdateRequest,
+    principal: Principal,
+) -> SubscriptionPageConfigResponse:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    item = _find_item(items, item_id=config_id, code="subpage_config_not_found")
+    data = request.model_dump(exclude_unset=True)
+    if "config_json" in data:
+        _ensure_no_secret_like_keys(data["config_json"], path=("config_json",))
+    item.update(data)
+    await _save_setting_items(session, key=SUBPAGE_CONFIGS_KEY, items=items, principal=principal)
+    return _subpage_config_response(item)
+
+
+async def clone_subpage_config(
+    session: AsyncSession,
+    *,
+    config_id: str,
+    request: SubscriptionPageConfigCloneRequest,
+    principal: Principal,
+) -> SubscriptionPageConfigResponse:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    source = _find_item(items, item_id=config_id, code="subpage_config_not_found")
+    clone = {
+        "id": f"subpage_{uuid4().hex[:16]}",
+        "name": request.name or f"{source.get('name')} copy",
+        "status": request.status or source.get("status", "active"),
+        "config_json": dict(source.get("config_json") or {}),
+        "order": len(items),
+    }
+    items.append(clone)
+    await _save_setting_items(session, key=SUBPAGE_CONFIGS_KEY, items=items, principal=principal)
+    return _subpage_config_response(clone)
+
+
+async def delete_subpage_config(
+    session: AsyncSession,
+    *,
+    config_id: str,
+    principal: Principal,
+) -> None:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    before = len(items)
+    items = [item for item in items if item.get("id") != config_id]
+    if len(items) == before:
+        _raise_not_found("subpage_config_not_found")
+    await _save_setting_items(session, key=SUBPAGE_CONFIGS_KEY, items=items, principal=principal)
+
+
+async def reorder_subpage_configs(
+    session: AsyncSession,
+    *,
+    request: ReorderRequest,
+    principal: Principal,
+) -> int:
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    return await _reorder(
+        session,
+        key=SUBPAGE_CONFIGS_KEY,
+        items=items,
+        request=request,
+        principal=principal,
+    )
+
+
+async def resolve_subpage_config(
+    session: AsyncSession,
+    *,
+    config_id: str | None,
+) -> SubscriptionPageConfigResponse | None:
+    if not config_id:
+        return None
+    items = await _setting_items(session, SUBPAGE_CONFIGS_KEY)
+    item = next((record for record in items if record.get("id") == config_id), None)
+    if item is None:
+        raise APIError(
+            code="subscription_subpage_config_not_found",
+            message="Subscription page config was not found.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[config_id],
+        )
+    response = _subpage_config_response(item)
+    if response.status.lower() != "active":
+        raise APIError(
+            code="subscription_subpage_config_not_active",
+            message="Subscription page config is not active.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[config_id],
+        )
+    return response
+
+
 async def _setting_items(session: AsyncSession, key: str) -> list[dict[str, object]]:
     result = await session.execute(select(PanelSetting).where(PanelSetting.key == key))
     setting = result.scalar_one_or_none()
@@ -283,6 +408,10 @@ def _template_response(item: dict[str, object]) -> SubscriptionTemplateResponse:
 
 def _rule_response(item: dict[str, object]) -> ResponseRuleResponse:
     return ResponseRuleResponse.model_validate(item)
+
+
+def _subpage_config_response(item: dict[str, object]) -> SubscriptionPageConfigResponse:
+    return SubscriptionPageConfigResponse.model_validate(item)
 
 
 def _ensure_no_secret_like_keys(

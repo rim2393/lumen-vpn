@@ -74,6 +74,10 @@ import type {
   SrhInspectorResponse,
   SubscriptionCreateRequest,
   SubscriptionListResponse,
+  SubscriptionPageConfigCloneRequest,
+  SubscriptionPageConfigCreateRequest,
+  SubscriptionPageConfigRecord,
+  SubscriptionPageConfigUpdateRequest,
   SubscriptionRecord,
   SubscriptionTemplateCreateRequest,
   SubscriptionTemplateRecord,
@@ -229,6 +233,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
   const subscriptions = [...subscriptionRecords]
   const templates: SubscriptionTemplateRecord[] = []
   const responseRules: ResponseRuleRecord[] = []
+  const subpageConfigs: SubscriptionPageConfigRecord[] = []
   const nodePlugins: NodePluginRecord[] = []
   const infraProviders: InfraProviderRecord[] = []
   const infraBillingRecords: InfraBillingRecordRecord[] = []
@@ -786,6 +791,19 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       responseRules.unshift(rule)
       return rule
     },
+    createSubscriptionPageConfig: async (
+      request: SubscriptionPageConfigCreateRequest,
+    ): Promise<SubscriptionPageConfigRecord> => {
+      const config: SubscriptionPageConfigRecord = {
+        config_json: request.config_json ?? {},
+        id: `subpage_${Date.now()}`,
+        name: request.name,
+        order: request.order ?? subpageConfigs.length,
+        status: request.status ?? 'active',
+      }
+      subpageConfigs.unshift(config)
+      return config
+    },
     createUser: async (request: UserCreateRequest): Promise<UserRecord> => {
       const now = new Date().toISOString()
       const user: UserRecord = {
@@ -842,6 +860,12 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       const index = responseRules.findIndex((rule) => rule.id === ruleId)
       if (index >= 0) {
         responseRules.splice(index, 1)
+      }
+    },
+    deleteSubscriptionPageConfig: async (configId: string) => {
+      const index = subpageConfigs.findIndex((config) => config.id === configId)
+      if (index >= 0) {
+        subpageConfigs.splice(index, 1)
       }
     },
     deleteUser: async (userId: string) => {
@@ -1060,6 +1084,7 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
     },
     listSubscriptionTemplates: async () => ({ items: templates }),
     listResponseRules: async () => ({ items: responseRules }),
+    listSubscriptionPageConfigs: async () => ({ items: subpageConfigs }),
     readToolSummary: async (): Promise<ToolSummaryResponse> => ({
       happ_routes: subscriptions.length,
       hwid_over_limit: users.filter((user) => {
@@ -1441,6 +1466,17 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       })
       return { updated: ordered.length }
     },
+    reorderSubscriptionPageConfigs: async (ids: string[]) => {
+      const ordered = ids
+        .map((id) => subpageConfigs.find((config) => config.id === id))
+        .filter((config): config is SubscriptionPageConfigRecord => Boolean(config))
+      const remainder = subpageConfigs.filter((config) => !ids.includes(config.id))
+      subpageConfigs.splice(0, subpageConfigs.length, ...ordered, ...remainder)
+      ordered.forEach((config, order) => {
+        config.order = order
+      })
+      return { updated: ordered.length }
+    },
     testResponseRule: async (request) => {
       const rule = responseRules.find(
         (item) => item.enabled && item.trigger_status === request.subscription_status,
@@ -1452,6 +1488,24 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         rule: rule ?? null,
         status_code: rule?.status_code ?? 200,
       }
+    },
+    cloneSubscriptionPageConfig: async (
+      configId: string,
+      request: SubscriptionPageConfigCloneRequest,
+    ) => {
+      const source = subpageConfigs.find((item) => item.id === configId)
+      if (!source) {
+        throw new Error('Subscription page config not found')
+      }
+      const clone: SubscriptionPageConfigRecord = {
+        ...source,
+        id: `subpage_${Date.now()}`,
+        name: request.name ?? `${source.name} copy`,
+        order: subpageConfigs.length,
+        status: request.status ?? source.status,
+      }
+      subpageConfigs.push(clone)
+      return clone
     },
     bulkUsers: async (
       action: string,
@@ -1576,6 +1630,17 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
       }
       Object.assign(rule, request)
       return rule
+    },
+    updateSubscriptionPageConfig: async (
+      configId: string,
+      request: SubscriptionPageConfigUpdateRequest,
+    ) => {
+      const config = subpageConfigs.find((item) => item.id === configId)
+      if (!config) {
+        throw new Error('Subscription page config not found')
+      }
+      Object.assign(config, request)
+      return config
     },
     updateSquad: async (squadId: string, request: SquadUpdateRequest) => {
       const squad = squads.find((item) => item.id === squadId)

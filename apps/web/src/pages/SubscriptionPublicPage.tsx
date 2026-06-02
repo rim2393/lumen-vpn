@@ -1,9 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
+  useCloneSubscriptionPageConfig,
+  useCreateSubscriptionPageConfig,
+  useDeleteSubscriptionPageConfig,
   useSettingGroupsData,
+  useReorderSubscriptionPageConfigs,
+  useSubscriptionPageConfigsData,
   useSubscriptionsPageData,
   useUpdateSettingGroup,
+  useUpdateSubscription,
+  useUpdateSubscriptionPageConfig,
 } from '../shared/api/resourceHooks'
+import type { SubscriptionPageConfigRecord, SubscriptionRecord } from '../shared/api/types'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
 import { MetricCard } from '../shared/components/MetricCard'
@@ -59,14 +67,36 @@ const defaultForm: SubscriptionDeliveryForm = {
 
 export function SubscriptionPublicPage() {
   const subscriptionsQuery = useSubscriptionsPageData()
+  const configsQuery = useSubscriptionPageConfigsData()
   const groupsQuery = useSettingGroupsData()
   const updateGroup = useUpdateSettingGroup()
+  const createConfig = useCreateSubscriptionPageConfig()
+  const updateConfig = useUpdateSubscriptionPageConfig()
+  const cloneConfigMutation = useCloneSubscriptionPageConfig()
+  const deleteConfigMutation = useDeleteSubscriptionPageConfig()
+  const reorderConfigs = useReorderSubscriptionPageConfigs()
+  const updateSubscription = useUpdateSubscription()
   const subscriptions = subscriptionsQuery.data?.items ?? []
+  const configs = configsQuery.data?.items ?? []
   const groups = groupsQuery.data?.items ?? []
   const deliveryGroup = groups.find((group) => group.key === GROUP_KEY)
   const deliverySettings = deliveryGroup?.value_json
   const [form, setForm] = useState<SubscriptionDeliveryForm>(defaultForm)
+  const [configName, setConfigName] = useState('')
+  const [configStatus, setConfigStatus] = useState('active')
+  const [configJson, setConfigJson] = useState('{"title":"Customer profile"}')
+  const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null)
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null)
+  const [editorName, setEditorName] = useState('')
+  const [editorStatus, setEditorStatus] = useState('active')
+  const [editorJson, setEditorJson] = useState('{}')
   const [formError, setFormError] = useState<string | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
+
+  const selectedConfig = configs.find((config) => config.id === selectedConfigId) ?? configs[0]
+  const selectedSubscription =
+    subscriptions.find((subscription) => subscription.id === selectedSubscriptionId) ??
+    subscriptions[0]
 
   useEffect(() => {
     if (!deliverySettings) {
@@ -90,6 +120,23 @@ export function SubscriptionPublicPage() {
     })
   }, [deliverySettings])
 
+  useEffect(() => {
+    if (!selectedConfig) {
+      return
+    }
+    setSelectedConfigId(selectedConfig.id)
+    setEditorName(selectedConfig.name)
+    setEditorStatus(selectedConfig.status)
+    setEditorJson(JSON.stringify(selectedConfig.config_json, null, 2))
+  }, [selectedConfig])
+
+  useEffect(() => {
+    if (!selectedSubscription) {
+      return
+    }
+    setSelectedSubscriptionId(selectedSubscription.id)
+  }, [selectedSubscription])
+
   const rows = subscriptions.map((subscription) => ({
     cells: [
       subscription.public_id,
@@ -100,6 +147,33 @@ export function SubscriptionPublicPage() {
       </StatusBadge>,
     ],
     id: subscription.id,
+  }))
+
+  const configRows = configs.map((config) => ({
+    cells: [
+      config.name,
+      config.status,
+      formatRecord(config.config_json),
+      String(config.order),
+      <div className="inline-actions">
+        <button type="button" className="button button--secondary" onClick={() => setSelectedConfigId(config.id)}>
+          Edit
+        </button>
+        <button type="button" className="button button--secondary" onClick={() => void moveConfig(config, -1)}>
+          Up
+        </button>
+        <button type="button" className="button button--secondary" onClick={() => void moveConfig(config, 1)}>
+          Down
+        </button>
+        <button type="button" className="button button--secondary" onClick={() => void cloneConfig(config)}>
+          Clone
+        </button>
+        <button type="button" className="button button--danger" onClick={() => void deleteConfigMutation.mutateAsync(config.id)}>
+          Delete
+        </button>
+      </div>,
+    ],
+    id: config.id,
   }))
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -114,6 +188,86 @@ export function SubscriptionPublicPage() {
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Subscription delivery could not be saved.')
     }
+  }
+
+  async function handleCreateConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setConfigError(null)
+    try {
+      const config = await createConfig.mutateAsync({
+        config_json: parseJsonObject(configJson, 'Config JSON'),
+        name: configName.trim(),
+        status: configStatus.trim(),
+      })
+      setSelectedConfigId(config.id)
+      setConfigName('')
+      setConfigJson('{"title":"Customer profile"}')
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : 'Subscription page config could not be saved.')
+    }
+  }
+
+  async function saveSelectedConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedConfig) {
+      return
+    }
+    setConfigError(null)
+    try {
+      await updateConfig.mutateAsync({
+        id: selectedConfig.id,
+        request: {
+          config_json: parseJsonObject(editorJson, 'Selected config JSON'),
+          name: editorName.trim(),
+          status: editorStatus.trim(),
+        },
+      })
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : 'Subscription page config could not be updated.')
+    }
+  }
+
+  async function cloneConfig(config: SubscriptionPageConfigRecord) {
+    await cloneConfigMutation.mutateAsync({
+      id: config.id,
+      request: { name: `${config.name} copy` },
+    })
+  }
+
+  async function moveConfig(config: SubscriptionPageConfigRecord, direction: -1 | 1) {
+    const index = configs.findIndex((item) => item.id === config.id)
+    const targetIndex = index + direction
+    if (index < 0 || targetIndex < 0 || targetIndex >= configs.length) {
+      return
+    }
+    const ids = configs.map((item) => item.id)
+    const [id] = ids.splice(index, 1)
+    ids.splice(targetIndex, 0, id)
+    await reorderConfigs.mutateAsync(ids)
+  }
+
+  async function bindConfigToSubscription() {
+    if (!selectedConfig || !selectedSubscription) {
+      return
+    }
+    await updateSubscription.mutateAsync({
+      id: selectedSubscription.id,
+      request: {
+        delivery_profile: {
+          ...selectedSubscription.delivery_profile,
+          subpage_config_id: selectedConfig.id,
+        },
+      },
+    })
+  }
+
+  async function clearSubscriptionConfig(subscription: SubscriptionRecord) {
+    const nextProfile = { ...subscription.delivery_profile }
+    delete nextProfile.subpage_config_id
+    await updateSubscription.mutateAsync({
+      id: subscription.id,
+      request: { delivery_profile: nextProfile },
+    })
   }
 
   return (
@@ -215,6 +369,142 @@ export function SubscriptionPublicPage() {
           )}
         </article>
       </div>
+      <div className="resource-layout">
+        <ScreenForm onSubmit={handleCreateConfig}>
+          <div>
+            <p className="eyebrow">Page configs</p>
+            <h2>Create customer page config</h2>
+            <p>
+              Saved configs are reusable public subscription page presets. Bind one to
+              a subscription to make its manifest expose the selected subpage contract.
+            </p>
+          </div>
+          <TextField id="subpage-config-name" label="Config name" required value={configName} onChange={setConfigName} />
+          <TextField id="subpage-config-status" label="Config status" required value={configStatus} onChange={setConfigStatus} />
+          <JsonField id="subpage-config-json" label="Config JSON" value={configJson} onChange={setConfigJson} />
+          <FormError message={configError} />
+          <SubmitButton pending={createConfig.isPending}>Create page config</SubmitButton>
+        </ScreenForm>
+        <article className="panel">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">Selected config</p>
+              <h2>{selectedConfig?.name ?? 'No page config'}</h2>
+            </div>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => void configsQuery.refetch()}
+            >
+              Refresh configs
+            </button>
+          </div>
+          {selectedConfig ? (
+            <form className="screen-form" onSubmit={saveSelectedConfig}>
+              <TextField id="selected-subpage-config-name" label="Selected config name" required value={editorName} onChange={setEditorName} />
+              <TextField id="selected-subpage-config-status" label="Selected config status" required value={editorStatus} onChange={setEditorStatus} />
+              <JsonField id="selected-subpage-config-json" label="Selected config JSON" value={editorJson} onChange={setEditorJson} />
+              <SubmitButton pending={updateConfig.isPending}>Save selected page config</SubmitButton>
+            </form>
+          ) : (
+            <p className="auth-card__note">Create a config before binding customer pages.</p>
+          )}
+        </article>
+      </div>
+      <article className="panel panel--wide">
+        <div className="panel__header">
+          <div>
+            <p className="eyebrow">Config registry</p>
+            <h2>Subscription page configs</h2>
+          </div>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => void reorderConfigs.mutateAsync(configs.map((config) => config.id).reverse())}
+          >
+            Reverse config order
+          </button>
+        </div>
+        {configsQuery.isLoading ? <LoadingState label="Loading subscription page configs..." /> : null}
+        {configsQuery.isError ? (
+          <ErrorState
+            title="Subscription page configs unavailable"
+            error={configsQuery.error ?? new Error('Subscription page configs unavailable')}
+          />
+        ) : null}
+        {configsQuery.isSuccess && configs.length === 0 ? (
+          <EmptyState
+            title="No subscription page configs"
+            description="Create a reusable page config before binding subscriptions."
+          />
+        ) : null}
+        {configsQuery.isSuccess && configs.length > 0 ? (
+          <DataTable
+            caption="Subscription page configs"
+            columns={['Name', 'Status', 'Config', 'Order', 'Actions']}
+            rows={configRows}
+          />
+        ) : null}
+      </article>
+      <article className="panel panel--wide">
+        <div className="panel__header">
+          <div>
+            <p className="eyebrow">Binding</p>
+            <h2>Bind config to subscription</h2>
+          </div>
+          <StatusBadge tone={selectedConfig && selectedSubscription ? 'good' : 'watch'}>
+            {selectedConfig && selectedSubscription ? 'ready' : 'select records'}
+          </StatusBadge>
+        </div>
+        <div className="field-grid">
+          <label htmlFor="subpage-bind-subscription">
+            Subscription
+            <select
+              id="subpage-bind-subscription"
+              value={selectedSubscription?.id ?? ''}
+              onChange={(event) => setSelectedSubscriptionId(event.target.value)}
+            >
+              {subscriptions.map((subscription) => (
+                <option key={subscription.id} value={subscription.id}>
+                  {subscription.public_id} - {subscription.delivery_profile.subpage_config_id ?? 'no page config'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="subpage-bind-config">
+            Page config
+            <select
+              id="subpage-bind-config"
+              value={selectedConfig?.id ?? ''}
+              onChange={(event) => setSelectedConfigId(event.target.value)}
+            >
+              {configs.map((config) => (
+                <option key={config.id} value={config.id}>
+                  {config.name} - {config.status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="inline-actions field-grid__full">
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={!selectedConfig || !selectedSubscription}
+              onClick={() => void bindConfigToSubscription()}
+            >
+              Bind page config
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={!selectedSubscription}
+              onClick={() => selectedSubscription && void clearSubscriptionConfig(selectedSubscription)}
+            >
+              Clear binding
+            </button>
+          </div>
+        </div>
+      </article>
       {subscriptionsQuery.isLoading ? <LoadingState label="Loading subscription page..." /> : null}
       {subscriptionsQuery.isError ? (
         <ErrorState

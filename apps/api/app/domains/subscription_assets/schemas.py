@@ -99,3 +99,40 @@ class ResponseRuleTestResponse(BaseModel):
     status_code: int
     body: str
     headers: dict[str, str]
+
+
+class SubscriptionPageConfigCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+    status: str = Field(default="active", max_length=32)
+    config_json: dict[str, object] = Field(default_factory=dict)
+    order: int | None = Field(default=None, ge=0)
+
+
+class SubscriptionPageConfigUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    status: str | None = Field(default=None, max_length=32)
+    config_json: dict[str, object] | None = None
+    order: int | None = Field(default=None, ge=0)
+
+
+class SubscriptionPageConfigCloneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    status: str | None = Field(default=None, max_length=32)
+
+
+class SubscriptionPageConfigResponse(BaseModel):
+    id: str
+    name: str
+    status: str
+    config_json: dict[str, object]
+    order: int
+
+
+class SubscriptionPageConfigListResponse(BaseModel):
+    items: list[SubscriptionPageConfigResponse]

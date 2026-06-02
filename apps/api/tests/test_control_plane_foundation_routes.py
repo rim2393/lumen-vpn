@@ -532,6 +532,56 @@ async def test_subscription_templates_and_response_rules_are_persisted(
     assert test_rule_after_delete.status_code == 200
     assert test_rule_after_delete.json()["matched"] is False
 
+    subpage_config_response = await foundation_app.client.post(
+        "/api/v1/subscription-page-configs",
+        json={
+            "name": "Default customer page",
+            "config_json": {"title": "Default page", "layout": "compact"},
+        },
+    )
+    assert subpage_config_response.status_code == 201
+    config_id = subpage_config_response.json()["id"]
+    clone_config_response = await foundation_app.client.post(
+        f"/api/v1/subscription-page-configs/{config_id}/clone",
+        json={"name": "Default customer page copy"},
+    )
+    assert clone_config_response.status_code == 201
+    clone_config_id = clone_config_response.json()["id"]
+    assert clone_config_response.json()["config_json"] == {
+        "title": "Default page",
+        "layout": "compact",
+    }
+    reorder_configs_response = await foundation_app.client.post(
+        "/api/v1/subscription-page-configs/actions/reorder",
+        json={"ids": [clone_config_id, config_id]},
+    )
+    assert reorder_configs_response.status_code == 200
+    list_configs_response = await foundation_app.client.get("/api/v1/subscription-page-configs")
+    assert list_configs_response.status_code == 200
+    assert [item["id"] for item in list_configs_response.json()["items"][:2]] == [
+        clone_config_id,
+        config_id,
+    ]
+    update_config_response = await foundation_app.client.patch(
+        f"/api/v1/subscription-page-configs/{config_id}",
+        json={"status": "inactive", "config_json": {"title": "Inactive page"}},
+    )
+    assert update_config_response.status_code == 200
+    assert update_config_response.json()["status"] == "inactive"
+    secret_config_response = await foundation_app.client.post(
+        "/api/v1/subscription-page-configs",
+        json={"name": "Unsafe page", "config_json": {"api_token": "inline"}},
+    )
+    assert secret_config_response.status_code == 422
+    delete_clone_config_response = await foundation_app.client.delete(
+        f"/api/v1/subscription-page-configs/{clone_config_id}"
+    )
+    assert delete_clone_config_response.status_code == 204
+    delete_config_response = await foundation_app.client.delete(
+        f"/api/v1/subscription-page-configs/{config_id}"
+    )
+    assert delete_config_response.status_code == 204
+
 
 async def test_protocol_profile_port_conflict_and_host_flow(
     foundation_app: FoundationRouteApp,
