@@ -34,7 +34,7 @@ evidence here is wrong or stale.
 | Item | Current Evidence |
 | --- | --- |
 | Latest production release | `v0.1.91` |
-| Product repo head | `38c054c Enrich subscription create contract` |
+| Product repo head | `7626a0e Record SUB-002 production evidence` |
 | Public installer manifest | `rim2393/lumen_vpn@249b2be` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
