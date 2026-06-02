@@ -33,10 +33,10 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.106` |
-| Product repo head | `d14d40a Close Xray edge transport runtime matrix` |
-| Public installer manifest | `rim2393/lumen_vpn@25c9b67` |
-| Prod health | `https://panel.89-185-85-184.sslip.io/guard/login -> 200`; prod containers `lumen-api/web/subscription` and prod `lumen-node-agent` on digest-pinned `v0.1.106` |
+| Latest production release | `v0.1.107` |
+| Product repo head | `7c95946 Close WireGuard runtime readiness gates` |
+| Public installer manifest | `rim2393/lumen_vpn@aec0e10` |
+| Prod health | `https://panel.89-185-85-184.sslip.io/guard/login -> 200`; prod containers `lumen-api/web/subscription` and prod `lumen-node-agent` on digest-pinned `v0.1.107` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
 ## Execution Order
@@ -141,7 +141,7 @@ evidence here is wrong or stale.
 | --- | --- | --- | --- | --- |
 | PR-001 | Keep already live protocol slices regression-tested | DONE | Existing live protocols stay covered in CI and live smoke after related changes | `443e6c0` + `9d991b5`, `v0.1.105`, product release run `26798544731`, installer/deploy run `26798609707`, manifest `rim2393/lumen_vpn@42b9710`; added production-live regression matrix for `34` adapters seen on prod, promoted `vless-reality-httpupgrade` from legacy to experimental because it is already active on the real node, fixed `hysteria2-obfs` inbound mapping to UDP/TLS, and wired the matrix into GitHub `Quality gates`; local gates passed: backend `ruff`, `pytest tests/test_protocol_live_regression_matrix.py`, focused profile catalog pytest, node-agent runtime tests `49` passed, subscription-renderers `npm test` `7` passed, backend subscription route tests `15` passed; CI quality run `26798709882` passed with OpenAPI + protocol matrix, main image run `26798709886` passed; prod containers `lumen-api/web/subscription` and prod node-agent on `v0.1.105`; live prod smoke on real DB found `46` active profiles, all `34` production-live adapters present, no missing/unsupported/non-live adapters, runtime families `xray/hysteria2/tuic/naive/wireguard/openvpn/shadowsocks`, `hysteria2-obfs` `udp/tls`, and `vless-reality-httpupgrade` `experimental/xray`. |
 | PR-002 | Remaining Xray transport edge cases | DONE | WS/gRPC/HTTPUpgrade/xHTTP/Reality/TLS edge cases pass backend, node, renderers, client imports, live smoke | `d14d40a`, `v0.1.106`, product quality run `26799428764`, product release run `26799429829`, installer/deploy run `26799501649`, manifest `rim2393/lumen_vpn@25c9b67`; added exact backend runtime matrix for VLESS/VMess/Trojan WS/gRPC/HTTPUpgrade/XHTTP/TLS/Reality, strengthened node-agent Xray streamSettings validation before apply/reload, expanded subscription schema/renderers for edge transports, added `trojan-httpupgrade-tls` as a first-class adapter, and wired schema/renderers/node-agent/API edge gates into GitHub `Quality gates`; local gates passed: backend `ruff`, backend PR-002 pytest `58 passed`, node-agent `node --test test/xray-runtime.test.js test/runtime-runner.test.js` `23 passed`, subscription-renderers `npm test` `9 passed`, subscription-schema `npm test` `7 passed`; CI quality passed; prod panel containers and node-agent updated to digest-pinned `v0.1.106`; live read-only prod smoke on real active profiles found `catalog_missing=[]`, checked `18` active Xray edge profiles across `15` active edge adapters, and returned `failures=[]`. `trojan-httpupgrade-tls` is live in catalog/tests; prod has no active profile of that new type yet, so no fake active profile was created for smoke. |
-| PR-003 | WireGuard/AmneziaWG real key lifecycle and policy enforcement | OPEN | No fake torrent blocking; enforceable design implemented or clear unsupported status | Not started |
+| PR-003 | WireGuard/AmneziaWG real key lifecycle and policy enforcement | DONE | No fake keys/configs; incomplete runtime config is blocked before node queue; subscriptions render through real targets; live node is on the released runtime | `7c95946`, `v0.1.107`, product quality run `26800227163`, product release tag run `26800228258`, main image rerun `26800227165`, installer/deploy run `26800280724`, manifest `rim2393/lumen_vpn@aec0e10`; backend now rejects WireGuard/AWG apply before queuing `outbound.apply` when server private key/address/peers are missing and requires AWG obfuscation for `wireguard-amneziawg`; node-agent rejects `awg-quick` without AWG interface options and full `runNodeAgentOnce` dispatch tests cover `wg-quick` and `awg-quick`; subscription schema validates WireGuard public key, UDP transport and client address/allowedIps early; subscription renderers now emit real WireGuard sing-box/Mihomo configs with derived client keys; OpenAPI seed regenerated for render target docs; local gates passed: backend `ruff`, backend PR-003 pytest `62 passed`, node-agent `34 passed`, subscription-schema `8 passed`, subscription-renderers `9 passed`, OpenAPI drift check passed; CI quality and release builds passed after rerunning a transient Docker Hub main image failure; prod panel and node-agent updated to digest-pinned `v0.1.107`; live prod smoke fixed existing active AWG profile `авг` by adding missing server key/public key/AWG params without printing secrets, verified all active WG/AWG profiles are ready, created temporary real subscriptions for `wireguard-native` and `wireguard-amneziawg`, verified public `raw-uri`, `sing-box`, `mihomo`, and `amnezia` renders all returned `200` with expected WireGuard/AWG markers, then cleanup left `0` QA users/licenses/subscriptions. |
 | PR-004 | IKEv2/IPsec | OPEN | Backend profile, node runtime, subscription renderer, client import and live connect | Not started |
 | PR-005 | NaiveProxy/HTTP/SOCKS edge compatibility | OPEN | Target clients import and connect through live node | Not started |
 | PR-006 | Client compatibility matrix | OPEN | Happ/Hiddify/Amnezia/Mihomo/Stash/sing-box fixtures and live imports verified | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`PR-003`: WireGuard/AmneziaWG real key lifecycle and policy enforcement.
+`PR-004`: IKEv2/IPsec.
 
 Proposed implementation:
 
-1. Audit current `wireguard-native` and `wireguard-amneziawg` backend configs, key material handling, node runtime apply, subscription renderers and Android import expectations.
-2. Implement real server/client key lifecycle without storing plaintext secrets in logs/wiki and without fake generated configs.
-3. Enforce AmneziaWG-specific parameters and policy validation at profile builder/API/runtime boundaries.
-4. Add focused backend/node/subscription/client fixture tests.
-5. Release/deploy through signed manifest and verify live production config/subscription output on the real node.
+1. Audit whether the current stack has any real IKEv2/IPsec runtime support or only catalog/UI assumptions.
+2. Choose the runtime implementation path for the node image (`strongSwan` or explicit unsupported/deferred status if the stack cannot support it safely yet).
+3. Add backend profile contract, port conflict rules, node-agent apply/validation, subscription/client output and tests for the selected path.
+4. Release/deploy through signed manifest.
+5. Verify on the real node with either live connect evidence or a clearly blocked runtime dependency recorded in this tracker.
 
 ## Checkpoint Notes
 
