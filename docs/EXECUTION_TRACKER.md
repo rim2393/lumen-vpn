@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.90` |
-| Product repo head | `827b567 Apply panel identity to auth and chrome` |
-| Public installer manifest | `rim2393/lumen_vpn@9efe79b` |
+| Latest production release | `v0.1.91` |
+| Product repo head | `38c054c Enrich subscription create contract` |
+| Public installer manifest | `rim2393/lumen_vpn@249b2be` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -111,8 +111,8 @@ evidence here is wrong or stale.
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
 | SUB-001 | Subscription admin lookup/clone/delete/devices/raw preview | DONE | Protected admin API/UI uses real production API controls | `e8f8699`, released through later versions |
-| SUB-002 | Subscription create richer contract | NEXT | Static server default removed, expires/config hash exposed; more settings remain | `v0.1.62`; still needs final contract/UI/live evidence |
-| SUB-003 | Subscription settings page | OPEN | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | Not started |
+| SUB-002 | Subscription create richer contract | DONE | Static server default removed, expires/config hash exposed; admin response includes public page/manifest/render paths, render formats and timestamps; UI creates from real user/license/node/profile/host context | `38c054c`, `v0.1.91`, release run `26791107414` rerun after transient Docker Hub timeout, installer/deploy run `26791205782`, manifest `rim2393/lumen_vpn@249b2be`; backend `ruff`, `python -m pytest tests/test_license_subscription_routes.py::test_subscription_routes_create_list_and_get`, focused Vitest `creates subscriptions with a real listed license`, and web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.91` healthy; prod browser `/subscription` verified real license select, formats column, create subscription form and public actions; live smoke created a temporary real user and subscription through `/api/v1/users` + `/api/v1/subscriptions`, selected active license/node/profile/host `prod-vless-reality-live`, verified create/detail/list/lookup contract fields, public manifest with HWID, non-empty panel HApp render `265` bytes and non-empty sub-domain HApp render `265` bytes, then deleted the temporary subscription and user. |
+| SUB-003 | Subscription settings page | NEXT | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | Not started |
 | SUB-004 | Template CRUD/reorder for Xray JSON, Mihomo, Stash, sing-box, Clash | OPEN | Template ordering and editor affect renderers with tests | Partial CRUD exists; reorder/parity incomplete |
 | SUB-005 | Response rule editor/tester | OPEN | Rules can be edited/tested in UI and applied to public responses | Backend partial exists; UI parity open |
 | SUB-006 | Subscription page configs CRUD/clone/reorder | OPEN | Configs bind to squads/subscriptions and affect public subpage | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`SUB-002`: Subscription create richer contract.
+`SUB-003`: Subscription settings page.
 
 Proposed implementation:
 
-1. Audit current subscription create API/UI and the remaining partial contract gaps.
-2. Remove any remaining static server defaults and require real user/license/profile/squad context where needed.
-3. Expose expires/config hash/profile page/public render metadata in the admin response and UI.
-4. Cover backend create/list/detail behavior and UI creation with focused tests.
-5. Release through the signed manifest and verify create/list/public render on the live panel path before marking DONE.
+1. Audit current subscription delivery settings groups, response assets, public subpage behavior and UI gaps.
+2. Add a dedicated subscription settings surface for title/support/update interval/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules.
+3. Persist settings through typed settings groups and response-rule/template APIs, with validation that blocks secret-like inline values.
+4. Verify public manifest/render/subpage reflect the changed settings on real live subscriptions.
+5. Release through the signed manifest and verify live panel/sub-domain behavior before marking DONE.
 
 ## Checkpoint Notes
 
