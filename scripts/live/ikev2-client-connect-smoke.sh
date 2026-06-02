@@ -322,12 +322,13 @@ PY
 docker run --rm --name lumen-ikev2-client-smoke \
   --cap-add NET_ADMIN --cap-add NET_RAW \
   --device /dev/net/tun:/dev/net/tun \
-  -v "$CLIENT_DIR:/etc/swanctl:rw" \
+  -v "$CLIENT_DIR:/lumen-swanctl:ro" \
   "$CLIENT_IMAGE" bash -lc '
     set -euo pipefail
     export DEBIAN_FRONTEND=noninteractive
     apt-get -o Dpkg::Use-Pty=0 update
     apt-get -o Dpkg::Use-Pty=0 install -y --no-install-recommends strongswan-swanctl strongswan-charon iproute2 ca-certificates
+    cp -a /lumen-swanctl/. /etc/swanctl/
     ipsec start >/dev/null
     timeout 15 bash -lc "until [ -S /var/run/charon.vici ]; do sleep 0.2; done"
     swanctl --load-all >/tmp/lumen-load.log
