@@ -1133,6 +1133,62 @@ describe('Control plane resource screens', () => {
     })
   })
 
+  it('saves subscription page delivery through the typed settings API', async () => {
+    const user = userEvent.setup()
+    const updateSettingGroup = vi.fn(async (groupKey: string, request: SettingGroupUpdateRequest) => ({
+      description: 'Client-facing subscription presentation and update behavior.',
+      key: groupKey,
+      title: 'Subscription delivery',
+      updated_at: '2026-05-27T00:00:00Z',
+      updated_by: 'usr_admin',
+      value_json: request.value_json,
+    }))
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      updateSettingGroup,
+    }
+
+    renderWithRouter('/subscription-page', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('heading', { name: /subscription page/i })).toBeInTheDocument()
+    const updateInterval = screen.getByLabelText(/update interval, hours/i)
+    await waitFor(() => expect(updateInterval).toHaveValue(2))
+    fireEvent.change(updateInterval, {
+      target: { value: '8' },
+    })
+    fireEvent.change(screen.getByLabelText(/response headers json/i), {
+      target: { value: '{"X-Lumen-Test":"typed"}' },
+    })
+    fireEvent.change(screen.getByLabelText(/base json/i), {
+      target: { value: '{"dns":{"strategy":"prefer_ipv4"}}' },
+    })
+    fireEvent.change(screen.getByLabelText(/routing json/i), {
+      target: { value: '{"rules":[{"domain_suffix":"example.test"}]}' },
+    })
+    fireEvent.change(screen.getByLabelText(/custom remarks json/i), {
+      target: { value: '{"happ":"Lumen HApp"}' },
+    })
+    fireEvent.change(screen.getByLabelText(/subpage json/i), {
+      target: { value: '{"title":"Public profile"}' },
+    })
+    await user.click(screen.getByLabelText(/random host order/i))
+    await user.click(screen.getByRole('button', { name: /save subscription delivery/i }))
+
+    await waitFor(() => expect(updateSettingGroup).toHaveBeenCalledTimes(1))
+    expect(updateSettingGroup).toHaveBeenCalledWith('subscription.delivery', {
+      value_json: expect.objectContaining({
+        base_json: { dns: { strategy: 'prefer_ipv4' } },
+        custom_remarks: { happ: 'Lumen HApp' },
+        random_host_order: true,
+        response_headers: { 'X-Lumen-Test': 'typed' },
+        routing: { rules: [{ domain_suffix: 'example.test' }] },
+        subpage: { title: 'Public profile' },
+        title: 'Lumen VPN',
+        update_interval_hours: 8,
+      }),
+    })
+  })
+
   it('manages MFA methods and passkeys through auth security APIs', async () => {
     const user = userEvent.setup()
     const mfaMethods = [

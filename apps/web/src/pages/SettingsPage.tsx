@@ -462,9 +462,35 @@ function fieldBoolean(value: unknown) {
   return value === true
 }
 
+function fieldJson(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return '{}'
+  }
+  return JSON.stringify(value, null, 2)
+}
+
 function nullIfEmpty(value: string) {
   const trimmed = value.trim()
   return trimmed ? trimmed : null
+}
+
+function parseJsonObject(value: string, label: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return {}
+  }
+  const parsed = JSON.parse(trimmed) as unknown
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error(`${label} must be a JSON object.`)
+  }
+  return parsed as Record<string, unknown>
+}
+
+function parseStringRecord(value: string, label: string) {
+  const parsed = parseJsonObject(value, label)
+  return Object.fromEntries(
+    Object.entries(parsed).map(([key, entry]) => [key, String(entry)]),
+  )
 }
 
 function SettingGroupForm({
@@ -524,9 +550,14 @@ function initialGroupFormValues(group: SettingGroupRecord): Record<string, strin
   }
   if (group.key === 'subscription.delivery') {
     return {
+      base_json: fieldJson(value.base_json),
+      custom_remarks: fieldJson(value.custom_remarks),
       happ_announce: fieldString(value.happ_announce),
       profile_page_url: fieldString(value.profile_page_url),
       random_host_order: fieldBoolean(value.random_host_order),
+      response_headers: fieldJson(value.response_headers),
+      routing: fieldJson(value.routing),
+      subpage: fieldJson(value.subpage),
       support_url: fieldString(value.support_url),
       title: fieldString(value.title) || 'Lumen VPN',
       update_interval_hours: fieldNumber(value.update_interval_hours, 2),
@@ -561,9 +592,14 @@ function groupFormPayload(
   }
   if (groupKey === 'subscription.delivery') {
     return {
+      base_json: parseJsonObject(String(values.base_json ?? '{}'), 'Base JSON'),
+      custom_remarks: parseStringRecord(String(values.custom_remarks ?? '{}'), 'Custom remarks'),
       happ_announce: nullIfEmpty(String(values.happ_announce ?? '')),
       profile_page_url: nullIfEmpty(String(values.profile_page_url ?? '')),
       random_host_order: values.random_host_order === true,
+      response_headers: parseStringRecord(String(values.response_headers ?? '{}'), 'Response headers'),
+      routing: parseJsonObject(String(values.routing ?? '{}'), 'Routing'),
+      subpage: parseJsonObject(String(values.subpage ?? '{}'), 'Subpage'),
       support_url: nullIfEmpty(String(values.support_url ?? '')),
       title: String(values.title ?? '').trim(),
       update_interval_hours: Number(values.update_interval_hours),
@@ -618,6 +654,11 @@ function renderGroupFields(
         <TextField id="subscription-update-hours" label="Update interval hours" type="number" value={values.update_interval_hours} onChange={(value) => setValue('update_interval_hours', value)} />
         <TextField id="subscription-happ-announce" label="HApp announce" value={values.happ_announce} onChange={(value) => setValue('happ_announce', value)} />
         <CheckboxField id="subscription-random-host-order" label="Random host order" checked={values.random_host_order === true} onChange={(value) => setValue('random_host_order', value)} />
+        <TextareaField id="subscription-response-headers" label="Response headers JSON" value={values.response_headers} onChange={(value) => setValue('response_headers', value)} />
+        <TextareaField id="subscription-base-json" label="Base JSON" value={values.base_json} onChange={(value) => setValue('base_json', value)} />
+        <TextareaField id="subscription-routing" label="Routing JSON" value={values.routing} onChange={(value) => setValue('routing', value)} />
+        <TextareaField id="subscription-custom-remarks" label="Custom remarks JSON" value={values.custom_remarks} onChange={(value) => setValue('custom_remarks', value)} />
+        <TextareaField id="subscription-subpage" label="Subpage JSON" value={values.subpage} onChange={(value) => setValue('subpage', value)} />
       </>
     )
   }
@@ -660,6 +701,32 @@ function TextField({
       <input
         id={id}
         type={type}
+        value={String(value ?? '')}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
+function TextareaField({
+  id,
+  label,
+  onChange,
+  value,
+}: {
+  id: string
+  label: string
+  onChange: (value: string) => void
+  value: string | boolean
+}) {
+  const { t } = useI18n()
+  return (
+    <label htmlFor={id}>
+      {t(label)}
+      <textarea
+        id={id}
+        rows={5}
+        spellCheck={false}
         value={String(value ?? '')}
         onChange={(event) => onChange(event.target.value)}
       />

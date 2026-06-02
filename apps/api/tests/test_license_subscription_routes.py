@@ -942,18 +942,25 @@ async def test_public_subscription_renderers_emit_client_compatible_formats(
     assert xray["outbounds"][0]["streamSettings"]["security"] == "reality"
 
 
-async def test_subscription_info_setting_feeds_manifest_and_renderer_headers(
+async def test_subscription_delivery_setting_feeds_manifest_and_renderer_headers(
     route_app: RouteTestApp,
 ) -> None:
     user, license_record, node = await seed_subscription_dependencies(route_app)
     setting_response = await route_app.client.put(
-        "/api/v1/settings/subscription.info",
+        "/api/v1/settings/groups/subscription.delivery",
         json={
             "value_json": {
+                "base_json": {"dns": {"strategy": "prefer_ipv4"}},
+                "custom_remarks": {"happ": "Lumen HApp"},
+                "happ_announce": "Production announce",
                 "title": "Lumen Production",
                 "support_url": "https://support.example.test",
-                "auto_update_hours": "6",
+                "update_interval_hours": 6,
                 "profile_page_url": "https://sub.example.test",
+                "random_host_order": True,
+                "response_headers": {"X-Lumen-Delivery": "typed"},
+                "routing": {"rules": [{"domain_suffix": "example.test", "outbound": "proxy"}]},
+                "subpage": {"title": "Public profile page"},
             },
         },
     )
@@ -984,9 +991,18 @@ async def test_subscription_info_setting_feeds_manifest_and_renderer_headers(
     assert manifest["provider"]["name"] == "Lumen Production"
     assert manifest["nodes"][0]["protocols"][0]["rendererHints"]["name"] == "Lumen Production"
     assert manifest["metadata"]["profileTitle"] == "Lumen Production"
-    assert manifest["metadata"]["supportUrl"] == "https://support.example.test"
-    assert manifest["metadata"]["profilePageUrl"] == "https://sub.example.test"
+    assert manifest["metadata"]["supportUrl"] == "https://support.example.test/"
+    assert manifest["metadata"]["profilePageUrl"] == "https://sub.example.test/"
     assert manifest["metadata"]["updateIntervalHours"] == "6"
+    assert manifest["metadata"]["baseJson"] == {"dns": {"strategy": "prefer_ipv4"}}
+    assert manifest["metadata"]["customRemarks"] == {"happ": "Lumen HApp"}
+    assert manifest["metadata"]["happAnnounce"] == "Production announce"
+    assert manifest["metadata"]["randomHostOrder"] is True
+    assert manifest["metadata"]["responseHeaders"] == {"X-Lumen-Delivery": "typed"}
+    assert manifest["metadata"]["routing"] == {
+        "rules": [{"domain_suffix": "example.test", "outbound": "proxy"}]
+    }
+    assert manifest["metadata"]["subpage"] == {"title": "Public profile page"}
 
     render_response = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=hiddify",
@@ -995,6 +1011,7 @@ async def test_subscription_info_setting_feeds_manifest_and_renderer_headers(
     encoded_title = render_response.headers["profile-title"].removeprefix("base64:")
     assert base64.b64decode(encoded_title).decode("utf-8") == "Lumen Production"
     assert render_response.headers["profile-update-interval"] == "6"
+    assert render_response.headers["x-lumen-delivery"] == "typed"
 
     override_response = await route_app.client.post(
         "/api/v1/subscriptions",

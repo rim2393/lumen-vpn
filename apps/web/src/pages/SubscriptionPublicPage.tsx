@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
-  useSettingsPageData,
+  useSettingGroupsData,
   useSubscriptionsPageData,
-  useUpdateSetting,
+  useUpdateSettingGroup,
 } from '../shared/api/resourceHooks'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
@@ -17,53 +17,78 @@ import { StatusBadge } from '../shared/components/StatusBadge'
 import { sectionSpecs } from '../shared/data/resourceMeta'
 import { formatDateTime, formatRecord } from '../shared/utils/resourceFormat'
 
-const SETTING_KEY = 'subscription.info'
+const GROUP_KEY = 'subscription.delivery'
 
 const pageSpec = {
   ...sectionSpecs.subscription,
   description:
-    'Configure the real metadata used by public subscription pages and client subscription headers.',
-  eyebrow: 'Subscription page',
-  primaryAction: 'Save public metadata',
+    'Configure the real typed delivery contract used by public manifests, renderer headers and client subscription pages.',
+  eyebrow: 'Subscription delivery',
+  primaryAction: 'Save delivery settings',
   status: 'active',
   title: 'Subscription Page',
 }
 
-type SubscriptionInfoForm = {
-  autoUpdateHours: string
+type SubscriptionDeliveryForm = {
+  baseJson: string
+  customRemarks: string
+  happAnnounce: string
   profilePageUrl: string
+  randomHostOrder: boolean
+  responseHeaders: string
+  routing: string
+  subpage: string
   supportUrl: string
   title: string
+  updateIntervalHours: string
 }
 
-const defaultForm: SubscriptionInfoForm = {
-  autoUpdateHours: '2',
+const defaultForm: SubscriptionDeliveryForm = {
+  baseJson: '{}',
+  customRemarks: '{}',
+  happAnnounce: '',
   profilePageUrl: '',
+  randomHostOrder: false,
+  responseHeaders: '{}',
+  routing: '{}',
+  subpage: '{}',
   supportUrl: '',
-  title: 'Lumen',
+  title: 'Lumen VPN',
+  updateIntervalHours: '2',
 }
 
 export function SubscriptionPublicPage() {
   const subscriptionsQuery = useSubscriptionsPageData()
-  const settingsQuery = useSettingsPageData()
-  const updateSetting = useUpdateSetting()
+  const groupsQuery = useSettingGroupsData()
+  const updateGroup = useUpdateSettingGroup()
   const subscriptions = subscriptionsQuery.data?.items ?? []
-  const settings = settingsQuery.data?.items ?? []
-  const subscriptionInfo = settings.find((setting) => setting.key === SETTING_KEY)?.value_json
-  const [form, setForm] = useState<SubscriptionInfoForm>(defaultForm)
+  const groups = groupsQuery.data?.items ?? []
+  const deliveryGroup = groups.find((group) => group.key === GROUP_KEY)
+  const deliverySettings = deliveryGroup?.value_json
+  const [form, setForm] = useState<SubscriptionDeliveryForm>(defaultForm)
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!subscriptionInfo) {
+    if (!deliverySettings) {
       return
     }
     setForm({
-      autoUpdateHours: stringValue(subscriptionInfo.auto_update_hours, defaultForm.autoUpdateHours),
-      profilePageUrl: stringValue(subscriptionInfo.profile_page_url, ''),
-      supportUrl: stringValue(subscriptionInfo.support_url, ''),
-      title: stringValue(subscriptionInfo.title, defaultForm.title),
+      baseJson: jsonValue(deliverySettings.base_json),
+      customRemarks: jsonValue(deliverySettings.custom_remarks),
+      happAnnounce: stringValue(deliverySettings.happ_announce, ''),
+      profilePageUrl: stringValue(deliverySettings.profile_page_url, ''),
+      randomHostOrder: deliverySettings.random_host_order === true,
+      responseHeaders: jsonValue(deliverySettings.response_headers),
+      routing: jsonValue(deliverySettings.routing),
+      subpage: jsonValue(deliverySettings.subpage),
+      supportUrl: stringValue(deliverySettings.support_url, ''),
+      title: stringValue(deliverySettings.title, defaultForm.title),
+      updateIntervalHours: stringValue(
+        deliverySettings.update_interval_hours,
+        defaultForm.updateIntervalHours,
+      ),
     })
-  }, [subscriptionInfo])
+  }, [deliverySettings])
 
   const rows = subscriptions.map((subscription) => ({
     cells: [
@@ -81,19 +106,13 @@ export function SubscriptionPublicPage() {
     event.preventDefault()
     setFormError(null)
     try {
-      await updateSetting.mutateAsync({
-        key: SETTING_KEY,
-        request: {
-          value_json: {
-            auto_update_hours: form.autoUpdateHours.trim(),
-            profile_page_url: form.profilePageUrl.trim(),
-            support_url: form.supportUrl.trim(),
-            title: form.title.trim(),
-          },
-        },
+      const payload = buildPayload(form)
+      await updateGroup.mutateAsync({
+        groupKey: GROUP_KEY,
+        request: { value_json: payload },
       })
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Subscription page could not be saved.')
+      setFormError(error instanceof Error ? error.message : 'Subscription delivery could not be saved.')
     }
   }
 
@@ -104,7 +123,7 @@ export function SubscriptionPublicPage() {
         title={pageSpec.title}
         description={pageSpec.description}
       />
-      <section className="metrics-grid" aria-label="Subscription page metrics">
+      <section className="metrics-grid" aria-label="Subscription delivery metrics">
         <MetricCard
           metric={{
             detail: 'real public subscription records',
@@ -116,97 +135,82 @@ export function SubscriptionPublicPage() {
         />
         <MetricCard
           metric={{
-            detail: subscriptionInfo ? SETTING_KEY : 'not configured',
+            detail: deliveryGroup ? GROUP_KEY : 'typed group missing',
             icon: sectionSpecs.license.icon,
             label: 'Applied setting',
-            tone: subscriptionInfo ? 'good' : 'watch',
-            value: subscriptionInfo ? 'Active' : 'Missing',
+            tone: deliveryGroup ? 'good' : 'watch',
+            value: deliveryGroup ? 'Active' : 'Missing',
           }}
         />
       </section>
       <div className="resource-layout">
         <ScreenForm onSubmit={handleSubmit}>
           <div>
-            <p className="eyebrow">Public metadata</p>
-            <h2>Client-facing subscription settings</h2>
+            <p className="eyebrow">Typed delivery settings</p>
+            <h2>Client-facing subscription contract</h2>
             <p>
-              These values are saved as {SETTING_KEY} and are used by manifest metadata,
-              subscription response headers, and the public subscription page.
+              These values are saved as {GROUP_KEY} and are read by the real public
+              manifest and renderer path on every request.
             </p>
           </div>
-          <label htmlFor="subscription-title">
-            Subscription title
-            <input
-              id="subscription-title"
-              required
-              value={form.title}
-              onChange={(event) => setForm((value) => ({ ...value, title: event.target.value }))}
-            />
-          </label>
-          <label htmlFor="subscription-auto-update">
-            Auto-update interval, hours
-            <input
-              id="subscription-auto-update"
-              inputMode="numeric"
-              min="1"
-              required
-              type="number"
-              value={form.autoUpdateHours}
+          <TextField id="subscription-title" label="Subscription title" required value={form.title} onChange={(title) => setForm((value) => ({ ...value, title }))} />
+          <TextField id="subscription-update-interval" label="Update interval, hours" min="1" required type="number" value={form.updateIntervalHours} onChange={(updateIntervalHours) => setForm((value) => ({ ...value, updateIntervalHours }))} />
+          <TextField id="subscription-support-url" label="Support URL" type="url" value={form.supportUrl} onChange={(supportUrl) => setForm((value) => ({ ...value, supportUrl }))} />
+          <TextField id="subscription-profile-page-url" label="Profile page URL" type="url" value={form.profilePageUrl} onChange={(profilePageUrl) => setForm((value) => ({ ...value, profilePageUrl }))} />
+          <label htmlFor="subscription-happ-announce">
+            HApp announce
+            <textarea
+              id="subscription-happ-announce"
+              rows={3}
+              value={form.happAnnounce}
               onChange={(event) =>
-                setForm((value) => ({ ...value, autoUpdateHours: event.target.value }))
+                setForm((value) => ({ ...value, happAnnounce: event.target.value }))
               }
             />
           </label>
-          <label htmlFor="subscription-support-url">
-            Support link
+          <label className="checkbox-row" htmlFor="subscription-random-host-order">
             <input
-              id="subscription-support-url"
-              type="url"
-              value={form.supportUrl}
+              id="subscription-random-host-order"
+              type="checkbox"
+              checked={form.randomHostOrder}
               onChange={(event) =>
-                setForm((value) => ({ ...value, supportUrl: event.target.value }))
+                setForm((value) => ({ ...value, randomHostOrder: event.target.checked }))
               }
             />
+            Random host order
           </label>
-          <label htmlFor="subscription-profile-url">
-            Public profile page URL
-            <input
-              id="subscription-profile-url"
-              type="url"
-              value={form.profilePageUrl}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, profilePageUrl: event.target.value }))
-              }
-            />
-          </label>
+          <JsonField id="subscription-response-headers" label="Response headers JSON" value={form.responseHeaders} onChange={(responseHeaders) => setForm((value) => ({ ...value, responseHeaders }))} />
+          <JsonField id="subscription-base-json" label="Base JSON" value={form.baseJson} onChange={(baseJson) => setForm((value) => ({ ...value, baseJson }))} />
+          <JsonField id="subscription-routing" label="Routing JSON" value={form.routing} onChange={(routing) => setForm((value) => ({ ...value, routing }))} />
+          <JsonField id="subscription-custom-remarks" label="Custom remarks JSON" value={form.customRemarks} onChange={(customRemarks) => setForm((value) => ({ ...value, customRemarks }))} />
+          <JsonField id="subscription-subpage" label="Subpage JSON" value={form.subpage} onChange={(subpage) => setForm((value) => ({ ...value, subpage }))} />
           <FormError message={formError} />
-          {updateSetting.isSuccess ? (
+          {updateGroup.isSuccess ? (
             <p className="auth-card__note" aria-live="polite">
-              Subscription page metadata saved and will be used by new render requests.
+              Subscription delivery settings saved and applied to live render requests.
             </p>
           ) : null}
-          <SubmitButton pending={updateSetting.isPending}>Save subscription page</SubmitButton>
+          <SubmitButton pending={updateGroup.isPending}>Save subscription delivery</SubmitButton>
         </ScreenForm>
         <article className="panel">
           <div className="panel__header">
             <div>
               <p className="eyebrow">Effective JSON</p>
-              <h2>{SETTING_KEY}</h2>
+              <h2>{GROUP_KEY}</h2>
             </div>
             <button
               type="button"
               className="button button--secondary"
-              onClick={() => void settingsQuery.refetch()}
+              onClick={() => void groupsQuery.refetch()}
             >
               Refresh
             </button>
           </div>
-          {subscriptionInfo ? (
-            <pre className="code-block">{JSON.stringify(subscriptionInfo, null, 2)}</pre>
+          {deliverySettings ? (
+            <pre className="code-block">{JSON.stringify(deliverySettings, null, 2)}</pre>
           ) : (
             <p className="auth-card__note">
-              No saved subscription.info setting exists yet. Save the form to apply these
-              values to public manifests and subscription render headers.
+              The typed delivery group is not loaded. Refresh the page or check the settings API.
             </p>
           )}
         </article>
@@ -247,6 +251,110 @@ export function SubscriptionPublicPage() {
         </article>
       ) : null}
     </section>
+  )
+}
+
+function buildPayload(form: SubscriptionDeliveryForm): Record<string, unknown> {
+  return {
+    base_json: parseJsonObject(form.baseJson, 'Base JSON'),
+    custom_remarks: parseJsonObject(form.customRemarks, 'Custom remarks JSON'),
+    happ_announce: nullIfEmpty(form.happAnnounce),
+    profile_page_url: nullIfEmpty(form.profilePageUrl),
+    random_host_order: form.randomHostOrder,
+    response_headers: parseStringRecord(form.responseHeaders, 'Response headers JSON'),
+    routing: parseJsonObject(form.routing, 'Routing JSON'),
+    subpage: parseJsonObject(form.subpage, 'Subpage JSON'),
+    support_url: nullIfEmpty(form.supportUrl),
+    title: form.title.trim(),
+    update_interval_hours: Number(form.updateIntervalHours),
+  }
+}
+
+function TextField({
+  id,
+  label,
+  min,
+  onChange,
+  required = false,
+  type = 'text',
+  value,
+}: {
+  id: string
+  label: string
+  min?: string
+  onChange: (value: string) => void
+  required?: boolean
+  type?: string
+  value: string
+}) {
+  return (
+    <label htmlFor={id}>
+      {label}
+      <input
+        id={id}
+        min={min}
+        required={required}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
+function JsonField({
+  id,
+  label,
+  onChange,
+  value,
+}: {
+  id: string
+  label: string
+  onChange: (value: string) => void
+  value: string
+}) {
+  return (
+    <label htmlFor={id}>
+      {label}
+      <textarea
+        id={id}
+        rows={5}
+        spellCheck={false}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
+function jsonValue(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return '{}'
+  }
+  return JSON.stringify(value, null, 2)
+}
+
+function nullIfEmpty(value: string) {
+  const normalized = value.trim()
+  return normalized ? normalized : null
+}
+
+function parseJsonObject(value: string, label: string) {
+  const normalized = value.trim()
+  if (!normalized) {
+    return {}
+  }
+  const parsed = JSON.parse(normalized) as unknown
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error(`${label} must be a JSON object.`)
+  }
+  return parsed as Record<string, unknown>
+}
+
+function parseStringRecord(value: string, label: string) {
+  const parsed = parseJsonObject(value, label)
+  return Object.fromEntries(
+    Object.entries(parsed).map(([key, entry]) => [key, String(entry)]),
   )
 }
 

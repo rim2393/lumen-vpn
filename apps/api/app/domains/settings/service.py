@@ -63,6 +63,11 @@ class SubscriptionDeliverySettings(BaseModel):
     update_interval_hours: int = Field(default=2, ge=1, le=168)
     happ_announce: str | None = Field(default=None, max_length=512)
     random_host_order: bool = False
+    base_json: dict[str, object] = Field(default_factory=dict)
+    custom_remarks: dict[str, str] = Field(default_factory=dict)
+    response_headers: dict[str, str] = Field(default_factory=dict)
+    routing: dict[str, object] = Field(default_factory=dict)
+    subpage: dict[str, object] = Field(default_factory=dict)
 
 
 class SecurityPolicySettings(BaseModel):

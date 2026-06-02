@@ -17,6 +17,7 @@ from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
 from app.domains.settings.models import PanelSetting
+from app.domains.settings.service import SUBSCRIPTION_DELIVERY_KEY
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.renderers import (
     derive_client_credentials,
@@ -291,12 +292,11 @@ async def build_subscription_manifest(
         or delivery.get("support_url")
         or _setting_string(page_settings, "support_url")
     )
-    update_interval_hours = _override_string(
-        squad_overrides,
-        "update_interval_hours",
-    ) or delivery.get("update_interval_hours") or _setting_string(
-        page_settings,
-        "auto_update_hours",
+    update_interval_hours = (
+        _override_string(squad_overrides, "update_interval_hours")
+        or delivery.get("update_interval_hours")
+        or _setting_string(page_settings, "update_interval_hours")
+        or _setting_string(page_settings, "auto_update_hours")
     )
     profile_page_url = (
         _override_string(squad_overrides, "profile_page_url")
@@ -328,9 +328,21 @@ async def build_subscription_manifest(
         profile_title=profile_title,
     )
     _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
-    subpage_config = _dict_value(squad_overrides, "subpage")
+    subpage_config = {
+        **_dict_value(page_settings, "subpage"),
+        **_dict_value(squad_overrides, "subpage"),
+    }
     hwid_policy = _normalized_hwid_policy(_dict_value(squad_overrides, "hwid"))
-    response_headers = _safe_response_headers(_dict_value(squad_overrides, "headers"))
+    response_headers = _safe_response_headers(
+        {
+            **_dict_value(page_settings, "response_headers"),
+            **_dict_value(squad_overrides, "headers"),
+        }
+    )
+    base_json = _dict_value(page_settings, "base_json")
+    custom_remarks = _dict_value(page_settings, "custom_remarks")
+    routing = _dict_value(page_settings, "routing")
+    happ_announce = _setting_string(page_settings, "happ_announce")
 
     manifest = {
         "schemaVersion": "lumen.subscription-manifest.v1",
@@ -417,6 +429,11 @@ async def build_subscription_manifest(
             "accessPolicy": access_policy,
             "responseHeaders": response_headers,
             "subpage": subpage_config,
+            "baseJson": base_json,
+            "customRemarks": custom_remarks,
+            "routing": routing,
+            "happAnnounce": happ_announce,
+            "randomHostOrder": _override_bool(page_settings, "random_host_order"),
             "hwidPolicy": hwid_policy,
         },
     }
@@ -1138,12 +1155,19 @@ def _host_transport(host: Host | None) -> str | None:
 
 
 async def _subscription_page_settings(session: AsyncSession) -> dict[str, object]:
-    setting = (
+    delivery_setting = (
+        await session.execute(
+            select(PanelSetting).where(PanelSetting.key == SUBSCRIPTION_DELIVERY_KEY),
+        )
+    ).scalar_one_or_none()
+    if delivery_setting is not None:
+        return dict(delivery_setting.value_json)
+    legacy_setting = (
         await session.execute(
             select(PanelSetting).where(PanelSetting.key == SUBSCRIPTION_INFO_SETTING_KEY),
         )
     ).scalar_one_or_none()
-    return dict(setting.value_json) if setting is not None else {}
+    return dict(legacy_setting.value_json) if legacy_setting is not None else {}
 
 
 def _setting_string(settings: dict[str, object], key: str) -> str | None:
