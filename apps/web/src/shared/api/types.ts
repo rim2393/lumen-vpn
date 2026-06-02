@@ -917,6 +917,26 @@ export type ToolSummaryResponse = {
   torrent_events: number
 }
 
+export type TopUserRow = {
+  device_count: number
+  device_limit: number | null
+  email: string
+  expires_at: string | null
+  rank: number
+  risk: string
+  status: string
+  traffic_limit_gb: number | null
+  traffic_percent: number | null
+  traffic_used_gb: number
+  user_id: string
+  username: string | null
+}
+
+export type TopUserResponse = {
+  items: TopUserRow[]
+  metric: string
+}
+
 export type X25519KeypairResponse = {
   encoding: string
   private_key: string
@@ -1315,6 +1335,7 @@ export type LumenApiClient = {
   listSubscriptionPageConfigs: () => Promise<SubscriptionPageConfigListResponse>
   readToolSummary: () => Promise<ToolSummaryResponse>
   inspectHwid: (query?: string) => Promise<HwidInspectorResponse>
+  inspectTopUsers: (metric?: string, limit?: number) => Promise<TopUserResponse>
   inspectSrh: () => Promise<SrhInspectorResponse>
   inspectSessions: () => Promise<SessionInspectorResponse>
   inspectTorrentReports: () => Promise<TorrentReportResponse>

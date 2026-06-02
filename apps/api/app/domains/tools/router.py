@@ -18,6 +18,7 @@ from app.domains.tools.schemas import (
     ToolSnippetRecord,
     ToolSnippetUpdateRequest,
     ToolSummaryResponse,
+    TopUserResponse,
     TorrentReportResponse,
     X25519KeypairResponse,
 )
@@ -30,6 +31,7 @@ from app.domains.tools.service import (
     inspect_hwid,
     inspect_sessions,
     inspect_srh,
+    inspect_top_users,
     inspect_torrent_reports,
     list_tool_snippets,
     revoke_inspected_session,
@@ -58,6 +60,16 @@ async def read_hwid_inspector(
     query: str | None = Query(default=None, min_length=1, max_length=160),
 ) -> HwidInspectorResponse:
     return await inspect_hwid(session, query=query)
+
+
+@router.get("/top-users", response_model=TopUserResponse)
+async def read_top_users(
+    _: ToolManager,
+    session: DatabaseSession,
+    metric: str = Query(default="traffic_used", max_length=64),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> TopUserResponse:
+    return await inspect_top_users(session, metric=metric, limit=limit)
 
 
 @router.get("/srh-inspector", response_model=SrhInspectorResponse)

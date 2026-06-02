@@ -81,6 +81,7 @@ export const resourceQueryKeys = {
   infraBillingSummary: ['resource', 'infra-billing', 'summary'] as const,
   toolSummary: ['resource', 'tools', 'summary'] as const,
   toolHwid: ['resource', 'tools', 'hwid'] as const,
+  toolTopUsers: ['resource', 'tools', 'top-users'] as const,
   toolSrh: ['resource', 'tools', 'srh'] as const,
   toolSessions: ['resource', 'tools', 'sessions'] as const,
   toolTorrentReports: ['resource', 'tools', 'torrent-reports'] as const,
@@ -880,6 +881,15 @@ export function useHwidInspectorData(query?: string) {
   return useQuery({
     queryFn: () => apiClient.inspectHwid(normalizedQuery || undefined),
     queryKey: [...resourceQueryKeys.toolHwid, normalizedQuery],
+  })
+}
+
+export function useTopUsersData(metric: string, limit = 50) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryFn: () => apiClient.inspectTopUsers(metric, limit),
+    queryKey: [...resourceQueryKeys.toolTopUsers, metric, limit],
   })
 }
 

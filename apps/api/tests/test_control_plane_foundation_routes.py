@@ -1602,7 +1602,23 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
             starts_at=datetime.now(UTC),
             metadata_json={},
         )
-        session.add_all([user, license_record])
+        heavy_user = User(
+            email="top-heavy@example.com",
+            username="top-heavy",
+            role=Role.USER.value,
+            status="active",
+            device_limit=1,
+            traffic_limit_gb=100,
+            traffic_used_gb=95,
+            expires_at=datetime.now(UTC) + timedelta(days=3),
+            metadata_json={
+                "devices": [
+                    {"id": "heavy-phone", "hwid": "TOP-HWID-1"},
+                    {"id": "heavy-tablet", "hwid": "TOP-HWID-2"},
+                ]
+            },
+        )
+        session.add_all([user, heavy_user, license_record])
         await session.flush()
         subscription = Subscription(
             public_id="lumen_sub_tools",
@@ -1655,7 +1671,7 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
     assert hwid_row["device_records"][0]["subscription_id"] == "lumen_sub_tools"
     assert hwid_row["subscription_ids"] == ["lumen_sub_tools"]
     hwid_filter_response = await foundation_app.client.get(
-        "/api/v1/tools/hwid-inspector?query=HWID-1"
+        "/api/v1/tools/hwid-inspector?query=lumen_sub_tools"
     )
     assert hwid_filter_response.status_code == 200
     assert [item["email"] for item in hwid_filter_response.json()["items"]] == [
@@ -1666,6 +1682,27 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
     )
     assert empty_hwid_filter_response.status_code == 200
     assert empty_hwid_filter_response.json()["items"] == []
+
+    top_users_response = await foundation_app.client.get(
+        "/api/v1/tools/top-users?metric=traffic_used&limit=2"
+    )
+    assert top_users_response.status_code == 200
+    top_users = top_users_response.json()
+    assert top_users["metric"] == "traffic_used"
+    assert top_users["items"][0]["email"] == "top-heavy@example.com"
+    assert top_users["items"][0]["traffic_percent"] == 95
+    assert top_users["items"][0]["device_count"] == 2
+    assert top_users["items"][0]["risk"] == "device_over_limit"
+    top_users_by_device = await foundation_app.client.get(
+        "/api/v1/tools/top-users?metric=device_count&limit=1"
+    )
+    assert top_users_by_device.status_code == 200
+    assert top_users_by_device.json()["items"][0]["email"] == "top-heavy@example.com"
+    invalid_top_users = await foundation_app.client.get(
+        "/api/v1/tools/top-users?metric=synthetic"
+    )
+    assert invalid_top_users.status_code == 422
+    assert invalid_top_users.json()["error"]["code"] == "top_users_metric_invalid"
 
     srh_response = await foundation_app.client.get("/api/v1/tools/srh-inspector")
     assert srh_response.status_code == 200

@@ -1154,6 +1154,52 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         return fields.some((field) => field && String(field).toLowerCase().includes(normalizedQuery))
       }),
     }),
+    inspectTopUsers: async (metric = 'traffic_used', limit = 50) => {
+      const rows = users.map((user, index) => {
+        const devices = Array.isArray(user.metadata_json.devices)
+          ? (user.metadata_json.devices as unknown[])
+          : []
+        const trafficPercent =
+          user.traffic_limit_gb && user.traffic_limit_gb > 0
+            ? Math.round((user.traffic_used_gb / user.traffic_limit_gb) * 10000) / 100
+            : null
+        const risk =
+          trafficPercent !== null && trafficPercent >= 100
+            ? 'traffic_exceeded'
+            : user.device_limit !== null && devices.length > user.device_limit
+              ? 'device_over_limit'
+              : trafficPercent !== null && trafficPercent >= 80
+                ? 'traffic_warning'
+                : 'ok'
+        return {
+          device_count: devices.length,
+          device_limit: user.device_limit,
+          email: user.email,
+          expires_at: user.expires_at,
+          rank: index + 1,
+          risk,
+          status: user.status,
+          traffic_limit_gb: user.traffic_limit_gb,
+          traffic_percent: trafficPercent,
+          traffic_used_gb: user.traffic_used_gb,
+          user_id: user.id,
+          username: user.username,
+        }
+      })
+      const sorted = [...rows].sort((left, right) => {
+        if (metric === 'traffic_percent') {
+          return (right.traffic_percent ?? -1) - (left.traffic_percent ?? -1)
+        }
+        if (metric === 'device_count') {
+          return right.device_count - left.device_count
+        }
+        return right.traffic_used_gb - left.traffic_used_gb
+      })
+      return {
+        items: sorted.slice(0, limit).map((row, index) => ({ ...row, rank: index + 1 })),
+        metric,
+      }
+    },
     inspectSrh: async (): Promise<SrhInspectorResponse> => ({
       items: subscriptions.map((subscription) => {
         const parser =

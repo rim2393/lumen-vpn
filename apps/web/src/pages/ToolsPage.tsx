@@ -15,6 +15,7 @@ import {
   useSrhInspectorData,
   useToolSummaryData,
   useToolSnippetsData,
+  useTopUsersData,
   useTorrentReportsData,
   useTruncateTorrentReports,
   useUpdateToolSnippet,
@@ -25,7 +26,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { formatDateTime, formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
-type ToolId = 'hwid' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
+type ToolId = 'hwid' | 'top-users' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
 
 const tools: Array<{
   detail: string
@@ -38,6 +39,12 @@ const tools: Array<{
     icon: Fingerprint,
     id: 'hwid',
     name: 'Inspector HWID',
+  },
+  {
+    detail: 'Rank real users by traffic, device pressure, and expiration risk.',
+    icon: Activity,
+    id: 'top-users',
+    name: 'Top users',
   },
   {
     detail: 'Review subscription response headers and parser hints.',
@@ -85,8 +92,10 @@ export function ToolsPage() {
     name: 'Xray status',
   })
   const [hwidFilter, setHwidFilter] = useState('')
+  const [topUsersMetric, setTopUsersMetric] = useState('traffic_used')
   const summaryQuery = useToolSummaryData()
   const hwidQuery = useHwidInspectorData(hwidFilter)
+  const topUsersQuery = useTopUsersData(topUsersMetric, 50)
   const srhQuery = useSrhInspectorData()
   const sessionsQuery = useSessionInspectorData()
   const torrentQuery = useTorrentReportsData()
@@ -104,6 +113,7 @@ export function ToolsPage() {
   const queries = [
     summaryQuery,
     hwidQuery,
+    topUsersQuery,
     srhQuery,
     sessionsQuery,
     torrentQuery,
@@ -168,6 +178,24 @@ export function ToolsPage() {
           id: item.user_id,
         })),
         title: 'HWID inspector',
+      }
+    }
+    if (activeTool === 'top-users') {
+      return {
+        columns: ['Rank', 'User', 'Traffic', 'Devices', 'Expires', 'Risk'],
+        empty: 'No users recorded.',
+        rows: (topUsersQuery.data?.items ?? []).map((item) => ({
+          cells: [
+            String(item.rank),
+            item.username ? `${item.username} · ${item.email}` : item.email,
+            `${item.traffic_used_gb.toFixed(2)} GB${item.traffic_limit_gb === null ? '' : ` / ${item.traffic_limit_gb.toFixed(0)} GB`}${item.traffic_percent === null ? '' : ` · ${item.traffic_percent.toFixed(2)}%`}`,
+            `${item.device_count}${item.device_limit === null ? '' : ` / ${item.device_limit}`}`,
+            item.expires_at ? formatDateTime(item.expires_at) : 'not set',
+            <StatusBadge tone={toneForStatus(item.risk)}>{item.risk}</StatusBadge>,
+          ],
+          id: item.user_id,
+        })),
+        title: 'Top users',
       }
     }
     if (activeTool === 'srh') {
@@ -337,6 +365,8 @@ export function ToolsPage() {
     srhQuery.data,
     truncateTorrentReports,
     torrentQuery.data,
+    topUsersMetric,
+    topUsersQuery.data,
     updateSnippet,
   ])
 
@@ -420,6 +450,23 @@ export function ToolsPage() {
                     value={hwidFilter}
                     onChange={(event) => setHwidFilter(event.target.value)}
                   />
+                </label>
+              </div>
+            ) : null}
+            {activeTool === 'top-users' ? (
+              <div className="toolbar">
+                <label htmlFor="top-users-metric" className="field field--inline">
+                  <span>Metric</span>
+                  <select
+                    id="top-users-metric"
+                    value={topUsersMetric}
+                    onChange={(event) => setTopUsersMetric(event.target.value)}
+                  >
+                    <option value="traffic_used">Traffic used</option>
+                    <option value="traffic_percent">Traffic percent</option>
+                    <option value="device_count">Device count</option>
+                    <option value="expiration_risk">Expiration risk</option>
+                  </select>
                 </label>
               </div>
             ) : null}

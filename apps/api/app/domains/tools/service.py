@@ -38,6 +38,8 @@ from app.domains.tools.schemas import (
     ToolSnippetRecord,
     ToolSnippetUpdateRequest,
     ToolSummaryResponse,
+    TopUserResponse,
+    TopUserRow,
     TorrentReportResponse,
     TorrentReportRow,
     X25519KeypairResponse,
@@ -315,6 +317,38 @@ async def summarize_tools(session: AsyncSession) -> ToolSummaryResponse:
         sessions_active=int(active_sessions or 0),
         torrent_events=int(torrent_count or 0),
         happ_routes=int(happ_routes or 0),
+    )
+
+
+async def inspect_top_users(
+    session: AsyncSession,
+    *,
+    metric: str = "traffic_used",
+    limit: int = 50,
+) -> TopUserResponse:
+    normalized_metric = metric.strip().lower()
+    if normalized_metric not in {
+        "device_count",
+        "expiration_risk",
+        "traffic_percent",
+        "traffic_used",
+    }:
+        raise APIError(
+            code="top_users_metric_invalid",
+            message="Top users metric is not supported.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details=[metric],
+        )
+    result = await session.execute(select(User).order_by(User.email))
+    now = datetime.now(UTC)
+    rows = [_top_user_row(rank=0, user=user, now=now) for user in result.scalars().all()]
+    rows.sort(key=lambda row: _top_user_sort_value(row, normalized_metric), reverse=True)
+    return TopUserResponse(
+        items=[
+            row.model_copy(update={"rank": index + 1})
+            for index, row in enumerate(rows[:limit])
+        ],
+        metric=normalized_metric,
     )
 
 
@@ -652,6 +686,79 @@ def _hwid_row_matches(
         if any(needle in str(value).lower() for value in fields if value is not None):
             return True
     return False
+
+
+def _top_user_row(*, rank: int, user: User, now: datetime) -> TopUserRow:
+    devices = _device_records(user.metadata_json)
+    traffic_percent = (
+        round((user.traffic_used_gb / user.traffic_limit_gb) * 100, 2)
+        if user.traffic_limit_gb and user.traffic_limit_gb > 0
+        else None
+    )
+    return TopUserRow(
+        rank=rank,
+        user_id=user.id,
+        email=user.email,
+        username=user.username,
+        status=user.status,
+        traffic_used_gb=float(user.traffic_used_gb),
+        traffic_limit_gb=user.traffic_limit_gb,
+        traffic_percent=traffic_percent,
+        device_count=len(devices),
+        device_limit=user.device_limit,
+        expires_at=user.expires_at,
+        risk=_top_user_risk(
+            user=user,
+            device_count=len(devices),
+            traffic_percent=traffic_percent,
+            now=now,
+        ),
+    )
+
+
+def _top_user_risk(
+    *,
+    user: User,
+    device_count: int,
+    traffic_percent: float | None,
+    now: datetime,
+) -> str:
+    if user.expires_at is not None and _is_expired(user.expires_at, now):
+        return "expired"
+    if traffic_percent is not None and traffic_percent >= 100:
+        return "traffic_exceeded"
+    if user.device_limit is not None and device_count > user.device_limit:
+        return "device_over_limit"
+    if user.expires_at is not None:
+        expires_at = (
+            user.expires_at if user.expires_at.tzinfo else user.expires_at.replace(tzinfo=UTC)
+        )
+        if (expires_at - now).days <= 7:
+            return "expires_soon"
+    if traffic_percent is not None and traffic_percent >= 80:
+        return "traffic_warning"
+    return "ok"
+
+
+def _top_user_sort_value(row: TopUserRow, metric: str) -> tuple[float, float]:
+    if metric == "traffic_percent":
+        return (
+            row.traffic_percent if row.traffic_percent is not None else -1.0,
+            row.traffic_used_gb,
+        )
+    if metric == "device_count":
+        return (float(row.device_count), row.traffic_used_gb)
+    if metric == "expiration_risk":
+        risk_weight = {
+            "expired": 5.0,
+            "traffic_exceeded": 4.0,
+            "device_over_limit": 3.0,
+            "expires_soon": 2.0,
+            "traffic_warning": 1.0,
+            "ok": 0.0,
+        }
+        return (risk_weight.get(row.risk, 0.0), row.traffic_used_gb)
+    return (row.traffic_used_gb, row.traffic_percent if row.traffic_percent is not None else -1.0)
 
 
 def _optional_str(value: object) -> str | None:

@@ -98,6 +98,26 @@ class ToolSummaryResponse(BaseModel):
     happ_routes: int
 
 
+class TopUserRow(BaseModel):
+    rank: int
+    user_id: UUID
+    email: str
+    username: str | None
+    status: str
+    traffic_used_gb: float
+    traffic_limit_gb: float | None
+    traffic_percent: float | None
+    device_count: int
+    device_limit: int | None
+    expires_at: datetime | None
+    risk: str
+
+
+class TopUserResponse(BaseModel):
+    items: list[TopUserRow]
+    metric: str
+
+
 class X25519KeypairResponse(BaseModel):
     public_key: str
     private_key: str

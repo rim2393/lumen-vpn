@@ -257,6 +257,10 @@ export function createHttpLumenApiClient({
     readToolSummary: () => request('/api/v1/tools/summary'),
     inspectHwid: (query?: string) =>
       request(`/api/v1/tools/hwid-inspector${query ? `?query=${encodeURIComponent(query)}` : ''}`),
+    inspectTopUsers: (metric = 'traffic_used', limit = 50) =>
+      request(
+        `/api/v1/tools/top-users?metric=${encodeURIComponent(metric)}&limit=${encodeURIComponent(String(limit))}`,
+      ),
     inspectSrh: () => request('/api/v1/tools/srh-inspector'),
     inspectSessions: () => request('/api/v1/tools/sessions'),
     inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),

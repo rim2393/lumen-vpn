@@ -493,11 +493,31 @@ describe('Control plane resource screens', () => {
         },
       ],
     }))
+    const inspectTopUsers = vi.fn(async (_metric = 'traffic_used') => ({
+      items: [
+        {
+          device_count: 2,
+          device_limit: 1,
+          email: 'device-owner@lumen.local',
+          expires_at: '2026-06-05T00:00:00Z',
+          rank: 1,
+          risk: 'device_over_limit',
+          status: 'active',
+          traffic_limit_gb: 100,
+          traffic_percent: 95,
+          traffic_used_gb: 95,
+          user_id: 'usr_hwid_tools',
+          username: 'device-owner',
+        },
+      ],
+      metric: _metric,
+    }))
     const apiClient: LumenApiClient = {
       ...createDevelopmentLumenApiClient(),
       clearUserDevices,
       deleteUserDevice,
       inspectHwid,
+      inspectTopUsers,
     }
 
     renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
@@ -515,6 +535,10 @@ describe('Control plane resource screens', () => {
     )
     await user.click(screen.getByRole('button', { name: /^clear all$/i }))
     await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_hwid_tools'))
+    await user.click(screen.getByRole('button', { name: /top users/i }))
+    expect(await screen.findByText(/device-owner · device-owner@lumen.local/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/metric/i), { target: { value: 'device_count' } })
+    await waitFor(() => expect(inspectTopUsers).toHaveBeenCalledWith('device_count', 50))
   })
 
   it('wires session browser revoke actions to backend requests', async () => {
