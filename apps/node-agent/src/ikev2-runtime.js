@@ -208,6 +208,30 @@ async function waitForPath(path, input = {}) {
   throw new Error(`${path} was not created before timeout`);
 }
 
+function retryableViciError(error) {
+  const message = String(error?.message ?? "");
+  return message.includes("charon.vici") || message.includes("Connection refused") || message.includes("No such file or directory");
+}
+
+async function runSwanctlLoadAllWhenReady(input = {}) {
+  const timeoutMs = Number.parseInt(String(input.timeoutMs ?? 10000), 10);
+  const intervalMs = Number.parseInt(String(input.intervalMs ?? 250), 10);
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() <= deadline) {
+    try {
+      return await runExecFile(input.execFileImpl, "swanctl", ["--load-all"]);
+    } catch (error) {
+      lastError = error;
+      if (!retryableViciError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+  throw lastError ?? new Error("swanctl --load-all did not finish before timeout");
+}
+
 async function configureForwarding(execFileImpl, pool) {
   await runExecFile(execFileImpl, "sh", ["-c", [
     "sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>/dev/null || [ \"$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)\" = \"1\" ]",
@@ -245,7 +269,10 @@ export async function applyIkev2Config(plan, input = {}) {
   await waitForPath(env.LUMEN_IKEV2_VICI_SOCKET ?? DEFAULT_CHARON_VICI_SOCKET, {
     timeoutMs: env.LUMEN_IKEV2_VICI_WAIT_MS ?? 5000
   });
-  await runExecFile(input.execFileImpl, "swanctl", ["--load-all"]);
+  await runSwanctlLoadAllWhenReady({
+    execFileImpl: input.execFileImpl,
+    timeoutMs: env.LUMEN_IKEV2_SWANCTL_READY_WAIT_MS ?? env.LUMEN_IKEV2_VICI_WAIT_MS ?? 10000
+  });
   await runExecFile(input.execFileImpl, "swanctl", ["--list-conns"]);
 
   return Object.freeze({

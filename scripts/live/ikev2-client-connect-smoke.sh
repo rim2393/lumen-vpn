@@ -234,6 +234,7 @@ async def main() -> None:
             command_row = await session.get(NodeCommand, command.id)
             if command_row is None:
                 raise RuntimeError("queued command disappeared")
+            await session.refresh(command_row)
             last_status = command_row.status
             last_error = command_row.error_message
             if command_row.status in {"succeeded", "failed"}:

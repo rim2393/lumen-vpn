@@ -89,6 +89,49 @@ test("applies IKEv2 config through strongSwan swanctl default config path", asyn
   ]);
 });
 
+test("retries swanctl load until VICI socket accepts commands", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "lumen-ikev2-vici-"));
+  const configDir = join(tempDir, "swanctl");
+  const runtimeDir = join(tempDir, "runtime");
+  const viciSocket = join(tempDir, "charon.vici");
+  const calls = [];
+  let loadAttempts = 0;
+  const plan = createIkev2ApplyPlan({
+    ikev2Config: IKEV2_CONFIG,
+    configDir,
+    runtimeDir
+  });
+  try {
+    const result = await applyIkev2Config(plan, {
+      dryRun: false,
+      env: {
+        LUMEN_IKEV2_VICI_SOCKET: viciSocket,
+        LUMEN_IKEV2_VICI_WAIT_MS: "500",
+        LUMEN_IKEV2_SWANCTL_READY_WAIT_MS: "1000"
+      },
+      execFileImpl: async (command, args) => {
+        calls.push([command, args]);
+        if (command === "ipsec" && args[0] === "start") {
+          mkdirSync(tempDir, { recursive: true });
+          writeFileSync(viciSocket, "");
+        }
+        if (command === "swanctl" && args[0] === "--load-all") {
+          loadAttempts += 1;
+          if (loadAttempts === 1) {
+            throw new Error("connecting to 'unix:///var/run/charon.vici' failed: Connection refused");
+          }
+        }
+        return { stdout: "", stderr: "" };
+      }
+    });
+
+    assert.equal(result.implementationStatus, "ikev2-applied");
+    assert.equal(loadAttempts, 2);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("stops IKEv2 strongSwan runtime and removes generated files", async () => {
   const tempDir = mkdtempSync(join(tmpdir(), "lumen-ikev2-stop-"));
   const configDir = join(tempDir, "swanctl");
