@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.95` |
-| Product repo head | `0433be8 Complete response rule editor parity` |
-| Public installer manifest | `rim2393/lumen_vpn@c88006f` |
+| Latest production release | `v0.1.97` |
+| Product repo head | `8fcd9f8 Apply subscription page configs at edge` |
+| Public installer manifest | `rim2393/lumen_vpn@2f0531b` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -115,13 +115,13 @@ evidence here is wrong or stale.
 | SUB-003 | Subscription settings page | DONE | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | `4cc773c` wired `subscription.delivery` typed settings into admin UI, settings UI and public manifest/render metadata; `0112d41` fixed edge proxy so `sub.*` preserves safe custom response headers; `v0.1.93`, product release run `26792248372`, installer/deploy run `26792296173`, manifest `rim2393/lumen_vpn@7677de7`; local gates passed: backend `ruff`, focused pytest `test_subscription_delivery_setting_feeds_manifest_and_renderer_headers`, settings pytest, focused Vitest `subscription page delivery`, web `npm run build`, edge `npm test`; prod containers `lumen-api/web/subscription` on `v0.1.93` healthy; live smoke temporarily updated real `subscription.delivery`, created temporary real user/subscription on real `node-01` + `prod-vless-reality-live`, verified public manifest fields (`supportUrl`, `profilePageUrl`, `baseJson`, `customRemarks`, `happAnnounce`, `routing`, `subpage`, `responseHeaders`, `randomHostOrder`), verified panel render and `sub.*` render both returned `200`, non-empty body and `X-Lumen-Sub003: ok`, then deleted temp user/subscription and restored settings; prod browser `/subscription-page` shows `subscription.delivery`, response headers, base JSON, routing, custom remarks and save action. |
 | SUB-004 | Template CRUD/reorder for Xray JSON, Mihomo, Stash, sing-box, Clash | DONE | Template ordering and editor affect renderers with tests | `908ddf5`, `v0.1.94`, product release run `26792703367`, installer/deploy run `26792756347`, manifest `rim2393/lumen_vpn@bf930a1`; backend templates now reject secret-like inline keys and JSON renderers support `content_json.merge` without corrupting JSON; `/templates` UI supports create, edit, clone, toggle, delete, reverse, move up/down and selected-template save; local gates passed: backend `ruff`, focused pytest `test_subscription_templates_and_response_rules_are_persisted` + `test_public_subscription_renderers_emit_client_compatible_formats`, focused Vitest `subscription templates`, web `npm run build`; prod containers `lumen-api/web/subscription` on `v0.1.94` healthy; live smoke temporarily disabled existing active templates, created 5 QA templates for Mihomo/Stash/Clash/sing-box/Xray JSON, rendered a real temporary subscription on `node-01` + `prod-vless-reality-live`, verified Mihomo/Stash/Clash text wrappers, sing-box JSON merge, Xray JSON merge, headers, subdomain Mihomo header/body, then deleted QA templates, deleted temp user/subscription and restored original template statuses; prod browser `/templates` shows editor, clone, move controls and supported formats. |
 | SUB-005 | Response rule editor/tester | DONE | Rules can be edited/tested in UI and applied to public responses | `0433be8`, `v0.1.95`, product release run `26793207146`, installer/deploy run `26793264096`, manifest `rim2393/lumen_vpn@c88006f`; local gates passed: backend `ruff`, focused pytest `test_subscription_templates_and_response_rules_are_persisted` + `test_public_subscription_response_rules_apply_to_blocked_subscriptions`, focused Vitest `response rules`, web `npm run build`; prod containers `lumen-api/web/subscription` on `v0.1.95` healthy; live smoke created temporary real user/license/subscription on `node-01` + `prod-vless-reality-live`, created two disabled response rules, verified tester selected `451` before reorder and `429` after reorder, public render and public manifest applied the reordered rule, `sub.*` preserved safe `X-Lumen-Rule`, unsafe `Set-Cookie` was filtered, then deleted QA rules/subscription/user/license leftovers; prod browser `/response-rules` showed real rule registry, editor, clone/move controls, reverse order and selected-rule save controls. |
-| SUB-006 | Subscription page configs CRUD/clone/reorder | NEXT | Configs bind to squads/subscriptions and affect public subpage | Not started |
+| SUB-006 | Subscription page configs CRUD/clone/reorder | DONE | Configs bind to squads/subscriptions and affect public subpage | `e2ff0aa` added protected page config CRUD/clone/reorder/bind UI/API and manifest metadata; `8fcd9f8` made `sub.*` HTML consume selected config title/theme/cards/support metadata; `v0.1.97`, product release run `26794423143`, installer/deploy run `26794465501`, manifest `rim2393/lumen_vpn@2f0531b`; local gates passed: backend `ruff`, focused backend pytest, focused Vitest `subscription page configs`, web `npm run build`, edge `npm test` 13 passed; prod containers `lumen-api/web/subscription` on `v0.1.97` healthy; live smoke created temporary real page configs/user/license/subscription on `node-01`, verified CRUD/clone/reorder, secret-like config rejection, subscription binding, public manifest A/B config metadata, public `sub.*` HTML A/B title/theme/cards behavior with HWID, inactive config blocks manifest with `subscription_subpage_config_not_active`, and cleanup left `0` QA configs/users/licenses. |
 
 ## P1: Tools
 
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
-| T-001 | HWID inspector and device delete/delete-all | PARTIAL | Device list exists for subscription admin; full tools surface open | `e8f8699` devices list |
+| T-001 | HWID inspector and device delete/delete-all | NEXT | Device list exists for subscription admin; full tools surface open | `e8f8699` devices list; next slice must add full Tools inspector/actions and live delete evidence |
 | T-002 | Top users | OPEN | Real database stats and UI table, no fake counters | Not started |
 | T-003 | Fetch user IPs and node user IPs | OPEN | Real session/runtime/IP-control views | Not started |
 | T-004 | Drop connections | OPEN | Backend queues/executes real node-agent disconnect operation | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`SUB-006`: Subscription page configs CRUD/clone/reorder.
+`T-001`: HWID inspector and device delete/delete-all.
 
 Proposed implementation:
 
-1. Audit current public subpage config model/API/UI and how squads/subscriptions can bind config.
-2. Implement real CRUD, clone, reorder and active/inactive controls for subpage configs.
-3. Wire config selection to squads/subscriptions without fake preview data.
-4. Verify public subpage render uses the selected config on a temporary real subscription.
-5. Release through the signed manifest and verify live panel/sub-domain behavior before marking DONE.
+1. Audit current device/HWID storage, existing subscription/user detail controls, and Tools page inspector gaps.
+2. Implement protected tools API for HWID lookup across subscriptions/users/licenses with filters and no fake devices.
+3. Wire delete-one and delete-all device actions to real subscription/user device records with audit events.
+4. Add Tools UI controls for lookup, selected device delete, subscription delete-all, and clear result states.
+5. Verify with a temporary real subscription that public requests register HWID, inspector sees it, delete removes it, and release/live smoke prove the path.
 
 ## Checkpoint Notes
 
