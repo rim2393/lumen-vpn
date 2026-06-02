@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.91` |
-| Product repo head | `7626a0e Record SUB-002 production evidence` |
-| Public installer manifest | `rim2393/lumen_vpn@249b2be` |
+| Latest production release | `v0.1.93` |
+| Product repo head | `0112d41 Preserve subscription response headers at edge` |
+| Public installer manifest | `rim2393/lumen_vpn@7677de7` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -112,8 +112,8 @@ evidence here is wrong or stale.
 | --- | --- | --- | --- | --- |
 | SUB-001 | Subscription admin lookup/clone/delete/devices/raw preview | DONE | Protected admin API/UI uses real production API controls | `e8f8699`, released through later versions |
 | SUB-002 | Subscription create richer contract | DONE | Static server default removed, expires/config hash exposed; admin response includes public page/manifest/render paths, render formats and timestamps; UI creates from real user/license/node/profile/host context | `38c054c`, `v0.1.91`, release run `26791107414` rerun after transient Docker Hub timeout, installer/deploy run `26791205782`, manifest `rim2393/lumen_vpn@249b2be`; backend `ruff`, `python -m pytest tests/test_license_subscription_routes.py::test_subscription_routes_create_list_and_get`, focused Vitest `creates subscriptions with a real listed license`, and web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.91` healthy; prod browser `/subscription` verified real license select, formats column, create subscription form and public actions; live smoke created a temporary real user and subscription through `/api/v1/users` + `/api/v1/subscriptions`, selected active license/node/profile/host `prod-vless-reality-live`, verified create/detail/list/lookup contract fields, public manifest with HWID, non-empty panel HApp render `265` bytes and non-empty sub-domain HApp render `265` bytes, then deleted the temporary subscription and user. |
-| SUB-003 | Subscription settings page | NEXT | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | Not started |
-| SUB-004 | Template CRUD/reorder for Xray JSON, Mihomo, Stash, sing-box, Clash | OPEN | Template ordering and editor affect renderers with tests | Partial CRUD exists; reorder/parity incomplete |
+| SUB-003 | Subscription settings page | DONE | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | `4cc773c` wired `subscription.delivery` typed settings into admin UI, settings UI and public manifest/render metadata; `0112d41` fixed edge proxy so `sub.*` preserves safe custom response headers; `v0.1.93`, product release run `26792248372`, installer/deploy run `26792296173`, manifest `rim2393/lumen_vpn@7677de7`; local gates passed: backend `ruff`, focused pytest `test_subscription_delivery_setting_feeds_manifest_and_renderer_headers`, settings pytest, focused Vitest `subscription page delivery`, web `npm run build`, edge `npm test`; prod containers `lumen-api/web/subscription` on `v0.1.93` healthy; live smoke temporarily updated real `subscription.delivery`, created temporary real user/subscription on real `node-01` + `prod-vless-reality-live`, verified public manifest fields (`supportUrl`, `profilePageUrl`, `baseJson`, `customRemarks`, `happAnnounce`, `routing`, `subpage`, `responseHeaders`, `randomHostOrder`), verified panel render and `sub.*` render both returned `200`, non-empty body and `X-Lumen-Sub003: ok`, then deleted temp user/subscription and restored settings; prod browser `/subscription-page` shows `subscription.delivery`, response headers, base JSON, routing, custom remarks and save action. |
+| SUB-004 | Template CRUD/reorder for Xray JSON, Mihomo, Stash, sing-box, Clash | NEXT | Template ordering and editor affect renderers with tests | Partial CRUD exists; reorder/parity incomplete |
 | SUB-005 | Response rule editor/tester | OPEN | Rules can be edited/tested in UI and applied to public responses | Backend partial exists; UI parity open |
 | SUB-006 | Subscription page configs CRUD/clone/reorder | OPEN | Configs bind to squads/subscriptions and affect public subpage | Not started |
 
