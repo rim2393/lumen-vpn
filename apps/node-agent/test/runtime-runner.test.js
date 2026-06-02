@@ -1420,6 +1420,7 @@ test("run once applies ikev2-eap outbound.apply via strongSwan runtime", async (
               profileId: "profile-ikev2",
               adapter: "ikev2-eap",
               ikev2ConfigDir: swanctlDir,
+              ikev2RuntimeDir: join(stateDir, "runtime", "ikev2"),
               ikev2Config: {
                 ike_port: 500,
                 nat_port: 4500,
