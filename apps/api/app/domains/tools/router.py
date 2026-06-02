@@ -11,6 +11,7 @@ from app.domains.tools.schemas import (
     HappRoutingResponse,
     HwidInspectorResponse,
     NodeKeyResponse,
+    NodeUserIpResponse,
     SessionInspectorResponse,
     SrhInspectorResponse,
     ToolSnippetCreateRequest,
@@ -20,6 +21,7 @@ from app.domains.tools.schemas import (
     ToolSummaryResponse,
     TopUserResponse,
     TorrentReportResponse,
+    UserIpResponse,
     X25519KeypairResponse,
 )
 from app.domains.tools.service import (
@@ -29,10 +31,12 @@ from app.domains.tools.service import (
     generate_x25519_keypair,
     inspect_happ_routing,
     inspect_hwid,
+    inspect_node_user_ips,
     inspect_sessions,
     inspect_srh,
     inspect_top_users,
     inspect_torrent_reports,
+    inspect_user_ips,
     list_tool_snippets,
     revoke_inspected_session,
     summarize_tools,
@@ -70,6 +74,26 @@ async def read_top_users(
     limit: int = Query(default=50, ge=1, le=200),
 ) -> TopUserResponse:
     return await inspect_top_users(session, metric=metric, limit=limit)
+
+
+@router.get("/user-ips", response_model=UserIpResponse)
+async def read_user_ips(
+    _: ToolManager,
+    session: DatabaseSession,
+    query: str | None = Query(default=None, min_length=1, max_length=160),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> UserIpResponse:
+    return await inspect_user_ips(session, query=query, limit=limit)
+
+
+@router.get("/node-user-ips", response_model=NodeUserIpResponse)
+async def read_node_user_ips(
+    _: ToolManager,
+    session: DatabaseSession,
+    query: str | None = Query(default=None, min_length=1, max_length=160),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> NodeUserIpResponse:
+    return await inspect_node_user_ips(session, query=query, limit=limit)
 
 
 @router.get("/srh-inspector", response_model=SrhInspectorResponse)

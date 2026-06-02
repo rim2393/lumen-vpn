@@ -937,6 +937,43 @@ export type TopUserResponse = {
   metric: string
 }
 
+export type UserIpRow = {
+  email: string | null
+  evidence_count: number
+  first_seen_at: string
+  ip: string
+  last_decision: string | null
+  last_seen_at: string
+  last_target: string | null
+  node_ids: string[]
+  sources: string[]
+  subscription_ids: string[]
+  user_id: string
+  username: string | null
+}
+
+export type UserIpResponse = {
+  items: UserIpRow[]
+}
+
+export type NodeUserIpRow = {
+  email: string | null
+  evidence_count: number
+  first_seen_at: string
+  ip: string
+  last_seen_at: string
+  last_target: string | null
+  node_id: string
+  node_name: string | null
+  subscription_ids: string[]
+  user_id: string
+  username: string | null
+}
+
+export type NodeUserIpResponse = {
+  items: NodeUserIpRow[]
+}
+
 export type X25519KeypairResponse = {
   encoding: string
   private_key: string
@@ -1336,6 +1373,8 @@ export type LumenApiClient = {
   readToolSummary: () => Promise<ToolSummaryResponse>
   inspectHwid: (query?: string) => Promise<HwidInspectorResponse>
   inspectTopUsers: (metric?: string, limit?: number) => Promise<TopUserResponse>
+  inspectUserIps: (query?: string, limit?: number) => Promise<UserIpResponse>
+  inspectNodeUserIps: (query?: string, limit?: number) => Promise<NodeUserIpResponse>
   inspectSrh: () => Promise<SrhInspectorResponse>
   inspectSessions: () => Promise<SessionInspectorResponse>
   inspectTorrentReports: () => Promise<TorrentReportResponse>

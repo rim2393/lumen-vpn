@@ -21,6 +21,7 @@ from app.db.session import create_engine, get_db_session
 from app.domains.audit.models import AuditEvent
 from app.domains.auth.models import UserSession
 from app.domains.auth.service import generate_totp_code
+from app.domains.ip_control.models import IpControlEvent
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
@@ -1652,7 +1653,17 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
             resource_id=str(user.id),
             metadata_json={"host": "example.test"},
         )
-        session.add_all([subscription, user_session, torrent_event])
+        ip_control_event = IpControlEvent(
+            user_id=str(user.id),
+            ip="198.51.100.77",
+            active_ip_count=3,
+            ip_limit=2,
+            decision="blocked",
+        )
+        session.add_all([subscription, user_session, torrent_event, ip_control_event])
+        await session.flush()
+        subscription_id = str(subscription.id)
+        node_name = node.name
         await session.commit()
 
     hwid_response = await foundation_app.client.get("/api/v1/tools/hwid-inspector")
@@ -1703,6 +1714,58 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
     )
     assert invalid_top_users.status_code == 422
     assert invalid_top_users.json()["error"]["code"] == "top_users_metric_invalid"
+
+    public_manifest_response = await foundation_app.client.get(
+        "/api/v1/subscriptions/public/lumen_sub_tools/manifest?device_id=phone",
+        headers={"X-Forwarded-For": "203.0.113.44, 10.0.0.2"},
+    )
+    assert public_manifest_response.status_code == 200
+    async with foundation_app.sessionmaker() as session:
+        public_event = (
+            await session.execute(
+                select(AuditEvent).where(AuditEvent.action == "subscription.public.rendered")
+            )
+        ).scalar_one()
+        assert public_event.metadata_json["client_ip"] == "203.0.113.44"
+        assert public_event.metadata_json["node_id"] == node_id
+
+    user_ips_response = await foundation_app.client.get("/api/v1/tools/user-ips")
+    assert user_ips_response.status_code == 200
+    user_ip_items = user_ips_response.json()["items"]
+    public_ip_row = next(item for item in user_ip_items if item["ip"] == "203.0.113.44")
+    assert public_ip_row["email"] == "tools-user@example.com"
+    assert public_ip_row["sources"] == ["subscription"]
+    assert public_ip_row["subscription_ids"] == [subscription_id]
+    assert public_ip_row["node_ids"] == [node_id]
+    assert public_ip_row["evidence_count"] == 1
+    assert public_ip_row["last_target"] == "manifest"
+    ip_control_row = next(item for item in user_ip_items if item["ip"] == "198.51.100.77")
+    assert ip_control_row["sources"] == ["ip-control"]
+    assert ip_control_row["last_decision"] == "blocked"
+    filtered_user_ips_response = await foundation_app.client.get(
+        "/api/v1/tools/user-ips?query=203.0.113.44"
+    )
+    assert filtered_user_ips_response.status_code == 200
+    assert [item["ip"] for item in filtered_user_ips_response.json()["items"]] == [
+        "203.0.113.44"
+    ]
+
+    node_user_ips_response = await foundation_app.client.get("/api/v1/tools/node-user-ips")
+    assert node_user_ips_response.status_code == 200
+    node_ip_row = next(
+        item for item in node_user_ips_response.json()["items"] if item["ip"] == "203.0.113.44"
+    )
+    assert node_ip_row["node_id"] == node_id
+    assert node_ip_row["node_name"] == node_name
+    assert node_ip_row["email"] == "tools-user@example.com"
+    assert node_ip_row["subscription_ids"] == [subscription_id]
+    filtered_node_ips_response = await foundation_app.client.get(
+        f"/api/v1/tools/node-user-ips?query={node_name}"
+    )
+    assert filtered_node_ips_response.status_code == 200
+    assert [item["ip"] for item in filtered_node_ips_response.json()["items"]] == [
+        "203.0.113.44"
+    ]
 
     srh_response = await foundation_app.client.get("/api/v1/tools/srh-inspector")
     assert srh_response.status_code == 200

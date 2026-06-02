@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -190,6 +190,7 @@ async def delete_subscription_route(
 @router.get("/public/{public_id}/manifest", response_model=None)
 async def get_public_subscription_manifest(
     public_id: str,
+    request: Request,
     session: DatabaseSession,
     device_id: str | None = Query(default=None),
     hwid: str | None = Query(default=None),
@@ -204,6 +205,7 @@ async def get_public_subscription_manifest(
             target="manifest",
             device_id=device_id or hwid or x_lumen_hwid or x_device_id,
             device_label=user_agent,
+            client_ip=_public_client_ip(request),
         )
         await session.commit()
         return manifest
@@ -216,6 +218,7 @@ async def get_public_subscription_manifest(
 @router.get("/public/{public_id}/render")
 async def render_public_subscription(
     public_id: str,
+    request: Request,
     session: DatabaseSession,
     settings: RuntimeSettings,
     target: str | None = Query(
@@ -244,6 +247,7 @@ async def render_public_subscription(
             target=render_target,
             device_id=device_id or hwid or x_lumen_hwid or x_device_id,
             device_label=user_agent,
+            client_ip=_public_client_ip(request),
         )
         await session.commit()
     except APIError as error:
@@ -321,6 +325,7 @@ async def build_and_record_public_subscription_request(
     target: str,
     device_id: str | None = None,
     device_label: str | None = None,
+    client_ip: str | None = None,
 ) -> dict[str, object]:
     subscription = await get_subscription_by_public_id(session, public_id=public_id)
     device_result = await enforce_public_subscription_device(
@@ -342,6 +347,8 @@ async def build_and_record_public_subscription_request(
                 "public_id": subscription.public_id,
                 "subscription_id": str(subscription.id),
                 "target": target,
+                **({"client_ip": client_ip} if client_ip else {}),
+                **({"node_id": str(subscription.node_id)} if subscription.node_id else {}),
                 **(
                     {
                         "device_id": str(device_result["device_id"]),
@@ -354,6 +361,17 @@ async def build_and_record_public_subscription_request(
         ),
     )
     return manifest
+
+
+def _public_client_ip(request: Request) -> str | None:
+    for header in ("CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"):
+        value = request.headers.get(header)
+        if not value:
+            continue
+        candidate = value.split(",", 1)[0].strip()
+        if candidate:
+            return candidate
+    return request.client.host if request.client else None
 
 
 ERROR_RULE_STATUSES = {

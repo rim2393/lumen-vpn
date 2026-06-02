@@ -261,6 +261,14 @@ export function createHttpLumenApiClient({
       request(
         `/api/v1/tools/top-users?metric=${encodeURIComponent(metric)}&limit=${encodeURIComponent(String(limit))}`,
       ),
+    inspectUserIps: (query?: string, limit = 200) =>
+      request(
+        `/api/v1/tools/user-ips?limit=${encodeURIComponent(String(limit))}${query ? `&query=${encodeURIComponent(query)}` : ''}`,
+      ),
+    inspectNodeUserIps: (query?: string, limit = 200) =>
+      request(
+        `/api/v1/tools/node-user-ips?limit=${encodeURIComponent(String(limit))}${query ? `&query=${encodeURIComponent(query)}` : ''}`,
+      ),
     inspectSrh: () => request('/api/v1/tools/srh-inspector'),
     inspectSessions: () => request('/api/v1/tools/sessions'),
     inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),

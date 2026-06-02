@@ -512,12 +512,49 @@ describe('Control plane resource screens', () => {
       ],
       metric: _metric,
     }))
+    const inspectUserIps = vi.fn(async (_query?: string) => ({
+      items: [
+        {
+          email: 'device-owner@lumen.local',
+          evidence_count: 2,
+          first_seen_at: '2026-05-28T10:00:00Z',
+          ip: '203.0.113.44',
+          last_decision: null,
+          last_seen_at: '2026-05-28T10:30:00Z',
+          last_target: 'happ',
+          node_ids: ['node-live'],
+          sources: ['subscription'],
+          subscription_ids: ['sub-live'],
+          user_id: 'usr_hwid_tools',
+          username: 'device-owner',
+        },
+      ],
+    }))
+    const inspectNodeUserIps = vi.fn(async (_query?: string) => ({
+      items: [
+        {
+          email: 'device-owner@lumen.local',
+          evidence_count: 2,
+          first_seen_at: '2026-05-28T10:00:00Z',
+          ip: '203.0.113.44',
+          last_seen_at: '2026-05-28T10:30:00Z',
+          last_target: 'happ',
+          node_id: 'node-live',
+          node_name: 'node-01',
+          subscription_ids: ['sub-live'],
+          user_id: 'usr_hwid_tools',
+          username: 'device-owner',
+        },
+      ],
+    }))
     const apiClient: LumenApiClient = {
       ...createDevelopmentLumenApiClient(),
       clearUserDevices,
       deleteUserDevice,
       inspectHwid,
+      inspectNodeUserIps,
       inspectTopUsers,
+      inspectUserIps,
     }
 
     renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
@@ -539,6 +576,12 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByText(/device-owner · device-owner@lumen.local/i)).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText(/metric/i), { target: { value: 'device_count' } })
     await waitFor(() => expect(inspectTopUsers).toHaveBeenCalledWith('device_count', 50))
+    await user.click(await screen.findByRole('button', { name: /user ips/i }))
+    expect((await screen.findAllByText('203.0.113.44')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('table', { name: /node user ips/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/lookup ip/i), { target: { value: 'node-01' } })
+    await waitFor(() => expect(inspectUserIps).toHaveBeenCalledWith('node-01', 200))
+    await waitFor(() => expect(inspectNodeUserIps).toHaveBeenCalledWith('node-01', 200))
   })
 
   it('wires session browser revoke actions to backend requests', async () => {

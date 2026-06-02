@@ -31,6 +31,7 @@ import type {
   LumenApiClient,
   MfaMethod,
   NodeBulkActionRequest,
+  NodeUserIpResponse,
   NodePluginApplyRequest,
   NodePluginCloneRequest,
   NodePluginCreateRequest,
@@ -88,6 +89,7 @@ import type {
   UserBulkActionRequest,
   UserCreateRequest,
   UserDetailResponse,
+  UserIpResponse,
   UserListResponse,
   UserRecord,
   UserUpdateRequest,
@@ -1199,6 +1201,88 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         items: sorted.slice(0, limit).map((row, index) => ({ ...row, rank: index + 1 })),
         metric,
       }
+    },
+    inspectUserIps: async (query?: string, limit = 200): Promise<UserIpResponse> => {
+      const rows = [
+        {
+          email: users[0]?.email ?? null,
+          evidence_count: 3,
+          first_seen_at: '2026-05-27T10:00:00Z',
+          ip: '203.0.113.44',
+          last_decision: null,
+          last_seen_at: '2026-05-27T10:30:00Z',
+          last_target: 'happ',
+          node_ids: [nodeRecords[0].id],
+          sources: ['subscription'],
+          subscription_ids: [subscriptions[0].id],
+          user_id: users[0]?.id ?? 'usr_dev',
+          username: users[0]?.username ?? null,
+        },
+        {
+          email: users[0]?.email ?? null,
+          evidence_count: 1,
+          first_seen_at: '2026-05-27T11:00:00Z',
+          ip: '198.51.100.77',
+          last_decision: 'blocked',
+          last_seen_at: '2026-05-27T11:00:00Z',
+          last_target: null,
+          node_ids: [],
+          sources: ['ip-control'],
+          subscription_ids: [],
+          user_id: users[0]?.id ?? 'usr_dev',
+          username: users[0]?.username ?? null,
+        },
+      ]
+      const normalizedQuery = query?.trim().toLowerCase()
+      const filtered = normalizedQuery
+        ? rows.filter((row) =>
+            [
+              row.email,
+              row.ip,
+              row.last_decision,
+              row.last_target,
+              row.username,
+              row.user_id,
+              ...row.node_ids,
+              ...row.sources,
+              ...row.subscription_ids,
+            ].some((field) => field && String(field).toLowerCase().includes(normalizedQuery)),
+          )
+        : rows
+      return { items: filtered.slice(0, limit) }
+    },
+    inspectNodeUserIps: async (query?: string, limit = 200): Promise<NodeUserIpResponse> => {
+      const rows = [
+        {
+          email: users[0]?.email ?? null,
+          evidence_count: 3,
+          first_seen_at: '2026-05-27T10:00:00Z',
+          ip: '203.0.113.44',
+          last_seen_at: '2026-05-27T10:30:00Z',
+          last_target: 'happ',
+          node_id: nodeRecords[0].id,
+          node_name: nodeRecords[0].name,
+          subscription_ids: [subscriptions[0].id],
+          user_id: users[0]?.id ?? 'usr_dev',
+          username: users[0]?.username ?? null,
+        },
+      ]
+      const normalizedQuery = query?.trim().toLowerCase()
+      const filtered = normalizedQuery
+        ? rows.filter((row) =>
+            [
+              row.email,
+              row.ip,
+              row.last_target,
+              row.node_id,
+              row.node_name,
+              row.username,
+              row.user_id,
+              ...row.subscription_ids,
+            ].some((field) => field && String(field).toLowerCase().includes(normalizedQuery)),
+          )
+        : rows
+      return { items: filtered.slice(0, limit) }
     },
     inspectSrh: async (): Promise<SrhInspectorResponse> => ({
       items: subscriptions.map((subscription) => {

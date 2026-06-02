@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Activity, Fingerprint, Flame, KeyRound, Radar, Route, ScrollText, Trash2 } from 'lucide-react'
+import { Activity, Fingerprint, Flame, Globe2, KeyRound, Radar, Route, ScrollText, Trash2 } from 'lucide-react'
 import {
   useClearUserDevices,
   useCreateToolSnippet,
@@ -10,6 +10,7 @@ import {
   useGenerateX25519Keypair,
   useHappRoutingData,
   useHwidInspectorData,
+  useNodeUserIpsData,
   useRevokeToolSession,
   useSessionInspectorData,
   useSrhInspectorData,
@@ -19,6 +20,7 @@ import {
   useTorrentReportsData,
   useTruncateTorrentReports,
   useUpdateToolSnippet,
+  useUserIpsData,
 } from '../shared/api/resourceHooks'
 import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
@@ -26,7 +28,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
 import { formatDateTime, formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
-type ToolId = 'hwid' | 'top-users' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
+type ToolId = 'hwid' | 'top-users' | 'user-ips' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
 
 const tools: Array<{
   detail: string
@@ -45,6 +47,12 @@ const tools: Array<{
     icon: Activity,
     id: 'top-users',
     name: 'Top users',
+  },
+  {
+    detail: 'Trace real user IPs from subscription requests and IP-control events.',
+    icon: Globe2,
+    id: 'user-ips',
+    name: 'User IPs',
   },
   {
     detail: 'Review subscription response headers and parser hints.',
@@ -92,10 +100,13 @@ export function ToolsPage() {
     name: 'Xray status',
   })
   const [hwidFilter, setHwidFilter] = useState('')
+  const [ipFilter, setIpFilter] = useState('')
   const [topUsersMetric, setTopUsersMetric] = useState('traffic_used')
   const summaryQuery = useToolSummaryData()
   const hwidQuery = useHwidInspectorData(hwidFilter)
   const topUsersQuery = useTopUsersData(topUsersMetric, 50)
+  const userIpsQuery = useUserIpsData(ipFilter, 200)
+  const nodeUserIpsQuery = useNodeUserIpsData(ipFilter, 200)
   const srhQuery = useSrhInspectorData()
   const sessionsQuery = useSessionInspectorData()
   const torrentQuery = useTorrentReportsData()
@@ -114,6 +125,8 @@ export function ToolsPage() {
     summaryQuery,
     hwidQuery,
     topUsersQuery,
+    userIpsQuery,
+    nodeUserIpsQuery,
     srhQuery,
     sessionsQuery,
     torrentQuery,
@@ -196,6 +209,25 @@ export function ToolsPage() {
           id: item.user_id,
         })),
         title: 'Top users',
+      }
+    }
+    if (activeTool === 'user-ips') {
+      return {
+        columns: ['User', 'IP', 'Sources', 'Subscriptions', 'Nodes', 'Seen', 'Evidence'],
+        empty: 'No user IP events recorded.',
+        rows: (userIpsQuery.data?.items ?? []).map((item) => ({
+          cells: [
+            item.username ? `${item.username} В· ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
+            item.ip,
+            item.sources.join(', '),
+            item.subscription_ids.length > 0 ? item.subscription_ids.join(', ') : '-',
+            item.node_ids.length > 0 ? item.node_ids.join(', ') : '-',
+            `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
+            `${item.evidence_count}${item.last_decision ? ` В· ${item.last_decision}` : ''}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+          ],
+          id: `${item.user_id}-${item.ip}`,
+        })),
+        title: 'User IPs',
       }
     }
     if (activeTool === 'srh') {
@@ -367,6 +399,7 @@ export function ToolsPage() {
     torrentQuery.data,
     topUsersMetric,
     topUsersQuery.data,
+    userIpsQuery.data,
     updateSnippet,
   ])
 
@@ -470,6 +503,20 @@ export function ToolsPage() {
                 </label>
               </div>
             ) : null}
+            {activeTool === 'user-ips' ? (
+              <div className="toolbar">
+                <label htmlFor="ip-filter" className="field field--inline">
+                  <span>Lookup IP</span>
+                  <input
+                    id="ip-filter"
+                    type="search"
+                    placeholder="IP, email, username, node, subscription"
+                    value={ipFilter}
+                    onChange={(event) => setIpFilter(event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
             <div className="toolbar">
               {tools.map((tool) => {
                 const Icon = tool.icon
@@ -496,6 +543,30 @@ export function ToolsPage() {
             ) : (
               <EmptyState title="No data" description={activeTable.empty} />
             )}
+            {activeTool === 'user-ips' ? (
+              <div className="details-card">
+                <h3>Node user IPs</h3>
+                {(nodeUserIpsQuery.data?.items.length ?? 0) > 0 ? (
+                  <DataTable
+                    caption="Node user IPs"
+                    columns={['Node', 'User', 'IP', 'Subscriptions', 'Seen', 'Evidence']}
+                    rows={(nodeUserIpsQuery.data?.items ?? []).map((item) => ({
+                      cells: [
+                        item.node_name ?? item.node_id,
+                        item.username ? `${item.username} В· ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
+                        item.ip,
+                        item.subscription_ids.length > 0 ? item.subscription_ids.join(', ') : '-',
+                        `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
+                        `${item.evidence_count}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+                      ],
+                      id: `${item.node_id}-${item.user_id}-${item.ip}`,
+                    }))}
+                  />
+                ) : (
+                  <EmptyState title="No node IPs" description="No node-bound user IP events recorded." />
+                )}
+              </div>
+            ) : null}
             {activeTool === 'utilities' && generateX25519Keypair.data ? (
               <div className="details-card">
                 <h3>X25519 keypair</h3>

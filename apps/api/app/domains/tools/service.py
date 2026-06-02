@@ -16,6 +16,7 @@ from app.domains.audit.models import AuditEvent
 from app.domains.audit.service import record_audit_event
 from app.domains.auth.models import UserSession
 from app.domains.auth.service import revoke_session
+from app.domains.ip_control.models import IpControlEvent
 from app.domains.nodes.models import Node
 from app.domains.nodes.service import NODE_TOKEN_PREFIX, generate_node_token
 from app.domains.settings.models import PanelSetting
@@ -29,6 +30,8 @@ from app.domains.tools.schemas import (
     HwidInspectorResponse,
     HwidInspectorRow,
     NodeKeyResponse,
+    NodeUserIpRecord,
+    NodeUserIpResponse,
     SessionInspectorResponse,
     SessionInspectorRow,
     SrhInspectorResponse,
@@ -42,6 +45,8 @@ from app.domains.tools.schemas import (
     TopUserRow,
     TorrentReportResponse,
     TorrentReportRow,
+    UserIpRecord,
+    UserIpResponse,
     X25519KeypairResponse,
 )
 from app.domains.users.models import User
@@ -350,6 +355,102 @@ async def inspect_top_users(
         ],
         metric=normalized_metric,
     )
+
+
+async def inspect_user_ips(
+    session: AsyncSession,
+    *,
+    query: str | None = None,
+    limit: int = 200,
+) -> UserIpResponse:
+    users_by_id = await _users_by_id(session)
+    rows: dict[tuple[UUID, str], dict[str, object]] = {}
+    await _collect_subscription_ip_rows(session, rows=rows, users_by_id=users_by_id)
+    await _collect_ip_control_rows(session, rows=rows, users_by_id=users_by_id)
+    records = [_user_ip_record(row, users_by_id=users_by_id) for row in rows.values()]
+    records.sort(key=lambda item: (item.last_seen_at, item.email or ""), reverse=True)
+    needle = query.strip().lower() if query else None
+    if needle:
+        records = [record for record in records if _user_ip_record_matches(record, needle)]
+    return UserIpResponse(items=records[:limit])
+
+
+async def inspect_node_user_ips(
+    session: AsyncSession,
+    *,
+    query: str | None = None,
+    limit: int = 200,
+) -> NodeUserIpResponse:
+    users_by_id = await _users_by_id(session)
+    nodes_by_id = await _nodes_by_id(session)
+    result = await session.execute(
+        select(AuditEvent)
+        .where(AuditEvent.action == "subscription.public.rendered")
+        .order_by(AuditEvent.created_at.desc())
+        .limit(2000)
+    )
+    rows: dict[tuple[UUID, UUID, str], dict[str, object]] = {}
+    for event in result.scalars().all():
+        metadata = event.metadata_json if isinstance(event.metadata_json, dict) else {}
+        user_id = _uuid_from_string(event.resource_id)
+        node_id = _uuid_from_string(metadata.get("node_id"))
+        ip = _non_empty_string(metadata.get("client_ip"))
+        if user_id is None or node_id is None or ip is None:
+            continue
+        key = (node_id, user_id, ip)
+        row = rows.setdefault(
+            key,
+            {
+                "evidence_count": 0,
+                "first_seen_at": event.created_at,
+                "ip": ip,
+                "last_seen_at": event.created_at,
+                "last_target": None,
+                "node_id": node_id,
+                "subscription_ids": set(),
+                "user_id": user_id,
+            },
+        )
+        _merge_time_window(row, event.created_at)
+        row["evidence_count"] = int(row["evidence_count"]) + 1
+        if subscription_id := _non_empty_string(metadata.get("subscription_id")):
+            cast_set(row["subscription_ids"]).add(subscription_id)
+        if target := _non_empty_string(metadata.get("target")):
+            row["last_target"] = target
+
+    records = [
+        NodeUserIpRecord(
+            node_id=row["node_id"],
+            node_name=(
+                nodes_by_id.get(row["node_id"]).name
+                if row["node_id"] in nodes_by_id
+                else None
+            ),
+            user_id=row["user_id"],
+            email=(
+                users_by_id.get(row["user_id"]).email
+                if row["user_id"] in users_by_id
+                else None
+            ),
+            username=(
+                users_by_id.get(row["user_id"]).username
+                if row["user_id"] in users_by_id
+                else None
+            ),
+            ip=str(row["ip"]),
+            subscription_ids=sorted(cast_set(row["subscription_ids"])),
+            first_seen_at=row["first_seen_at"],
+            last_seen_at=row["last_seen_at"],
+            evidence_count=int(row["evidence_count"]),
+            last_target=row["last_target"],
+        )
+        for row in rows.values()
+    ]
+    records.sort(key=lambda item: (item.last_seen_at, item.node_name or ""), reverse=True)
+    needle = query.strip().lower() if query else None
+    if needle:
+        records = [record for record in records if _node_user_ip_record_matches(record, needle)]
+    return NodeUserIpResponse(items=records[:limit])
 
 
 async def generate_x25519_keypair(
@@ -759,6 +860,180 @@ def _top_user_sort_value(row: TopUserRow, metric: str) -> tuple[float, float]:
         }
         return (risk_weight.get(row.risk, 0.0), row.traffic_used_gb)
     return (row.traffic_used_gb, row.traffic_percent if row.traffic_percent is not None else -1.0)
+
+
+async def _users_by_id(session: AsyncSession) -> dict[UUID, User]:
+    result = await session.execute(select(User))
+    return {user.id: user for user in result.scalars().all()}
+
+
+async def _nodes_by_id(session: AsyncSession) -> dict[UUID, Node]:
+    result = await session.execute(select(Node))
+    return {node.id: node for node in result.scalars().all()}
+
+
+async def _collect_subscription_ip_rows(
+    session: AsyncSession,
+    *,
+    rows: dict[tuple[UUID, str], dict[str, object]],
+    users_by_id: dict[UUID, User],
+) -> None:
+    result = await session.execute(
+        select(AuditEvent)
+        .where(AuditEvent.action == "subscription.public.rendered")
+        .order_by(AuditEvent.created_at.desc())
+        .limit(2000)
+    )
+    for event in result.scalars().all():
+        metadata = event.metadata_json if isinstance(event.metadata_json, dict) else {}
+        user_id = _uuid_from_string(event.resource_id)
+        ip = _non_empty_string(metadata.get("client_ip"))
+        if user_id is None or ip is None:
+            continue
+        row = _user_ip_row(rows, user_id=user_id, ip=ip, seen_at=event.created_at)
+        row["evidence_count"] = int(row["evidence_count"]) + 1
+        cast_set(row["sources"]).add("subscription")
+        if subscription_id := _non_empty_string(metadata.get("subscription_id")):
+            cast_set(row["subscription_ids"]).add(subscription_id)
+        if node_id := _uuid_from_string(metadata.get("node_id")):
+            cast_set(row["node_ids"]).add(str(node_id))
+        if target := _non_empty_string(metadata.get("target")):
+            row["last_target"] = target
+        if user_id not in users_by_id:
+            row["missing_user"] = "true"
+
+
+async def _collect_ip_control_rows(
+    session: AsyncSession,
+    *,
+    rows: dict[tuple[UUID, str], dict[str, object]],
+    users_by_id: dict[UUID, User],
+) -> None:
+    result = await session.execute(
+        select(IpControlEvent).order_by(IpControlEvent.created_at.desc()).limit(2000)
+    )
+    for event in result.scalars().all():
+        user_id = _uuid_from_string(event.user_id)
+        ip = _non_empty_string(event.ip)
+        if user_id is None or ip is None:
+            continue
+        row = _user_ip_row(rows, user_id=user_id, ip=ip, seen_at=event.created_at)
+        row["evidence_count"] = int(row["evidence_count"]) + 1
+        cast_set(row["sources"]).add("ip-control")
+        row["last_decision"] = event.decision
+        if user_id not in users_by_id:
+            row["missing_user"] = "true"
+
+
+def _user_ip_row(
+    rows: dict[tuple[UUID, str], dict[str, object]],
+    *,
+    user_id: UUID,
+    ip: str,
+    seen_at: datetime,
+) -> dict[str, object]:
+    key = (user_id, ip)
+    row = rows.setdefault(
+        key,
+        {
+            "evidence_count": 0,
+            "first_seen_at": seen_at,
+            "ip": ip,
+            "last_decision": None,
+            "last_seen_at": seen_at,
+            "last_target": None,
+            "node_ids": set(),
+            "sources": set(),
+            "subscription_ids": set(),
+            "user_id": user_id,
+        },
+    )
+    _merge_time_window(row, seen_at)
+    return row
+
+
+def _user_ip_record(row: dict[str, object], *, users_by_id: dict[UUID, User]) -> UserIpRecord:
+    user_id = row["user_id"]
+    assert isinstance(user_id, UUID)
+    user = users_by_id.get(user_id)
+    return UserIpRecord(
+        user_id=user_id,
+        email=user.email if user else None,
+        username=user.username if user else None,
+        ip=str(row["ip"]),
+        sources=sorted(cast_set(row["sources"])),
+        subscription_ids=sorted(cast_set(row["subscription_ids"])),
+        node_ids=[UUID(value) for value in sorted(cast_set(row["node_ids"]))],
+        first_seen_at=_datetime_value(row["first_seen_at"]),
+        last_seen_at=_datetime_value(row["last_seen_at"]),
+        evidence_count=int(row["evidence_count"]),
+        last_target=_optional_str(row.get("last_target")),
+        last_decision=_optional_str(row.get("last_decision")),
+    )
+
+
+def _merge_time_window(row: dict[str, object], seen_at: datetime) -> None:
+    first_seen_at = _datetime_value(row["first_seen_at"])
+    last_seen_at = _datetime_value(row["last_seen_at"])
+    if seen_at < first_seen_at:
+        row["first_seen_at"] = seen_at
+    if seen_at > last_seen_at:
+        row["last_seen_at"] = seen_at
+
+
+def _datetime_value(value: object) -> datetime:
+    assert isinstance(value, datetime)
+    return value
+
+
+def cast_set(value: object) -> set[str]:
+    assert isinstance(value, set)
+    return value
+
+
+def _uuid_from_string(value: object) -> UUID | None:
+    if value is None:
+        return None
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _non_empty_string(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _user_ip_record_matches(record: UserIpRecord, needle: str) -> bool:
+    fields = [
+        str(record.user_id),
+        record.email,
+        record.username,
+        record.ip,
+        record.last_target,
+        record.last_decision,
+        *record.sources,
+        *record.subscription_ids,
+        *(str(node_id) for node_id in record.node_ids),
+    ]
+    return any(needle in str(value).lower() for value in fields if value is not None)
+
+
+def _node_user_ip_record_matches(record: NodeUserIpRecord, needle: str) -> bool:
+    fields = [
+        str(record.node_id),
+        record.node_name,
+        str(record.user_id),
+        record.email,
+        record.username,
+        record.ip,
+        record.last_target,
+        *record.subscription_ids,
+    ]
+    return any(needle in str(value).lower() for value in fields if value is not None)
 
 
 def _optional_str(value: object) -> str | None:

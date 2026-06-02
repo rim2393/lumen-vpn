@@ -82,6 +82,8 @@ export const resourceQueryKeys = {
   toolSummary: ['resource', 'tools', 'summary'] as const,
   toolHwid: ['resource', 'tools', 'hwid'] as const,
   toolTopUsers: ['resource', 'tools', 'top-users'] as const,
+  toolUserIps: ['resource', 'tools', 'user-ips'] as const,
+  toolNodeUserIps: ['resource', 'tools', 'node-user-ips'] as const,
   toolSrh: ['resource', 'tools', 'srh'] as const,
   toolSessions: ['resource', 'tools', 'sessions'] as const,
   toolTorrentReports: ['resource', 'tools', 'torrent-reports'] as const,
@@ -890,6 +892,26 @@ export function useTopUsersData(metric: string, limit = 50) {
   return useQuery({
     queryFn: () => apiClient.inspectTopUsers(metric, limit),
     queryKey: [...resourceQueryKeys.toolTopUsers, metric, limit],
+  })
+}
+
+export function useUserIpsData(query: string, limit = 200) {
+  const apiClient = useApiClient()
+  const normalizedQuery = query.trim() || undefined
+
+  return useQuery({
+    queryFn: () => apiClient.inspectUserIps(normalizedQuery, limit),
+    queryKey: [...resourceQueryKeys.toolUserIps, normalizedQuery, limit],
+  })
+}
+
+export function useNodeUserIpsData(query: string, limit = 200) {
+  const apiClient = useApiClient()
+  const normalizedQuery = query.trim() || undefined
+
+  return useQuery({
+    queryFn: () => apiClient.inspectNodeUserIps(normalizedQuery, limit),
+    queryKey: [...resourceQueryKeys.toolNodeUserIps, normalizedQuery, limit],
   })
 }
 

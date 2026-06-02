@@ -118,6 +118,43 @@ class TopUserResponse(BaseModel):
     metric: str
 
 
+class UserIpRecord(BaseModel):
+    user_id: UUID
+    email: str | None
+    username: str | None
+    ip: str
+    sources: list[str] = Field(default_factory=list)
+    subscription_ids: list[str] = Field(default_factory=list)
+    node_ids: list[UUID] = Field(default_factory=list)
+    first_seen_at: datetime
+    last_seen_at: datetime
+    evidence_count: int
+    last_target: str | None = None
+    last_decision: str | None = None
+
+
+class UserIpResponse(BaseModel):
+    items: list[UserIpRecord]
+
+
+class NodeUserIpRecord(BaseModel):
+    node_id: UUID
+    node_name: str | None
+    user_id: UUID
+    email: str | None
+    username: str | None
+    ip: str
+    subscription_ids: list[str] = Field(default_factory=list)
+    first_seen_at: datetime
+    last_seen_at: datetime
+    evidence_count: int
+    last_target: str | None = None
+
+
+class NodeUserIpResponse(BaseModel):
+    items: list[NodeUserIpRecord]
+
+
 class X25519KeypairResponse(BaseModel):
     public_key: str
     private_key: str
