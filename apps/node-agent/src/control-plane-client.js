@@ -62,7 +62,10 @@ async function readJsonResponse(response, context) {
   if (!response.ok) {
     const code = body?.error?.code ?? body?.code ?? `http_${response.status}`;
     const message = body?.error?.message ?? body?.message ?? `${context} failed`;
-    throw new Error(`${code}: ${message}`);
+    const details = Array.isArray(body?.error?.details) && body.error.details.length > 0
+      ? ` (${body.error.details.slice(0, 5).join("; ")})`
+      : "";
+    throw new Error(`${code}: ${message}${details}`);
   }
 
   return body ?? {};
@@ -111,9 +114,20 @@ export function createCommandResultRequestBody(input = {}) {
   return Object.freeze({
     status: input.status,
     result_json: Object.freeze({ ...(input.resultJson ?? {}) }),
-    error_code: input.errorCode ?? null,
-    error_message: input.errorMessage ?? null
+    error_code: truncateOptionalString(input.errorCode, 64),
+    error_message: truncateOptionalString(input.errorMessage, 512)
   });
+}
+
+function truncateOptionalString(value, maxLength) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const text = String(value);
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return text.slice(0, Math.max(0, maxLength - 3)) + "...";
 }
 
 export function createNodeMetricRequestBody(input = {}) {

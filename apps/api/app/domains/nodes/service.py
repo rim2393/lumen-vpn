@@ -102,6 +102,7 @@ SUPPORTED_NODE_COMMAND_TYPES = frozenset(
         "outbound.remove",
     }
 )
+CLAIMED_COMMAND_REQUEUE_AFTER = timedelta(minutes=5)
 
 
 @dataclass(frozen=True)
@@ -1028,6 +1029,26 @@ async def claim_next_node_command(
         node_token=node_token,
         settings=settings,
     )
+    stale_before = utc_now() - CLAIMED_COMMAND_REQUEUE_AFTER
+    stale_claimed = (
+        (
+            await session.execute(
+                select(NodeCommand)
+                .where(NodeCommand.node_id == node_id)
+                .where(NodeCommand.status == "claimed")
+                .where(NodeCommand.claimed_at.is_not(None))
+                .where(NodeCommand.claimed_at < stale_before)
+                .order_by(NodeCommand.claimed_at.asc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if stale_claimed is not None:
+        stale_claimed.status = "queued"
+        stale_claimed.claimed_at = None
+        await session.flush()
     result = await session.execute(
         select(NodeCommand)
         .where(NodeCommand.node_id == node_id)

@@ -25,7 +25,7 @@ from app.domains.auth.service import generate_totp_code
 from app.domains.ip_control.models import IpControlEvent
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
-from app.domains.nodes.models import Node
+from app.domains.nodes.models import Node, NodeCommand
 from app.domains.nodes.service import hash_node_token
 from app.domains.protocols.schemas import WILDCARD_BIND_ADDRESS
 from app.domains.settings.models import PanelSetting
@@ -2298,6 +2298,43 @@ async def test_node_command_queue_and_metrics(foundation_app: FoundationRouteApp
     )
     assert torrent_reports_response.status_code == 200
     assert torrent_reports_response.json()["items"][0]["resource_id"] == "btih:test-node-event"
+
+
+async def test_stale_claimed_node_command_is_requeued(
+    foundation_app: FoundationRouteApp,
+) -> None:
+    node_id = await seeded_node_id(foundation_app)
+    command_response = await foundation_app.client.post(
+        f"/api/v1/nodes/{node_id}/commands",
+        json={"command_type": "capabilities.report", "payload_json": {"qa": "stale-claim"}},
+    )
+    assert command_response.status_code == 201
+    command_id = command_response.json()["id"]
+
+    claim_response = await foundation_app.client.get(
+        f"/api/v1/nodes/{node_id}/commands/next",
+        headers={"X-Lumen-Node-Token": NODE_TOKEN},
+    )
+    assert claim_response.status_code == 200
+    fresh_reclaim_response = await foundation_app.client.get(
+        f"/api/v1/nodes/{node_id}/commands/next",
+        headers={"X-Lumen-Node-Token": NODE_TOKEN},
+    )
+    assert fresh_reclaim_response.status_code == 204
+
+    async with foundation_app.sessionmaker() as session:
+        command = await session.get(NodeCommand, UUID(command_id))
+        assert command is not None
+        command.claimed_at = datetime.now(UTC) - timedelta(minutes=6)
+        await session.commit()
+
+    stale_reclaim_response = await foundation_app.client.get(
+        f"/api/v1/nodes/{node_id}/commands/next",
+        headers={"X-Lumen-Node-Token": NODE_TOKEN},
+    )
+    assert stale_reclaim_response.status_code == 200
+    assert stale_reclaim_response.json()["id"] == command_id
+    assert stale_reclaim_response.json()["status"] == "claimed"
 
 
 async def test_node_pause_resume_and_quarantine_enqueue_commands(

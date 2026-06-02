@@ -149,15 +149,19 @@ test("completes command result with backend schema", async () => {
   const body = createCommandResultRequestBody({
     status: "skipped",
     resultJson: { reason: "paused" },
-    errorCode: "command_not_allowed",
-    errorMessage: "node is paused"
+    errorCode: `command_not_allowed_${"x".repeat(80)}`,
+    errorMessage: "node is paused".repeat(80)
   });
 
+  assert.equal(body.error_code.length, 64);
+  assert.equal(body.error_code.endsWith("..."), true);
+  assert.equal(body.error_message.length, 512);
+  assert.equal(body.error_message.endsWith("..."), true);
   assert.deepEqual(body, {
     status: "skipped",
     result_json: { reason: "paused" },
-    error_code: "command_not_allowed",
-    error_message: "node is paused"
+    error_code: body.error_code,
+    error_message: body.error_message
   });
 
   const calls = [];
@@ -185,6 +189,32 @@ test("completes command result with backend schema", async () => {
   assert.equal(calls[0].options.headers["x-lumen-node-token"], "node-secret");
   assert.equal(JSON.parse(calls[0].options.body).result_json.applied, true);
   assert.equal(response.status, "succeeded");
+});
+
+test("surfaces backend validation details in command result errors", async () => {
+  await assert.rejects(
+    () =>
+      completeNodeCommand({
+        controlPlaneBaseUrl: "https://panel.example",
+        nodeId: "node-1",
+        commandId: "cmd-1",
+        nodeToken: "node-secret",
+        status: "failed",
+        resultJson: {},
+        fetchImpl: async () =>
+          jsonResponse(
+            {
+              error: {
+                code: "validation_error",
+                message: "Request validation failed.",
+                details: ["body.error_message: String should have at most 512 characters"]
+              }
+            },
+            { status: 422 }
+          )
+      }),
+    /body\.error_message/
+  );
 });
 
 test("records numeric node metrics", async () => {
