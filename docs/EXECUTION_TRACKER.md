@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.104` |
-| Product repo head | `bed9fcc Regenerate OpenAPI seed with drift check` |
-| Public installer manifest | `rim2393/lumen_vpn@d966cd1` |
+| Latest production release | `v0.1.105` |
+| Product repo head | `9d991b5 Run live protocol regression matrix in CI` |
+| Public installer manifest | `rim2393/lumen_vpn@42b9710` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -139,7 +139,7 @@ evidence here is wrong or stale.
 
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
-| PR-001 | Keep already live protocol slices regression-tested | PARTIAL | Existing live protocols stay covered in CI and live smoke after related changes | Evidence exists through `v0.1.55`, needs ongoing smoke |
+| PR-001 | Keep already live protocol slices regression-tested | DONE | Existing live protocols stay covered in CI and live smoke after related changes | `443e6c0` + `9d991b5`, `v0.1.105`, product release run `26798544731`, installer/deploy run `26798609707`, manifest `rim2393/lumen_vpn@42b9710`; added production-live regression matrix for `34` adapters seen on prod, promoted `vless-reality-httpupgrade` from legacy to experimental because it is already active on the real node, fixed `hysteria2-obfs` inbound mapping to UDP/TLS, and wired the matrix into GitHub `Quality gates`; local gates passed: backend `ruff`, `pytest tests/test_protocol_live_regression_matrix.py`, focused profile catalog pytest, node-agent runtime tests `49` passed, subscription-renderers `npm test` `7` passed, backend subscription route tests `15` passed; CI quality run `26798709882` passed with OpenAPI + protocol matrix, main image run `26798709886` passed; prod containers `lumen-api/web/subscription` and prod node-agent on `v0.1.105`; live prod smoke on real DB found `46` active profiles, all `34` production-live adapters present, no missing/unsupported/non-live adapters, runtime families `xray/hysteria2/tuic/naive/wireguard/openvpn/shadowsocks`, `hysteria2-obfs` `udp/tls`, and `vless-reality-httpupgrade` `experimental/xray`. |
 | PR-002 | Remaining Xray transport edge cases | OPEN | WS/gRPC/HTTPUpgrade/xHTTP/Reality/TLS edge cases pass backend, node, renderers, client imports, live smoke | Not started |
 | PR-003 | WireGuard/AmneziaWG real key lifecycle and policy enforcement | OPEN | No fake torrent blocking; enforceable design implemented or clear unsupported status | Not started |
 | PR-004 | IKEv2/IPsec | OPEN | Backend profile, node runtime, subscription renderer, client import and live connect | Not started |
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`PR-001`: Keep already live protocol slices regression-tested.
+`PR-002`: Remaining Xray transport edge cases.
 
 Proposed implementation:
 
-1. Inventory the protocol profiles/hosts currently live on production and map them to backend tests, node-agent runtime handlers and public subscription renderers.
-2. Add a regression smoke matrix for the already-live protocol slices without inventing fake nodes or subscriptions.
-3. Run backend/node/subscription renderer checks for those live slices.
-4. Verify production panel/node subscription path still produces usable outputs for each already-live protocol profile.
-5. Record gaps before moving to PR-002 edge transports.
+1. Audit VLESS/VMess/Trojan WS, gRPC, HTTPUpgrade, XHTTP, TLS and Reality variants against backend profile builders, computed Xray config, node-agent apply and subscription renderers.
+2. Fix edge transport gaps one by one using the real prod matrix as the acceptance list.
+3. Add focused backend/node/subscription tests for each fixed edge.
+4. Release/deploy through signed manifest and verify live production profile/config outputs on `node-01`.
+5. Record any client-import gaps that must move to `PR-006`.
 
 ## Checkpoint Notes
 
