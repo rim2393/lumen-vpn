@@ -33,9 +33,9 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.87` |
-| Product repo head | `d184fb4 Add typed settings groups` |
-| Public installer manifest | `rim2393/lumen_vpn@e1e1770` |
+| Latest production release | `v0.1.88` |
+| Product repo head | `2a46fbc Add MFA and passkey management UI` |
+| Public installer manifest | `rim2393/lumen_vpn@4bb7ef6` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
 
@@ -102,8 +102,8 @@ evidence here is wrong or stale.
 | --- | --- | --- | --- | --- |
 | S-001 | Generic OAuth2 provider | DONE | Real env/file-backed OAuth2/OIDC config, start/callback, validation | `4980e8c`, `v0.1.64` |
 | S-002 | Typed settings groups | DONE | Settings are grouped and validated by domain, not generic key/value UI only | `d184fb4`, `v0.1.87`, release run `26789066575`, installer/deploy run `26789125159`, manifest `rim2393/lumen_vpn@e1e1770`; backend `ruff`, focused pytest `test_typed_setting_groups_validate_and_block_generic_bypass` + auth-provider settings passed, web `npm run build`, focused Vitest `ControlPlaneScreens.test.tsx -t typed settings groups` passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.87` healthy; live protected API smoke verified typed groups `panel.identity`, `subscription.delivery`, `security.policy`, `node.defaults`, successful typed update for `subscription.delivery`, `422 setting_group_invalid` for invalid payload, `422 setting_reserved_key` for generic bypass, and restored original value; prod browser `/settings` showed typed settings groups, subscription delivery, security policy, node defaults and save group controls. |
-| S-003 | MFA/passkey registration and login UX | OPEN | Authenticator 2FA/passkeys can be configured and used end-to-end | Not started |
-| S-004 | API tokens CRUD with scopes for automation/Telegram bot | OPEN | Scoped token lifecycle with one-time secret display and audit | Not started |
+| S-003 | MFA/passkey registration and login UX | DONE | Authenticator 2FA/passkeys can be configured and used end-to-end | `2a46fbc`, `v0.1.88`, release run `26789628689`, installer/deploy run `26789706197`, manifest `rim2393/lumen_vpn@4bb7ef6`; backend `ruff`, focused pytest `test_totp_mfa_setup_verify_and_list` passed, focused Vitest `ControlPlaneScreens.test.tsx -t "MFA methods"` passed, web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.88` healthy; live public API smoke logged in with the real first-admin account without printing secrets, created pending TOTP method `qa-s003-*`, verified it listed through `/api/v1/auth/mfa/methods`, deleted it through the new delete endpoint, verified `remaining_qa = 0`, and verified `/api/v1/auth/webauthn/credentials` returned `200`; prod browser `/settings` shows `MFA and passkeys`, `Authenticator app`, `Start setup`, `Passkeys`, `Register passkey`, `real auth`. |
+| S-004 | API tokens CRUD with scopes for automation/Telegram bot | NEXT | Scoped token lifecycle with one-time secret display and audit | Not started |
 | S-005 | Auth method toggles and branding toggles | OPEN | Toggles are real settings and affect login/UI surfaces | Not started |
 
 ## P1: Subscription Surface
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`S-003`: MFA/passkey registration and login UX.
+`S-004`: API tokens CRUD with scopes for automation/Telegram bot.
 
 Proposed implementation:
 
-1. Audit current TOTP, WebAuthn/passkey and login challenge backend flows.
-2. Add missing settings UI for registering/listing/disabling MFA methods and passkeys without exposing secrets after setup.
-3. Make login UX handle MFA/passkey challenges end-to-end through the existing auth APIs.
-4. Test backend/UI flows with real challenge contracts and no fake success.
-5. Release through the signed manifest and verify on the live panel path before marking DONE.
+1. Audit existing API key model/routes and current UI exposure.
+2. Add protected token management UI with scope selection, expiration, revoke/delete, and one-time secret display only on creation.
+3. Add automation-friendly scopes for external controllers such as Telegram bot without granting full owner permissions by default.
+4. Cover backend scope enforcement and UI lifecycle with focused tests.
+5. Release through the signed manifest and verify creation/list/revoke on the live panel path before marking DONE.
 
 ## Checkpoint Notes
 
