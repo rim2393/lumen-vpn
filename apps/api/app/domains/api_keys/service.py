@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import status
@@ -158,11 +158,25 @@ async def revoke_api_key(session: AsyncSession, *, api_key_id: UUID) -> ApiKey:
 
 
 def api_key_to_response(api_key: ApiKey) -> ApiKeyResponse:
+    now = utc_now()
+    status_value = "active"
+    if api_key.revoked_at is not None:
+        status_value = "revoked"
+    elif api_key.expires_at is not None:
+        expires_at = ensure_aware(api_key.expires_at)
+        if expires_at <= now:
+            status_value = "expired"
+        elif expires_at <= now + timedelta(days=30):
+            status_value = "expiring"
+
     return ApiKeyResponse(
         id=api_key.id,
+        owner_user_id=api_key.owner_user_id,
         name=api_key.name,
         key_prefix=api_key.key_prefix,
         scopes=api_key.scopes,
+        status=status_value,
+        created_at=api_key.created_at,
         expires_at=api_key.expires_at,
         revoked_at=api_key.revoked_at,
         last_used_at=api_key.last_used_at,

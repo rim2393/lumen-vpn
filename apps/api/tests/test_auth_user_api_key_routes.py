@@ -206,7 +206,12 @@ def test_api_key_routes_issue_scope_and_revoke_keys(tmp_path) -> None:
 
         listed = client.get("/api/v1/api-keys", headers=auth_headers)
         assert listed.status_code == 200
-        assert listed.json()["items"][0]["name"] == "telegram bot"
+        listed_key = listed.json()["items"][0]
+        assert listed_key["name"] == "telegram bot"
+        assert listed_key["owner_user_id"] == created.json()["id"]
+        assert listed_key["key_prefix"] == issued_body["key_prefix"]
+        assert listed_key["status"] == "active"
+        assert "api_key" not in listed_key
 
         via_api_key = client.get(
             "/api/v1/auth/me",

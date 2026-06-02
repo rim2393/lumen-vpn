@@ -1,6 +1,6 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
 import type { LumenApiClient } from '../shared/api/types'
 import { developmentSession } from '../shared/data/developmentFixtures'
@@ -94,8 +94,65 @@ describe('Lumen admin routing', () => {
     })
 
     expect(screen.getByRole('heading', { level: 1, name: /api keys/i })).toBeInTheDocument()
-    expect(screen.getByText(/scoped token management/i)).toBeInTheDocument()
+    expect(screen.getByText(/scoped automation tokens/i)).toBeInTheDocument()
     expect(await screen.findByRole('table', { name: /api key inventory/i })).toBeInTheDocument()
+  })
+
+  it('creates and revokes scoped API keys with one-time reveal', async () => {
+    const user = userEvent.setup()
+    const createApiKey = async (request: Parameters<LumenApiClient['createApiKey']>[0]) => ({
+      api_key: 'lumen_sk_test_one_time_value',
+      expires_at: request.expires_at ?? null,
+      id: 'key_created',
+      key_prefix: 'lumen_sk_test_one',
+      name: request.name,
+    })
+    const createSpy = vi.fn(createApiKey)
+    const revokeSpy = vi.fn(async (_apiKeyId: string) => undefined)
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      createApiKey: createSpy,
+      listApiKeys: async () => ({
+        generatedAt: '2026-05-28T00:00:00Z',
+        items: [
+          {
+            createdAt: '2026-05-28T00:00:00Z',
+            expiresAt: null,
+            fingerprint: 'lumen_sk_existing',
+            id: 'key_existing',
+            keyPrefix: 'lumen_sk_existing',
+            lastUsedAt: null,
+            name: 'Existing token',
+            owner: 'usr_admin',
+            ownerUserId: 'usr_admin',
+            scopes: ['api_key:manage'],
+            status: 'active',
+          },
+        ],
+        source: 'api',
+        total: 1,
+      }),
+      revokeApiKey: revokeSpy,
+    }
+
+    renderWithRouter('/api-keys', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('table', { name: /api key inventory/i })).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/^name$/i), 'Telegram bot')
+    await user.selectOptions(screen.getByLabelText(/preset/i), 'Node automation')
+    await user.selectOptions(screen.getByLabelText(/expiration/i), '30')
+    await user.click(screen.getAllByRole('button', { name: /create key/i }).at(-1)!)
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1))
+    expect(createSpy).toHaveBeenCalledWith({
+      expires_at: expect.any(String),
+      name: 'Telegram bot',
+      scopes: ['node:manage', 'subscription:read'],
+    })
+    expect(await screen.findByText(/lumen_sk_test_one_time_value/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /revoke existing token/i }))
+    await waitFor(() => expect(revokeSpy).toHaveBeenCalledWith('key_existing'))
   })
 
   it('renders graceful empty and error resource states', async () => {

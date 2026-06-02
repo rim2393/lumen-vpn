@@ -1,4 +1,5 @@
 import type {
+  ApiKeyListResponse,
   ApiKeyCreateRequest,
   HostBulkActionRequest,
   AuthSession,
@@ -205,7 +206,27 @@ export function createHttpLumenApiClient({
     listProfileInbounds: (profileId: string) => request(`/api/v1/profiles/${profileId}/inbounds`),
     listGlobalProfileInbounds: () => request('/api/v1/profiles/inbounds'),
     getSquadDetail: (squadId: string) => request(`/api/v1/squads/${squadId}/detail`),
-    listApiKeys: () => request('/api/admin/api-keys'),
+    listApiKeys: async () => {
+      const response = await request<ApiKeyListResponse>('/api/v1/api-keys')
+      return {
+        generatedAt: new Date().toISOString(),
+        items: response.items.map((key) => ({
+          createdAt: key.created_at,
+          expiresAt: key.expires_at,
+          fingerprint: key.key_prefix,
+          id: key.id,
+          keyPrefix: key.key_prefix,
+          lastUsedAt: key.last_used_at,
+          name: key.name,
+          owner: key.owner_user_id,
+          ownerUserId: key.owner_user_id,
+          scopes: key.scopes,
+          status: key.status,
+        })),
+        source: 'api' as const,
+        total: response.items.length,
+      }
+    },
     listHosts: () => request('/api/v1/hosts'),
     listNodes: () => request('/api/v1/nodes'),
     getNodeOverview: (nodeId: string) => request(`/api/v1/nodes/${nodeId}/overview`),

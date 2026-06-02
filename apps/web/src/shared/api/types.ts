@@ -72,16 +72,18 @@ export type MfaChallengeResponse = {
 
 export type LoginApiResponse = TokenPairResponse | MfaChallengeResponse
 
-export type ApiKeyStatus = 'active' | 'expiring' | 'revoked'
+export type ApiKeyStatus = 'active' | 'expiring' | 'expired' | 'revoked'
 
 export type ApiKeyRecord = {
   createdAt: string
   expiresAt: string | null
   fingerprint: string
   id: string
+  keyPrefix?: string
   lastUsedAt: string | null
   name: string
   owner: string
+  ownerUserId?: string
   scopes: string[]
   status: ApiKeyStatus
 }
@@ -963,6 +965,23 @@ export type ApiKeyCreateResponse = {
   id: string
   key_prefix: string
   name: string
+}
+
+export type ApiKeyApiRecord = {
+  created_at: string
+  expires_at: string | null
+  id: string
+  key_prefix: string
+  last_used_at: string | null
+  name: string
+  owner_user_id: string
+  revoked_at: string | null
+  scopes: string[]
+  status: ApiKeyStatus
+}
+
+export type ApiKeyListResponse = {
+  items: ApiKeyApiRecord[]
 }
 
 export type ProvisioningJobResponse = {

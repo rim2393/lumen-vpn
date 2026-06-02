@@ -21,9 +21,12 @@ class ApiKeyCreateResponse(BaseModel):
 
 class ApiKeyResponse(BaseModel):
     id: UUID
+    owner_user_id: UUID
     name: str
     key_prefix: str
     scopes: list[str]
+    status: str
+    created_at: datetime
     expires_at: datetime | None
     revoked_at: datetime | None
     last_used_at: datetime | None
