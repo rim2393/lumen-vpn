@@ -20,6 +20,7 @@ import type {
   InfraBillingRecordCreateRequest,
   OAuthStartResponse,
   TelegramLoginPayload,
+  DropConnectionsRequest,
   WebAuthnOptionsApiResponse,
   NodeCommandCreateRequest,
   NodeBulkActionRequest,
@@ -269,6 +270,8 @@ export function createHttpLumenApiClient({
       request(
         `/api/v1/tools/node-user-ips?limit=${encodeURIComponent(String(limit))}${query ? `&query=${encodeURIComponent(query)}` : ''}`,
       ),
+    dropConnections: (payload: DropConnectionsRequest) =>
+      request('/api/v1/tools/drop-connections', { body: payload, method: 'POST' }),
     inspectSrh: () => request('/api/v1/tools/srh-inspector'),
     inspectSessions: () => request('/api/v1/tools/sessions'),
     inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),

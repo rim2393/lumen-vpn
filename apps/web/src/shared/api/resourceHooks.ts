@@ -8,6 +8,7 @@ import type {
   HostUpdateRequest,
   InfraBillingRecordCreateRequest,
   InfraProviderCreateRequest,
+  DropConnectionsRequest,
   NodeBulkActionRequest,
   NodePluginApplyRequest,
   NodePluginCloneRequest,
@@ -912,6 +913,20 @@ export function useNodeUserIpsData(query: string, limit = 200) {
   return useQuery({
     queryFn: () => apiClient.inspectNodeUserIps(normalizedQuery, limit),
     queryKey: [...resourceQueryKeys.toolNodeUserIps, normalizedQuery, limit],
+  })
+}
+
+export function useDropConnections() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: DropConnectionsRequest) => apiClient.dropConnections(request),
+    onSuccess: (_response, request) => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolUserIps })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.toolNodeUserIps })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.nodeCommands(request.node_id) })
+    },
   })
 }
 

@@ -1663,6 +1663,7 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
         session.add_all([subscription, user_session, torrent_event, ip_control_event])
         await session.flush()
         subscription_id = str(subscription.id)
+        user_id = user.id
         node_name = node.name
         await session.commit()
 
@@ -1766,6 +1767,43 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
     assert [item["ip"] for item in filtered_node_ips_response.json()["items"]] == [
         "203.0.113.44"
     ]
+
+    drop_response = await foundation_app.client.post(
+        "/api/v1/tools/drop-connections",
+        json={
+            "node_id": node_id,
+            "user_id": str(user_id),
+            "subscription_id": subscription_id,
+            "ip": "203.0.113.44",
+            "reason": "test drop",
+        },
+    )
+    assert drop_response.status_code == 201
+    drop_command = drop_response.json()["command"]
+    assert drop_command["command_type"] == "node.connections.drop"
+    assert drop_command["status"] == "queued"
+    assert drop_command["node_id"] == node_id
+    assert drop_command["payload_json"] == {
+        "ip": "203.0.113.44",
+        "reason": "test drop",
+        "source": "tools.drop-connections",
+        "subscription_id": subscription_id,
+        "user_id": str(user_id),
+    }
+    invalid_drop_response = await foundation_app.client.post(
+        "/api/v1/tools/drop-connections",
+        json={"node_id": node_id, "ip": "not-an-ip"},
+    )
+    assert invalid_drop_response.status_code == 422
+    assert invalid_drop_response.json()["error"]["code"] == "drop_connections_ip_invalid"
+    async with foundation_app.sessionmaker() as session:
+        drop_audit = (
+            await session.execute(
+                select(AuditEvent).where(AuditEvent.action == "tool.connections.drop.queued")
+            )
+        ).scalar_one()
+        assert drop_audit.resource_id == drop_command["id"]
+        assert drop_audit.metadata_json["ip"] == "203.0.113.44"
 
     srh_response = await foundation_app.client.get("/api/v1/tools/srh-inspector")
     assert srh_response.status_code == 200

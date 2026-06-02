@@ -59,6 +59,11 @@ export {
   detectPortConflicts
 } from "./conflict-model.js";
 export {
+  CONNECTION_DROP_RUNTIME_MODEL_VERSION,
+  createConnectionDropPlan,
+  dropConnections
+} from "./connection-drop-runtime.js";
+export {
   CONTROL_PLANE_CLIENT_VERSION,
   NODE_API_STATUS,
   completeNodeCommand,

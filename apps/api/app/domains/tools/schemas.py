@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domains.nodes.schemas import NodeCommandResponse
+
 
 class HwidDeviceRecord(BaseModel):
     id: str
@@ -153,6 +155,20 @@ class NodeUserIpRecord(BaseModel):
 
 class NodeUserIpResponse(BaseModel):
     items: list[NodeUserIpRecord]
+
+
+class DropConnectionsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: UUID
+    ip: str = Field(min_length=1, max_length=64)
+    user_id: UUID | None = None
+    subscription_id: UUID | None = None
+    reason: str | None = Field(default=None, max_length=512)
+
+
+class DropConnectionsResponse(BaseModel):
+    command: NodeCommandResponse
 
 
 class X25519KeypairResponse(BaseModel):

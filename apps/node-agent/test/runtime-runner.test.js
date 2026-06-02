@@ -8,7 +8,9 @@ import {
   COMMAND_TYPES,
   NODE_PROVISIONING_MODES,
   applyNodeCommand,
+  createConnectionDropPlan,
   createProvisioningState,
+  dropConnections,
   runNodeAgentOnce,
   stopLiveListener
 } from "../src/index.js";
@@ -202,6 +204,59 @@ test("apply command pauses node and skips mutating command while paused", () => 
   assert.equal(skippedResult.status, "skipped");
   assert.equal(skippedResult.state.mode, NODE_PROVISIONING_MODES.PAUSED);
   assert.match(skippedResult.errorMessage, /paused/);
+});
+
+test("apply command plans real connection drop by client IP", () => {
+  const active = createProvisioningState({
+    nodeId: "node-1",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  });
+  const result = applyNodeCommand(
+    {
+      id: "cmd-drop-1",
+      node_id: "node-1",
+      command_type: COMMAND_TYPES.NODE_CONNECTIONS_DROP,
+      created_at: "2026-05-27T00:01:00.000Z",
+      payload_json: {
+        ip: "203.0.113.44",
+        reason: "operator requested",
+        subscription_id: "sub-1",
+        user_id: "user-1"
+      }
+    },
+    active,
+    {
+      startedAt: "2026-05-27T00:01:01.000Z",
+      finishedAt: "2026-05-27T00:01:02.000Z"
+    }
+  );
+
+  assert.equal(result.status, "succeeded");
+  assert.equal(result.resultJson.outputs.implementationStatus, "connection-drop-pending");
+  assert.equal(result.resultJson.outputs.ip, "203.0.113.44");
+  assert.equal(result.runtimeAction.type, "node-connections.drop");
+  assert.equal(result.runtimeAction.plan.commands.includes("ss -K dst 203.0.113.44"), true);
+});
+
+test("connection drop runtime executes available Linux drop tools", async () => {
+  const calls = [];
+  const result = await dropConnections(createConnectionDropPlan({ ip: "203.0.113.44" }), {
+    dryRun: false,
+    execFileImpl: async (command, args) => {
+      calls.push([command, ...args].join(" "));
+      if (command === "conntrack") {
+        return { stdout: "0 flow entries have been deleted", stderr: "" };
+      }
+      const error = new Error("ss unavailable");
+      error.code = "ENOENT";
+      throw error;
+    }
+  });
+
+  assert.equal(result.implementationStatus, "connection-drop-attempted");
+  assert.equal(result.dryRun, false);
+  assert.equal(calls.includes("conntrack -D -s 203.0.113.44"), true);
+  assert.equal(calls.includes("ss -K dst 203.0.113.44"), true);
 });
 
 test("apply command persists license pause mode and reports it in heartbeat", async () => {

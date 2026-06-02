@@ -547,10 +547,27 @@ describe('Control plane resource screens', () => {
         },
       ],
     }))
+    const dropConnections: LumenApiClient['dropConnections'] = vi.fn(async (request) => ({
+      command: {
+        claimed_at: null,
+        command_type: 'node.connections.drop',
+        completed_at: null,
+        created_at: '2026-05-28T10:31:00Z',
+        error_code: null,
+        error_message: null,
+        id: 'cmd-drop-1',
+        node_id: request.node_id,
+        payload_json: request,
+        result_json: null,
+        status: 'queued',
+        updated_at: '2026-05-28T10:31:00Z',
+      },
+    }))
     const apiClient: LumenApiClient = {
       ...createDevelopmentLumenApiClient(),
       clearUserDevices,
       deleteUserDevice,
+      dropConnections,
       inspectHwid,
       inspectNodeUserIps,
       inspectTopUsers,
@@ -579,6 +596,19 @@ describe('Control plane resource screens', () => {
     await user.click(await screen.findByRole('button', { name: /user ips/i }))
     expect((await screen.findAllByText('203.0.113.44')).length).toBeGreaterThan(0)
     expect(screen.getByRole('table', { name: /node user ips/i })).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('button', { name: /drop connections for 203\.0\.113\.44 on node-live/i }),
+    )
+    await waitFor(() =>
+      expect(dropConnections).toHaveBeenCalledWith({
+        ip: '203.0.113.44',
+        node_id: 'node-live',
+        reason: 'operator requested connection drop from tools user IPs',
+        subscription_id: 'sub-live',
+        user_id: 'usr_hwid_tools',
+      }),
+    )
+    expect(await screen.findByText('cmd-drop-1')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText(/lookup ip/i), { target: { value: 'node-01' } })
     await waitFor(() => expect(inspectUserIps).toHaveBeenCalledWith('node-01', 200))
     await waitFor(() => expect(inspectNodeUserIps).toHaveBeenCalledWith('node-01', 200))

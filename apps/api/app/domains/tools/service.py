@@ -1,4 +1,5 @@
 import base64
+import ipaddress
 import re
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -18,12 +19,15 @@ from app.domains.auth.models import UserSession
 from app.domains.auth.service import revoke_session
 from app.domains.ip_control.models import IpControlEvent
 from app.domains.nodes.models import Node
-from app.domains.nodes.service import NODE_TOKEN_PREFIX, generate_node_token
+from app.domains.nodes.schemas import NodeCommandCreateRequest, NodeCommandResponse
+from app.domains.nodes.service import NODE_TOKEN_PREFIX, enqueue_node_command, generate_node_token
 from app.domains.settings.models import PanelSetting
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.renderers import build_subscription_headers
 from app.domains.subscriptions.service import build_subscription_manifest
 from app.domains.tools.schemas import (
+    DropConnectionsRequest,
+    DropConnectionsResponse,
     HappRoutingResponse,
     HappRoutingRow,
     HwidDeviceRecord,
@@ -451,6 +455,78 @@ async def inspect_node_user_ips(
     if needle:
         records = [record for record in records if _node_user_ip_record_matches(record, needle)]
     return NodeUserIpResponse(items=records[:limit])
+
+
+async def queue_connection_drop(
+    session: AsyncSession,
+    *,
+    request: DropConnectionsRequest,
+    principal: Principal,
+) -> DropConnectionsResponse:
+    ip = _validated_ip(request.ip)
+    if request.subscription_id is not None:
+        subscription = await session.get(Subscription, request.subscription_id)
+        if subscription is None:
+            raise APIError(
+                code="subscription_not_found",
+                message="Subscription was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if subscription.node_id is not None and subscription.node_id != request.node_id:
+            raise APIError(
+                code="drop_connections_node_mismatch",
+                message="Subscription is not assigned to the requested node.",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                details=[str(subscription.node_id), str(request.node_id)],
+            )
+        if request.user_id is not None and subscription.user_id != request.user_id:
+            raise APIError(
+                code="drop_connections_user_mismatch",
+                message="Subscription is not assigned to the requested user.",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                details=[str(subscription.user_id), str(request.user_id)],
+            )
+    if request.user_id is not None and await session.get(User, request.user_id) is None:
+        raise APIError(
+            code="user_not_found",
+            message="User was not found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    command = await enqueue_node_command(
+        session,
+        node_id=request.node_id,
+        request=NodeCommandCreateRequest(
+            command_type="node.connections.drop",
+            payload_json={
+                "ip": ip,
+                "reason": request.reason or "operator requested connection drop",
+                "source": "tools.drop-connections",
+                **({"user_id": str(request.user_id)} if request.user_id is not None else {}),
+                **(
+                    {"subscription_id": str(request.subscription_id)}
+                    if request.subscription_id is not None
+                    else {}
+                ),
+            },
+        ),
+    )
+    await record_audit_event(
+        session,
+        principal=principal,
+        action="tool.connections.drop.queued",
+        resource_type="node_command",
+        resource_id=str(command.id),
+        metadata_json={
+            "node_id": str(request.node_id),
+            "ip": ip,
+            "user_id": str(request.user_id) if request.user_id is not None else "",
+            "subscription_id": (
+                str(request.subscription_id) if request.subscription_id is not None else ""
+            ),
+        },
+    )
+    return DropConnectionsResponse(command=_node_command_response(command))
 
 
 async def generate_x25519_keypair(
@@ -1040,6 +1116,35 @@ def _optional_str(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _validated_ip(value: str) -> str:
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError as exc:
+        raise APIError(
+            code="drop_connections_ip_invalid",
+            message="Drop connections requires a valid client IP address.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details=[value],
+        ) from exc
+
+
+def _node_command_response(command) -> NodeCommandResponse:
+    return NodeCommandResponse(
+        id=command.id,
+        node_id=command.node_id,
+        command_type=command.command_type,
+        status=command.status,
+        payload_json=command.payload_json,
+        result_json=command.result_json,
+        error_code=command.error_code,
+        error_message=command.error_message,
+        claimed_at=command.claimed_at,
+        completed_at=command.completed_at,
+        created_at=command.created_at,
+        updated_at=command.updated_at,
+    )
 
 
 def _short_fingerprint(value: str | None) -> str | None:

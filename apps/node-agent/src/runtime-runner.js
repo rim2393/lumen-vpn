@@ -7,6 +7,7 @@ import {
   createCommandEnvelope,
   createCommandResult
 } from "./command-envelope.js";
+import { createConnectionDropPlan, dropConnections } from "./connection-drop-runtime.js";
 import {
   completeNodeCommand,
   exchangeInstallToken,
@@ -68,6 +69,7 @@ const APPLY_FAILURE_CODES = Object.freeze({
   "wireguard.apply": "wireguard_apply_failed",
   "node-policy.apply": "node_policy_apply_failed",
   "node-agent.restart": "node_restart_failed",
+  "node-connections.drop": "connection_drop_failed",
   "node-traffic.reset": "node_traffic_reset_failed"
 });
 
@@ -83,6 +85,7 @@ const APPLY_DRY_RUN_STATUS = Object.freeze({
   "wireguard.apply": "wireguard-dry-run",
   "node-policy.apply": "node-policy-dry-run",
   "node-agent.restart": "node-restart-dry-run",
+  "node-connections.drop": "connection-drop-dry-run",
   "node-traffic.reset": "node-traffic-reset-dry-run"
 });
 
@@ -98,6 +101,7 @@ const APPLY_PENDING_STATUS = Object.freeze({
   "wireguard.apply": "wireguard-apply-pending",
   "node-policy.apply": "node-policy-apply-pending",
   "node-agent.restart": "node-restart-pending",
+  "node-connections.drop": "connection-drop-pending",
   "node-traffic.reset": "node-traffic-reset-pending"
 });
 
@@ -444,6 +448,10 @@ async function applyRuntimeEffects(command, commandResult, input = {}) {
     if (commandResult.runtimeAction.type === "node-traffic.reset") {
       return withResultOutputs(commandResult, resetRuntimeTrafficState(input));
     }
+    if (commandResult.runtimeAction.type === "node-connections.drop") {
+      const dropResult = await dropConnections(commandResult.runtimeAction.plan, input);
+      return withResultOutputs(commandResult, dropResult);
+    }
     if (commandResult.runtimeAction.type === "tcp-diagnostic.start") {
       if (input.enableLiveDiagnostic !== true) {
         return failedCommandResult(command, new Error("live diagnostic listener is disabled"), "live_diagnostic_disabled");
@@ -676,6 +684,27 @@ export function applyNodeCommand(command, currentState, input = {}) {
           reason: envelope.payload.reason ?? null
         };
         runtimeAction = Object.freeze({ type: "node-agent.restart" });
+        break;
+      case COMMAND_TYPES.NODE_CONNECTIONS_DROP:
+        {
+          const plan = createConnectionDropPlan({
+            ...envelope.payload,
+            node_id: envelope.nodeId
+          });
+          outputs = {
+            command: envelope.command,
+            dryRun: input.dryRun ?? true,
+            implementationStatus: "connection-drop-pending",
+            ip: plan.ip,
+            userId: plan.userId,
+            subscriptionId: plan.subscriptionId,
+            reason: plan.reason
+          };
+          runtimeAction = Object.freeze({
+            type: "node-connections.drop",
+            plan
+          });
+        }
         break;
       case COMMAND_TYPES.NODE_TRAFFIC_RESET:
         outputs = {

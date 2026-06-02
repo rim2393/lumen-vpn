@@ -8,6 +8,8 @@ from app.core.config import Settings, get_settings
 from app.core.rbac import Permission, Principal, require_permission
 from app.db.session import get_db_session
 from app.domains.tools.schemas import (
+    DropConnectionsRequest,
+    DropConnectionsResponse,
     HappRoutingResponse,
     HwidInspectorResponse,
     NodeKeyResponse,
@@ -38,6 +40,7 @@ from app.domains.tools.service import (
     inspect_torrent_reports,
     inspect_user_ips,
     list_tool_snippets,
+    queue_connection_drop,
     revoke_inspected_session,
     summarize_tools,
     truncate_torrent_reports,
@@ -94,6 +97,17 @@ async def read_node_user_ips(
     limit: int = Query(default=200, ge=1, le=1000),
 ) -> NodeUserIpResponse:
     return await inspect_node_user_ips(session, query=query, limit=limit)
+
+
+@router.post("/drop-connections", response_model=DropConnectionsResponse, status_code=201)
+async def drop_connections_from_tools(
+    request: DropConnectionsRequest,
+    principal: UtilityManager,
+    session: DatabaseSession,
+) -> DropConnectionsResponse:
+    response = await queue_connection_drop(session, request=request, principal=principal)
+    await session.commit()
+    return response
 
 
 @router.get("/srh-inspector", response_model=SrhInspectorResponse)

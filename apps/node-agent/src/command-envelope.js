@@ -14,6 +14,7 @@ export const COMMAND_TYPES = Object.freeze({
   NODE_RESUME: "node.resume",
   NODE_QUARANTINE: "node.quarantine",
   NODE_RESTART: "node.restart",
+  NODE_CONNECTIONS_DROP: "node.connections.drop",
   NODE_TRAFFIC_RESET: "node.traffic.reset",
   CAPABILITIES_REPORT: "capabilities.report",
   CONFLICT_SCAN: "conflict.scan"

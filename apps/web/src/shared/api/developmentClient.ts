@@ -16,6 +16,7 @@ import type {
   ApiKeyCreateRequest,
   ApiKeyCreateResponse,
   AuthProviderRecord,
+  DropConnectionsRequest,
   AuthProviderUpdateRequest,
   HappRoutingResponse,
   HostBulkActionRequest,
@@ -1284,6 +1285,18 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         : rows
       return { items: filtered.slice(0, limit) }
     },
+    dropConnections: async (request: DropConnectionsRequest) => ({
+      command: createDevelopmentNodeCommand(request.node_id, {
+        command_type: 'node.connections.drop',
+        payload_json: {
+          ip: request.ip,
+          reason: request.reason ?? 'operator requested connection drop',
+          source: 'tools.drop-connections',
+          ...(request.subscription_id ? { subscription_id: request.subscription_id } : {}),
+          ...(request.user_id ? { user_id: request.user_id } : {}),
+        },
+      }),
+    }),
     inspectSrh: async (): Promise<SrhInspectorResponse> => ({
       items: subscriptions.map((subscription) => {
         const parser =

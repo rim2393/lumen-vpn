@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Activity, Fingerprint, Flame, Globe2, KeyRound, Radar, Route, ScrollText, Trash2 } from 'lucide-react'
+import { Activity, Ban, Fingerprint, Flame, Globe2, KeyRound, Radar, Route, ScrollText, Trash2 } from 'lucide-react'
 import {
   useClearUserDevices,
   useCreateToolSnippet,
   useDeleteToolSnippet,
   useDeleteUserDevice,
+  useDropConnections,
   useGenerateNodeKey,
   useGenerateX25519Keypair,
   useHappRoutingData,
@@ -26,6 +27,7 @@ import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
+import type { NodeCommandRecord } from '../shared/api/types'
 import { formatDateTime, formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
 type ToolId = 'hwid' | 'top-users' | 'user-ips' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
@@ -102,6 +104,7 @@ export function ToolsPage() {
   const [hwidFilter, setHwidFilter] = useState('')
   const [ipFilter, setIpFilter] = useState('')
   const [topUsersMetric, setTopUsersMetric] = useState('traffic_used')
+  const [latestDropCommand, setLatestDropCommand] = useState<NodeCommandRecord | null>(null)
   const summaryQuery = useToolSummaryData()
   const hwidQuery = useHwidInspectorData(hwidFilter)
   const topUsersQuery = useTopUsersData(topUsersMetric, 50)
@@ -114,6 +117,7 @@ export function ToolsPage() {
   const snippetsQuery = useToolSnippetsData()
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
+  const dropConnections = useDropConnections()
   const revokeToolSession = useRevokeToolSession()
   const truncateTorrentReports = useTruncateTorrentReports()
   const generateX25519Keypair = useGenerateX25519Keypair()
@@ -213,7 +217,7 @@ export function ToolsPage() {
     }
     if (activeTool === 'user-ips') {
       return {
-        columns: ['User', 'IP', 'Sources', 'Subscriptions', 'Nodes', 'Seen', 'Evidence'],
+        columns: ['User', 'IP', 'Sources', 'Subscriptions', 'Nodes', 'Seen', 'Evidence', 'Actions'],
         empty: 'No user IP events recorded.',
         rows: (userIpsQuery.data?.items ?? []).map((item) => ({
           cells: [
@@ -224,6 +228,29 @@ export function ToolsPage() {
             item.node_ids.length > 0 ? item.node_ids.join(', ') : '-',
             `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
             `${item.evidence_count}${item.last_decision ? ` В· ${item.last_decision}` : ''}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+            item.node_ids.length > 0 ? (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Drop connections for ${item.ip} on ${item.node_ids[0]}`}
+                disabled={dropConnections.isPending}
+                onClick={() =>
+                  void dropConnections
+                    .mutateAsync({
+                      ip: item.ip,
+                      node_id: item.node_ids[0],
+                      reason: 'operator requested connection drop from tools user IPs',
+                      subscription_id: item.subscription_ids[0] ?? null,
+                      user_id: item.user_id,
+                    })
+                    .then((response) => setLatestDropCommand(response.command))
+                }
+              >
+                <Ban size={16} aria-hidden="true" />
+              </button>
+            ) : (
+              <span title="No node evidence is available for this IP row">-</span>
+            ),
           ],
           id: `${item.user_id}-${item.ip}`,
         })),
@@ -386,6 +413,7 @@ export function ToolsPage() {
     clearDevices,
     deleteDevice,
     deleteSnippet,
+    dropConnections,
     happQuery.data,
     hwidQuery.data,
     hwidFilter,
@@ -549,7 +577,7 @@ export function ToolsPage() {
                 {(nodeUserIpsQuery.data?.items.length ?? 0) > 0 ? (
                   <DataTable
                     caption="Node user IPs"
-                    columns={['Node', 'User', 'IP', 'Subscriptions', 'Seen', 'Evidence']}
+                    columns={['Node', 'User', 'IP', 'Subscriptions', 'Seen', 'Evidence', 'Actions']}
                     rows={(nodeUserIpsQuery.data?.items ?? []).map((item) => ({
                       cells: [
                         item.node_name ?? item.node_id,
@@ -558,6 +586,25 @@ export function ToolsPage() {
                         item.subscription_ids.length > 0 ? item.subscription_ids.join(', ') : '-',
                         `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
                         `${item.evidence_count}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={`Drop connections for ${item.ip} on ${item.node_name ?? item.node_id}`}
+                          disabled={dropConnections.isPending}
+                          onClick={() =>
+                            void dropConnections
+                              .mutateAsync({
+                                ip: item.ip,
+                                node_id: item.node_id,
+                                reason: 'operator requested connection drop from tools node user IPs',
+                                subscription_id: item.subscription_ids[0] ?? null,
+                                user_id: item.user_id,
+                              })
+                              .then((response) => setLatestDropCommand(response.command))
+                          }
+                        >
+                          <Ban size={16} aria-hidden="true" />
+                        </button>,
                       ],
                       id: `${item.node_id}-${item.user_id}-${item.ip}`,
                     }))}
@@ -565,6 +612,29 @@ export function ToolsPage() {
                 ) : (
                   <EmptyState title="No node IPs" description="No node-bound user IP events recorded." />
                 )}
+                {latestDropCommand ? (
+                  <div className="details-card">
+                    <h3>Latest drop command</h3>
+                    <dl className="detail-list">
+                      <div>
+                        <dt>Command</dt>
+                        <dd>{latestDropCommand.id}</dd>
+                      </div>
+                      <div>
+                        <dt>Status</dt>
+                        <dd>{latestDropCommand.status}</dd>
+                      </div>
+                      <div>
+                        <dt>Node</dt>
+                        <dd>{latestDropCommand.node_id}</dd>
+                      </div>
+                      <div>
+                        <dt>IP</dt>
+                        <dd>{String(latestDropCommand.payload_json.ip ?? '-')}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {activeTool === 'utilities' && generateX25519Keypair.data ? (

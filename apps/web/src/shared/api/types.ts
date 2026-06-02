@@ -974,6 +974,18 @@ export type NodeUserIpResponse = {
   items: NodeUserIpRow[]
 }
 
+export type DropConnectionsRequest = {
+  ip: string
+  node_id: string
+  reason?: string | null
+  subscription_id?: string | null
+  user_id?: string | null
+}
+
+export type DropConnectionsResponse = {
+  command: NodeCommandRecord
+}
+
 export type X25519KeypairResponse = {
   encoding: string
   private_key: string
@@ -1375,6 +1387,7 @@ export type LumenApiClient = {
   inspectTopUsers: (metric?: string, limit?: number) => Promise<TopUserResponse>
   inspectUserIps: (query?: string, limit?: number) => Promise<UserIpResponse>
   inspectNodeUserIps: (query?: string, limit?: number) => Promise<NodeUserIpResponse>
+  dropConnections: (request: DropConnectionsRequest) => Promise<DropConnectionsResponse>
   inspectSrh: () => Promise<SrhInspectorResponse>
   inspectSessions: () => Promise<SessionInspectorResponse>
   inspectTorrentReports: () => Promise<TorrentReportResponse>
