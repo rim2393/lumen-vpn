@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -1877,6 +1878,65 @@ async def test_tools_reports_are_real_database_views(foundation_app: FoundationR
         if item["public_id"] == "lumen_sub_tools"
     )
     assert routing_row["route_status"] == "happ"
+
+    build_routing_response = await foundation_app.client.post(
+        "/api/v1/tools/happ-routing/build",
+        json={
+            "mode": "onadd",
+            "profile_json": {
+                "Name": "Lumen QA Routing",
+                "LastUpdated": 1780369200,
+                "Rules": [{"DomainSuffix": "example.test", "Outbound": "proxy"}],
+            },
+            "subscription_url": "https://sub.example.test/sub/lumen_sub_tools/happ",
+            "crypto_method": "v4",
+        },
+    )
+    assert build_routing_response.status_code == 200
+    built_routing = build_routing_response.json()
+    assert built_routing["mode"] == "onadd"
+    assert built_routing["encoding"] == "base64-json"
+    assert built_routing["profile_name"] == "Lumen QA Routing"
+    assert built_routing["routing_link"].startswith("happ://routing/onadd/")
+    assert built_routing["routing_header"] == built_routing["routing_link"]
+    encoded_profile = built_routing["routing_link"].removeprefix("happ://routing/onadd/")
+    decoded_profile = json.loads(base64.b64decode(encoded_profile).decode("utf-8"))
+    assert decoded_profile["Name"] == "Lumen QA Routing"
+    assert decoded_profile["Rules"][0]["DomainSuffix"] == "example.test"
+    assert built_routing["crypto_method"] == "v4"
+    assert built_routing["crypto_link"].startswith("happ://crypt4/")
+    assert len(base64.b64decode(built_routing["crypto_link"].removeprefix("happ://crypt4/"))) == 512
+    async with foundation_app.sessionmaker() as session:
+        happ_audit = (
+            await session.execute(
+                select(AuditEvent).where(AuditEvent.action == "tool.happ_routing.generated")
+            )
+        ).scalar_one()
+        assert happ_audit.metadata_json["profile_bytes"] == str(built_routing["profile_bytes"])
+        assert happ_audit.metadata_json["subscription_url_supplied"] == "true"
+        assert "sub.example.test" not in str(happ_audit.metadata_json)
+        assert "happ://crypt4/" not in str(happ_audit.metadata_json)
+
+    invalid_happ_url_response = await foundation_app.client.post(
+        "/api/v1/tools/happ-routing/build",
+        json={
+            "mode": "add",
+            "profile_json": {"Name": "Lumen QA Routing"},
+            "subscription_url": "ftp://sub.example.test/sub",
+        },
+    )
+    assert invalid_happ_url_response.status_code == 422
+    assert invalid_happ_url_response.json()["error"]["code"] == "happ_subscription_url_invalid"
+
+    secret_like_routing_response = await foundation_app.client.post(
+        "/api/v1/tools/happ-routing/build",
+        json={
+            "mode": "add",
+            "profile_json": {"Name": "bad", "privateKey": "inline"},
+        },
+    )
+    assert secret_like_routing_response.status_code == 422
+    assert secret_like_routing_response.json()["error"]["code"] == "happ_routing_secret_like_key"
 
     summary_response = await foundation_app.client.get("/api/v1/tools/summary")
     assert summary_response.status_code == 200

@@ -10,6 +10,8 @@ from app.db.session import get_db_session
 from app.domains.tools.schemas import (
     DropConnectionsRequest,
     DropConnectionsResponse,
+    HappRoutingBuildRequest,
+    HappRoutingBuildResponse,
     HappRoutingResponse,
     HwidInspectorResponse,
     NodeKeyResponse,
@@ -27,6 +29,7 @@ from app.domains.tools.schemas import (
     X25519KeypairResponse,
 )
 from app.domains.tools.service import (
+    build_happ_routing_payload,
     create_tool_snippet,
     delete_tool_snippet,
     generate_node_key,
@@ -156,6 +159,17 @@ async def truncate_torrent_blocker_reports(
 @router.get("/happ-routing", response_model=HappRoutingResponse)
 async def read_happ_routing(_: ToolManager, session: DatabaseSession) -> HappRoutingResponse:
     return await inspect_happ_routing(session)
+
+
+@router.post("/happ-routing/build", response_model=HappRoutingBuildResponse)
+async def build_happ_routing(
+    request: HappRoutingBuildRequest,
+    principal: UtilityManager,
+    session: DatabaseSession,
+) -> HappRoutingBuildResponse:
+    response = await build_happ_routing_payload(session, request=request, principal=principal)
+    await session.commit()
+    return response
 
 
 @router.post("/x25519-keypair", response_model=X25519KeypairResponse)

@@ -563,8 +563,21 @@ describe('Control plane resource screens', () => {
         updated_at: '2026-05-28T10:31:00Z',
       },
     }))
+    const buildHappRouting: LumenApiClient['buildHappRouting'] = vi.fn(async (request) => ({
+      crypto_link: request.subscription_url ? 'happ://crypt4/encrypted' : null,
+      crypto_method: request.subscription_url ? request.crypto_method ?? 'v4' : null,
+      encoded_profile: 'eyJOYW1lIjoiTHVtZW4gSEFwcCBSb3V0aW5nIn0=',
+      encrypted_url_bytes: request.subscription_url ? request.subscription_url.length : null,
+      encoding: 'base64-json',
+      mode: request.mode ?? 'add',
+      profile_bytes: 32,
+      profile_name: 'Lumen HApp Routing',
+      routing_header: 'happ://routing/onadd/eyJOYW1lIjoiTHVtZW4gSEFwcCBSb3V0aW5nIn0=',
+      routing_link: 'happ://routing/onadd/eyJOYW1lIjoiTHVtZW4gSEFwcCBSb3V0aW5nIn0=',
+    }))
     const apiClient: LumenApiClient = {
       ...createDevelopmentLumenApiClient(),
+      buildHappRouting,
       clearUserDevices,
       deleteUserDevice,
       dropConnections,
@@ -612,6 +625,21 @@ describe('Control plane resource screens', () => {
     fireEvent.change(screen.getByLabelText(/lookup ip/i), { target: { value: 'node-01' } })
     await waitFor(() => expect(inspectUserIps).toHaveBeenCalledWith('node-01', 200))
     await waitFor(() => expect(inspectNodeUserIps).toHaveBeenCalledWith('node-01', 200))
+    await user.click(screen.getByRole('button', { name: /^HApp routing$/i }))
+    fireEvent.change(screen.getByLabelText(/subscription url for happ crypto/i), {
+      target: { value: 'https://sub.example.test/sub/live/happ' },
+    })
+    await user.click(screen.getByRole('button', { name: /build happ payload/i }))
+    await waitFor(() =>
+      expect(buildHappRouting).toHaveBeenCalledWith(
+        expect.objectContaining({
+          crypto_method: 'v4',
+          mode: 'onadd',
+          subscription_url: 'https://sub.example.test/sub/live/happ',
+        }),
+      ),
+    )
+    expect(await screen.findByText('happ://crypt4/encrypted')).toBeInTheDocument()
   })
 
   it('wires session browser revoke actions to backend requests', async () => {

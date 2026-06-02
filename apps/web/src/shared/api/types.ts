@@ -910,6 +910,26 @@ export type HappRoutingResponse = {
   items: HappRoutingRow[]
 }
 
+export type HappRoutingBuildRequest = {
+  crypto_method?: 'v3' | 'v4'
+  mode?: 'add' | 'onadd' | 'off'
+  profile_json?: Record<string, unknown> | null
+  subscription_url?: string | null
+}
+
+export type HappRoutingBuildResponse = {
+  crypto_link: string | null
+  crypto_method: string | null
+  encoded_profile: string | null
+  encrypted_url_bytes: number | null
+  encoding: string
+  mode: string
+  profile_bytes: number
+  profile_name: string | null
+  routing_header: string
+  routing_link: string
+}
+
 export type ToolSummaryResponse = {
   happ_routes: number
   hwid_over_limit: number
@@ -1392,6 +1412,7 @@ export type LumenApiClient = {
   inspectSessions: () => Promise<SessionInspectorResponse>
   inspectTorrentReports: () => Promise<TorrentReportResponse>
   inspectHappRouting: () => Promise<HappRoutingResponse>
+  buildHappRouting: (request: HappRoutingBuildRequest) => Promise<HappRoutingBuildResponse>
   truncateTorrentReports: () => Promise<TorrentReportResponse>
   generateX25519Keypair: () => Promise<X25519KeypairResponse>
   generateNodeKey: () => Promise<NodeKeyResponse>

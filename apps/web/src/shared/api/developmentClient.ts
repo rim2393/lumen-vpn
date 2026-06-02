@@ -18,6 +18,7 @@ import type {
   AuthProviderRecord,
   DropConnectionsRequest,
   AuthProviderUpdateRequest,
+  HappRoutingBuildRequest,
   HappRoutingResponse,
   HostBulkActionRequest,
   HostCreateRequest,
@@ -1402,6 +1403,29 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         }
       }),
     }),
+    buildHappRouting: async (request: HappRoutingBuildRequest) => {
+      const mode = request.mode ?? 'add'
+      const profileText = JSON.stringify(request.profile_json ?? { Name: 'Development HApp' })
+      const encodedProfile = btoa(unescape(encodeURIComponent(profileText)))
+      const routingLink =
+        mode === 'off' ? 'happ://routing/off' : `happ://routing/${mode}/${encodedProfile}`
+      return {
+        crypto_link: request.subscription_url
+          ? `happ://crypt${(request.crypto_method ?? 'v4').replace('v', '')}/development-encrypted-link`
+          : null,
+        crypto_method: request.subscription_url ? request.crypto_method ?? 'v4' : null,
+        encoded_profile: mode === 'off' ? null : encodedProfile,
+        encrypted_url_bytes: request.subscription_url ? request.subscription_url.length : null,
+        encoding: 'base64-json',
+        mode,
+        profile_bytes: profileText.length,
+        profile_name: String(
+          (request.profile_json ?? {}).Name ?? (request.profile_json ?? {}).name ?? 'Development HApp',
+        ),
+        routing_header: routingLink,
+        routing_link: routingLink,
+      }
+    },
     listUsers: async (): Promise<UserListResponse> => ({ items: users }),
     lookupUsers: async (query: string) => {
       const normalizedQuery = query.trim().toLowerCase()

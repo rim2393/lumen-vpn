@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -91,6 +92,28 @@ class HappRoutingRow(BaseModel):
 
 class HappRoutingResponse(BaseModel):
     items: list[HappRoutingRow]
+
+
+class HappRoutingBuildRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["add", "onadd", "off"] = "add"
+    profile_json: dict[str, object] | None = None
+    subscription_url: str | None = Field(default=None, min_length=1, max_length=2048)
+    crypto_method: Literal["v3", "v4"] = "v4"
+
+
+class HappRoutingBuildResponse(BaseModel):
+    mode: str
+    encoding: str
+    profile_name: str | None = None
+    profile_bytes: int = 0
+    encoded_profile: str | None = None
+    routing_link: str
+    routing_header: str
+    crypto_method: str | None = None
+    crypto_link: str | None = None
+    encrypted_url_bytes: int | None = None
 
 
 class ToolSummaryResponse(BaseModel):

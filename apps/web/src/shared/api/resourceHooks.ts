@@ -9,6 +9,7 @@ import type {
   InfraBillingRecordCreateRequest,
   InfraProviderCreateRequest,
   DropConnectionsRequest,
+  HappRoutingBuildRequest,
   NodeBulkActionRequest,
   NodePluginApplyRequest,
   NodePluginCloneRequest,
@@ -1005,6 +1006,14 @@ export function useHappRoutingData() {
   return useQuery({
     queryFn: apiClient.inspectHappRouting,
     queryKey: resourceQueryKeys.toolHappRouting,
+  })
+}
+
+export function useBuildHappRouting() {
+  const apiClient = useApiClient()
+
+  return useMutation({
+    mutationFn: (request: HappRoutingBuildRequest) => apiClient.buildHappRouting(request),
   })
 }
 

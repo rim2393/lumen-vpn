@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Activity, Ban, Fingerprint, Flame, Globe2, KeyRound, Radar, Route, ScrollText, Trash2 } from 'lucide-react'
 import {
+  useBuildHappRouting,
   useClearUserDevices,
   useCreateToolSnippet,
   useDeleteToolSnippet,
@@ -105,6 +106,22 @@ export function ToolsPage() {
   const [ipFilter, setIpFilter] = useState('')
   const [topUsersMetric, setTopUsersMetric] = useState('traffic_used')
   const [latestDropCommand, setLatestDropCommand] = useState<NodeCommandRecord | null>(null)
+  const [happBuildError, setHappBuildError] = useState<string | null>(null)
+  const [happBuildForm, setHappBuildForm] = useState({
+    cryptoMethod: 'v4',
+    mode: 'onadd',
+    profileJson: JSON.stringify(
+      {
+        DomainStrategy: 'AsIs',
+        LastUpdated: Math.floor(Date.now() / 1000),
+        Name: 'Lumen HApp Routing',
+        Rules: [{ DomainSuffix: 'example.test', Outbound: 'proxy' }],
+      },
+      null,
+      2,
+    ),
+    subscriptionUrl: '',
+  })
   const summaryQuery = useToolSummaryData()
   const hwidQuery = useHwidInspectorData(hwidFilter)
   const topUsersQuery = useTopUsersData(topUsersMetric, 50)
@@ -115,6 +132,7 @@ export function ToolsPage() {
   const torrentQuery = useTorrentReportsData()
   const happQuery = useHappRoutingData()
   const snippetsQuery = useToolSnippetsData()
+  const buildHappRouting = useBuildHappRouting()
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
   const dropConnections = useDropConnections()
@@ -139,6 +157,36 @@ export function ToolsPage() {
   ]
   const isLoading = queries.some((query) => query.isLoading)
   const error = queries.find((query) => query.isError)?.error
+  const handleBuildHappRouting = () => {
+    setHappBuildError(null)
+    let profileJson: Record<string, unknown> | null = null
+    if (happBuildForm.mode !== 'off') {
+      try {
+        const parsed = JSON.parse(happBuildForm.profileJson) as unknown
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          setHappBuildError('Routing JSON must be an object.')
+          return
+        }
+        profileJson = parsed as Record<string, unknown>
+      } catch (error) {
+        setHappBuildError(error instanceof Error ? error.message : 'Routing JSON is invalid.')
+        return
+      }
+    }
+    void buildHappRouting.mutateAsync({
+      crypto_method: happBuildForm.cryptoMethod as 'v3' | 'v4',
+      mode: happBuildForm.mode as 'add' | 'onadd' | 'off',
+      profile_json: profileJson,
+      subscription_url: happBuildForm.subscriptionUrl.trim() || null,
+    })
+  }
+
+  const copyText = (value: string) => {
+    if (!navigator.clipboard) {
+      return
+    }
+    void navigator.clipboard.writeText(value)
+  }
 
   const activeTable = useMemo(() => {
     if (activeTool === 'hwid') {
@@ -543,6 +591,119 @@ export function ToolsPage() {
                     onChange={(event) => setIpFilter(event.target.value)}
                   />
                 </label>
+              </div>
+            ) : null}
+            {activeTool === 'happ' ? (
+              <div className="details-card">
+                <h3>HApp routing builder</h3>
+                <div className="form-grid">
+                  <label>
+                    <span>Routing mode</span>
+                    <select
+                      value={happBuildForm.mode}
+                      onChange={(event) =>
+                        setHappBuildForm((current) => ({ ...current, mode: event.target.value }))
+                      }
+                    >
+                      <option value="add">add</option>
+                      <option value="onadd">onadd</option>
+                      <option value="off">off</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Crypto method</span>
+                    <select
+                      value={happBuildForm.cryptoMethod}
+                      onChange={(event) =>
+                        setHappBuildForm((current) => ({
+                          ...current,
+                          cryptoMethod: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="v4">v4</option>
+                      <option value="v3">v3</option>
+                    </select>
+                  </label>
+                  <label className="form-grid__wide">
+                    <span>Subscription URL for HApp crypto</span>
+                    <input
+                      value={happBuildForm.subscriptionUrl}
+                      placeholder="https://sub.example/sub/..."
+                      onChange={(event) =>
+                        setHappBuildForm((current) => ({
+                          ...current,
+                          subscriptionUrl: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="form-grid__wide">
+                    <span>Routing JSON</span>
+                    <textarea
+                      value={happBuildForm.profileJson}
+                      disabled={happBuildForm.mode === 'off'}
+                      onChange={(event) =>
+                        setHappBuildForm((current) => ({
+                          ...current,
+                          profileJson: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={buildHappRouting.isPending}
+                    onClick={handleBuildHappRouting}
+                  >
+                    Build HApp payload
+                  </button>
+                  {buildHappRouting.data?.routing_header ? (
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => copyText(buildHappRouting.data.routing_header)}
+                    >
+                      Copy routing
+                    </button>
+                  ) : null}
+                  {buildHappRouting.data?.crypto_link ? (
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => copyText(buildHappRouting.data.crypto_link ?? '')}
+                    >
+                      Copy crypto
+                    </button>
+                  ) : null}
+                </div>
+                {happBuildError ? <p className="form-error">{happBuildError}</p> : null}
+                {buildHappRouting.error ? (
+                  <p className="form-error">
+                    {buildHappRouting.error instanceof Error
+                      ? buildHappRouting.error.message
+                      : 'HApp payload build failed.'}
+                  </p>
+                ) : null}
+                {buildHappRouting.data ? (
+                  <dl className="detail-list">
+                    <div>
+                      <dt>Routing header</dt>
+                      <dd>{buildHappRouting.data.routing_header}</dd>
+                    </div>
+                    <div>
+                      <dt>Routing bytes</dt>
+                      <dd>{buildHappRouting.data.profile_bytes}</dd>
+                    </div>
+                    <div>
+                      <dt>Crypto link</dt>
+                      <dd>{buildHappRouting.data.crypto_link ?? '-'}</dd>
+                    </div>
+                  </dl>
+                ) : null}
               </div>
             ) : null}
             <div className="toolbar">

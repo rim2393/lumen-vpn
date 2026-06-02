@@ -21,6 +21,7 @@ import type {
   OAuthStartResponse,
   TelegramLoginPayload,
   DropConnectionsRequest,
+  HappRoutingBuildRequest,
   WebAuthnOptionsApiResponse,
   NodeCommandCreateRequest,
   NodeBulkActionRequest,
@@ -276,6 +277,8 @@ export function createHttpLumenApiClient({
     inspectSessions: () => request('/api/v1/tools/sessions'),
     inspectTorrentReports: () => request('/api/v1/tools/torrent-blocker-reports'),
     inspectHappRouting: () => request('/api/v1/tools/happ-routing'),
+    buildHappRouting: (payload: HappRoutingBuildRequest) =>
+      request('/api/v1/tools/happ-routing/build', { body: payload, method: 'POST' }),
     truncateTorrentReports: () =>
       request('/api/v1/tools/torrent-blocker-reports', { method: 'DELETE' }),
     generateX25519Keypair: () => request('/api/v1/tools/x25519-keypair', { method: 'POST' }),
