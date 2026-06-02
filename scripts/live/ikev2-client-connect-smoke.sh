@@ -327,12 +327,18 @@ docker run --rm --name lumen-ikev2-client-smoke \
     set -euo pipefail
     export DEBIAN_FRONTEND=noninteractive
     apt-get -o Dpkg::Use-Pty=0 update
-    apt-get -o Dpkg::Use-Pty=0 install -y --no-install-recommends strongswan-starter strongswan-swanctl strongswan-charon libstrongswan-standard-plugins iproute2 ca-certificates
+    apt-get -o Dpkg::Use-Pty=0 install -y --no-install-recommends strongswan-starter strongswan-swanctl strongswan-charon libstrongswan-standard-plugins libcharon-extra-plugins iproute2 ca-certificates
     cp -a /lumen-swanctl/. /etc/swanctl/
     ipsec start >/dev/null
     timeout 15 bash -lc "until [ -S /var/run/charon.vici ]; do sleep 0.2; done"
     swanctl --load-all >/tmp/lumen-load.log
-    swanctl --initiate --child lumen-smoke-child --timeout 30 >/tmp/lumen-initiate.log
+    if ! swanctl --initiate --child lumen-smoke-child --timeout 30 >/tmp/lumen-initiate.log 2>&1; then
+      cat /tmp/lumen-load.log >&2 || true
+      cat /tmp/lumen-initiate.log >&2 || true
+      swanctl --list-conns >&2 || true
+      ipsec statusall >&2 || true
+      exit 1
+    fi
     swanctl --list-sas >/tmp/lumen-sas.log
     grep -q "ESTABLISHED" /tmp/lumen-sas.log
     swanctl --terminate --ike lumen-smoke >/dev/null 2>&1 || true
