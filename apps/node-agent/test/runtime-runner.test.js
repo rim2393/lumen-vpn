@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1383,6 +1383,7 @@ for (const scenario of [
 test("run once applies ikev2-eap outbound.apply via strongSwan runtime", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "lumen-agent-state-"));
   const swanctlDir = mkdtempSync(join(tmpdir(), "lumen-swanctl-"));
+  const viciSocket = join(stateDir, "charon.vici");
   const execCalls = [];
   const calls = [];
   try {
@@ -1393,10 +1394,16 @@ test("run once applies ikev2-eap outbound.apply via strongSwan runtime", async (
         LUMEN_CONTROL_PLANE_URL: "https://panel.example",
         LUMEN_NODE_NAME: "node-1",
         LUMEN_STATE_DIR: stateDir,
-        LUMEN_DRY_RUN: "false"
+        LUMEN_DRY_RUN: "false",
+        LUMEN_IKEV2_VICI_SOCKET: viciSocket,
+        LUMEN_IKEV2_VICI_WAIT_MS: "500"
       },
       execFileImpl: async (command, args) => {
         execCalls.push([command, args]);
+        if (command === "ipsec" && args[0] === "start") {
+          mkdirSync(stateDir, { recursive: true });
+          writeFileSync(viciSocket, "");
+        }
         return { stdout: "", stderr: "" };
       },
       fetchImpl: async (url, options) => {

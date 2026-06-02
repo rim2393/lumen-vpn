@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { execFile as nodeExecFile } from "node:child_process";
@@ -9,6 +9,7 @@ export const DEFAULT_IKEV2_RUNTIME_DIR = "/var/lib/lumen-node/runtime/ikev2";
 
 const execFileAsync = promisify(nodeExecFile);
 const FORBIDDEN_UNRESOLVED_FIELDS = new Set(["clientsRef", "credentialsRef"]);
+const DEFAULT_CHARON_VICI_SOCKET = "/var/run/charon.vici";
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -194,6 +195,19 @@ async function runExecFileIgnoringFailure(execFileImpl, command, args) {
   }
 }
 
+async function waitForPath(path, input = {}) {
+  const timeoutMs = Number.parseInt(String(input.timeoutMs ?? 5000), 10);
+  const intervalMs = Number.parseInt(String(input.intervalMs ?? 100), 10);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    if (existsSync(path)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`${path} was not created before timeout`);
+}
+
 async function configureForwarding(execFileImpl, pool) {
   await runExecFile(execFileImpl, "sh", ["-c", [
     "sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>/dev/null || [ \"$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)\" = \"1\" ]",
@@ -228,7 +242,10 @@ export async function applyIkev2Config(plan, input = {}) {
   await configureForwarding(input.execFileImpl, plan.config.pool);
   await runExecFileIgnoringFailure(input.execFileImpl, "ipsec", ["stop"]);
   await runExecFile(input.execFileImpl, "ipsec", ["start"]);
-  await runExecFile(input.execFileImpl, "swanctl", ["--load-all", "--file", paths.swanctlConfPath]);
+  await waitForPath(env.LUMEN_IKEV2_VICI_SOCKET ?? DEFAULT_CHARON_VICI_SOCKET, {
+    timeoutMs: env.LUMEN_IKEV2_VICI_WAIT_MS ?? 5000
+  });
+  await runExecFile(input.execFileImpl, "swanctl", ["--load-all"]);
   await runExecFile(input.execFileImpl, "swanctl", ["--list-conns"]);
 
   return Object.freeze({

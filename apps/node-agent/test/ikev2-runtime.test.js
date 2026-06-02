@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
+  applyIkev2Config,
   createIkev2ApplyPlan,
   renderSwanctlConfig
 } from "../src/index.js";
@@ -44,4 +48,42 @@ test("rejects unresolved IKEv2 credential references", () => {
     }),
     /unresolved refs/
   );
+});
+
+test("applies IKEv2 config through strongSwan swanctl default config path", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "lumen-ikev2-"));
+  const configDir = join(tempDir, "swanctl");
+  const runtimeDir = join(tempDir, "runtime");
+  const viciSocket = join(tempDir, "charon.vici");
+  const calls = [];
+  const plan = createIkev2ApplyPlan({
+    ikev2Config: IKEV2_CONFIG,
+    configDir,
+    runtimeDir
+  });
+
+  const result = await applyIkev2Config(plan, {
+    dryRun: false,
+    env: {
+      LUMEN_IKEV2_VICI_SOCKET: viciSocket,
+      LUMEN_IKEV2_VICI_WAIT_MS: "500"
+    },
+    execFileImpl: async (command, args) => {
+      calls.push([command, args]);
+      if (command === "ipsec" && args[0] === "start") {
+        mkdirSync(tempDir, { recursive: true });
+        writeFileSync(viciSocket, "");
+      }
+      return { stdout: "", stderr: "" };
+    }
+  });
+
+  assert.equal(result.implementationStatus, "ikev2-applied");
+  assert.deepEqual(calls.map(([command, args]) => [command, args]), [
+    ["sh", calls[0][1]],
+    ["ipsec", ["stop"]],
+    ["ipsec", ["start"]],
+    ["swanctl", ["--load-all"]],
+    ["swanctl", ["--list-conns"]]
+  ]);
 });
