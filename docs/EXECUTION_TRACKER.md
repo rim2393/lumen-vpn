@@ -34,7 +34,7 @@ evidence here is wrong or stale.
 | Item | Current Evidence |
 | --- | --- |
 | Latest production release | `v0.1.104` |
-| Product repo head | `4d6da91 Add torrent report filters and confirmation` |
+| Product repo head | `bed9fcc Regenerate OpenAPI seed with drift check` |
 | Public installer manifest | `rim2393/lumen_vpn@d966cd1` |
 | Prod health | `GET /api/v1/health/ready -> {"status":"ok","dependencies":{"api":"ok"}}` |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. |
@@ -133,7 +133,7 @@ evidence here is wrong or stale.
 
 | ID | Task | Status | Done Criteria | Evidence |
 | --- | --- | --- | --- | --- |
-| API-001 | Regenerate checked-in OpenAPI seed | OPEN | OpenAPI includes current admin/node/tools/subscription surfaces and CI detects drift | Not started |
+| API-001 | Regenerate checked-in OpenAPI seed | DONE | OpenAPI includes current admin/node/tools/subscription surfaces and CI detects drift | `bed9fcc`; regenerated `packages/shared-openapi/openapi.yaml` from the current FastAPI route surface with deterministic JSON/YAML seed, added `apps/api/scripts/export_openapi.py --check`, `tests/test_openapi_seed.py`, and GitHub `Quality gates` workflow; local gates passed: `python -m ruff check scripts/export_openapi.py tests/test_openapi_seed.py`, `python -m pytest tests/test_openapi_seed.py -q`, `python scripts/export_openapi.py --check`; seed contains `230` paths including tools HApp/torrent reports, node plugins, subscription render, user bulk and profile apply-to-node surfaces; GitHub quality run `26798273426` passed and main image run `26798273445` passed; prod `lumen-api-1` on `v0.1.104` generated `230` paths internally with required current endpoints present. No signed versioned deploy was needed because runtime containers were not changed by this contract/CI slice. |
 
 ## P2: Protocol Closure
 
@@ -166,15 +166,15 @@ evidence here is wrong or stale.
 
 ## Next Slice
 
-`API-001`: Regenerate checked-in OpenAPI seed.
+`PR-001`: Keep already live protocol slices regression-tested.
 
 Proposed implementation:
 
-1. Locate the checked-in OpenAPI seed and the current runtime OpenAPI generator.
-2. Regenerate the seed from the current backend route surface after the closed admin/node/tools/subscription work.
-3. Add or tighten a drift check so CI fails when routes change but the seed is stale.
-4. Run focused backend checks and release through the signed manifest if code or docs used by runtime changed.
-5. Verify production `/openapi.json` still serves the current API surface and record evidence.
+1. Inventory the protocol profiles/hosts currently live on production and map them to backend tests, node-agent runtime handlers and public subscription renderers.
+2. Add a regression smoke matrix for the already-live protocol slices without inventing fake nodes or subscriptions.
+3. Run backend/node/subscription renderer checks for those live slices.
+4. Verify production panel/node subscription path still produces usable outputs for each already-live protocol profile.
+5. Record gaps before moving to PR-002 edge transports.
 
 ## Checkpoint Notes
 
