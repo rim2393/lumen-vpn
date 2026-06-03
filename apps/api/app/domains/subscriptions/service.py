@@ -81,6 +81,7 @@ AMNEZIA_WG_HINT_KEYS = (
     "I5",
 )
 AMNEZIA_WG_POSITIVE_INT_HINT_KEYS = frozenset({"Jc", "Jmin", "Jmax", "S1", "S2", "S3", "S4"})
+AMNEZIA_WG_JUNK_COUNT_HINT_KEYS = frozenset({"Jc", "Jmin", "Jmax"})
 
 
 def utc_now() -> datetime:
@@ -1455,10 +1456,18 @@ def _manifest_renderer_hints(
         elif key in interface_config and interface_config[key] is not None:
             if _is_valid_amneziawg_hint_value(key, interface_config[key]):
                 hints[key] = interface_config[key]
+    if not all(
+        _is_valid_amneziawg_hint_value(key, hints.get(key))
+        for key in AMNEZIA_WG_JUNK_COUNT_HINT_KEYS
+    ):
+        for key in AMNEZIA_WG_JUNK_COUNT_HINT_KEYS:
+            hints.pop(key, None)
     return hints
 
 
 def _is_valid_amneziawg_hint_value(key: str, value: object) -> bool:
+    if value is None:
+        return False
     if key not in AMNEZIA_WG_POSITIVE_INT_HINT_KEYS:
         return str(value).strip() != ""
     try:

@@ -736,6 +736,8 @@ async def test_amneziawg_subscription_preserves_obfuscation_in_native_manifest_a
                 "allowed_ips": "0.0.0.0/0",
                 "port": "51821",
                 "Jc": "4",
+                "Jmin": "40",
+                "Jmax": "70",
                 "S1": "60",
                 "H1": "123456789",
             },
@@ -749,6 +751,8 @@ async def test_amneziawg_subscription_preserves_obfuscation_in_native_manifest_a
     assert manifest.status_code == 200
     hints = manifest.json()["nodes"][0]["protocols"][0]["rendererHints"]
     assert hints["Jc"] == "4"
+    assert hints["Jmin"] == "40"
+    assert hints["Jmax"] == "70"
     assert hints["S1"] == "60"
     assert hints["H1"] == "123456789"
 
@@ -757,6 +761,8 @@ async def test_amneziawg_subscription_preserves_obfuscation_in_native_manifest_a
     )
     assert raw.status_code == 200
     assert "Jc = 4" in raw.text
+    assert "Jmin = 40" in raw.text
+    assert "Jmax = 70" in raw.text
     assert "S1 = 60" in raw.text
     assert "H1 = 123456789" in raw.text
 
@@ -793,8 +799,8 @@ async def test_amneziawg_subscription_omits_nonpositive_integer_obfuscation_valu
     manifest = await route_app.client.get(f"/api/v1/subscriptions/public/{public_id}/manifest")
     assert manifest.status_code == 200
     hints = manifest.json()["nodes"][0]["protocols"][0]["rendererHints"]
-    assert hints["Jc"] == "4"
     assert hints["S1"] == "60"
+    assert "Jc" not in hints
     assert "Jmin" not in hints
     assert "Jmax" not in hints
 
@@ -802,8 +808,8 @@ async def test_amneziawg_subscription_omits_nonpositive_integer_obfuscation_valu
         f"/api/v1/subscriptions/public/{public_id}/render?target=raw-uri",
     )
     assert raw.status_code == 200
-    assert "Jc = 4" in raw.text
     assert "S1 = 60" in raw.text
+    assert "Jc =" not in raw.text
     assert "Jmin =" not in raw.text
     assert "Jmax =" not in raw.text
 

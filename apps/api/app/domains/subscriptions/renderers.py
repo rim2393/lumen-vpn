@@ -68,6 +68,7 @@ AMNEZIA_WG_KEYS = (
     "I5",
 )
 AMNEZIA_WG_POSITIVE_INT_KEYS = frozenset({"Jc", "Jmin", "Jmax", "S1", "S2", "S3", "S4"})
+AMNEZIA_WG_JUNK_COUNT_KEYS = frozenset({"Jc", "Jmin", "Jmax"})
 
 
 @dataclass(frozen=True)
@@ -489,6 +490,8 @@ def render_wireguard_conf(entry: dict[str, Any], *, credentials: ClientCredentia
     if hints.get("mtu"):
         lines.append(f"MTU = {hints['mtu']}")
     for key in AMNEZIA_WG_KEYS:
+        if key in AMNEZIA_WG_JUNK_COUNT_KEYS and not has_valid_amneziawg_junk_count(hints):
+            continue
         value = hints.get(key)
         if value is not None and is_valid_amneziawg_hint_value(key, value):
             lines.append(f"{key} = {value}")
@@ -507,12 +510,21 @@ def render_wireguard_conf(entry: dict[str, Any], *, credentials: ClientCredentia
 
 
 def is_valid_amneziawg_hint_value(key: str, value: object) -> bool:
+    if value is None:
+        return False
     if key not in AMNEZIA_WG_POSITIVE_INT_KEYS:
         return str(value).strip() != ""
     try:
         return int(str(value).strip()) > 0
     except ValueError:
         return False
+
+
+def has_valid_amneziawg_junk_count(hints: dict[str, Any]) -> bool:
+    return all(
+        is_valid_amneziawg_hint_value(key, hints.get(key))
+        for key in AMNEZIA_WG_JUNK_COUNT_KEYS
+    )
 
 
 def render_ikev2_sswan(entry: dict[str, Any], *, credentials: ClientCredential) -> str | None:
