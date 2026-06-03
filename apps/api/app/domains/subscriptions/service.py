@@ -326,11 +326,17 @@ async def build_subscription_manifest(
         host=host,
     )
     _apply_security_overrides(security, host_overrides)
+    wireguard_client_address = await _manifest_wireguard_client_address(
+        session,
+        profile=profile,
+        subscription=subscription,
+    )
     renderer_hints = _manifest_renderer_hints(
         delivery=delivery,
         host=host,
         profile=profile,
         profile_title=profile_title,
+        wireguard_client_address=wireguard_client_address,
     )
     _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
     subpage_asset = await resolve_subpage_config(
@@ -1373,6 +1379,7 @@ def _manifest_renderer_hints(
     host: Host | None,
     profile: ProtocolProfile | None,
     profile_title: str,
+    wireguard_client_address: str | None = None,
 ) -> dict[str, object]:
     profile_config = profile.config_json if profile is not None else {}
     interface_config = (
@@ -1386,6 +1393,7 @@ def _manifest_renderer_hints(
         "pluginOpts": delivery.get("plugin_opts") or delivery.get("pluginOpts"),
         "obfs": delivery.get("obfs"),
         "address": delivery.get("address")
+        or wireguard_client_address
         or interface_config.get("client_address")
         or profile_config.get("client_address")
         or _wireguard_client_address_from_interface(interface_config),
@@ -1463,6 +1471,70 @@ def _manifest_renderer_hints(
         for key in AMNEZIA_WG_JUNK_COUNT_HINT_KEYS:
             hints.pop(key, None)
     return hints
+
+
+async def _manifest_wireguard_client_address(
+    session: AsyncSession,
+    *,
+    profile: ProtocolProfile | None,
+    subscription: Subscription,
+) -> str | None:
+    if profile is None or not profile.adapter.startswith("wireguard"):
+        return None
+    result = await session.execute(
+        select(Subscription)
+        .where(
+            Subscription.node_id == profile.node_id,
+            Subscription.status.in_(["active", "paid", "trial"]),
+        )
+        .order_by(Subscription.created_at.asc(), Subscription.id.asc())
+    )
+    client_index = 0
+    for candidate in result.scalars():
+        delivery = (
+            candidate.delivery_profile
+            if isinstance(candidate.delivery_profile, dict)
+            else {}
+        )
+        delivery_profile_id = str(delivery.get("profile_id") or "")
+        delivery_adapter = str(delivery.get("adapter") or delivery.get("protocol") or "")
+        if delivery_profile_id and delivery_profile_id != str(profile.id):
+            continue
+        if not delivery_profile_id and delivery_adapter and delivery_adapter != profile.adapter:
+            continue
+        if not delivery_profile_id and not delivery_adapter:
+            continue
+        if candidate.id == subscription.id:
+            return _wireguard_client_address_for_index(profile, client_index)
+        client_index += 1
+    return _wireguard_client_address_for_index(profile, 0)
+
+
+def _wireguard_client_address_for_index(
+    profile: ProtocolProfile,
+    client_index: int,
+) -> str | None:
+    config = profile.config_json if isinstance(profile.config_json, dict) else {}
+    interface_config = (
+        config.get("interface") if isinstance(config.get("interface"), dict) else {}
+    )
+    raw_address = (
+        interface_config.get("client_address")
+        or config.get("client_address")
+        or interface_config.get("address")
+        or config.get("address")
+    )
+    if raw_address is None:
+        return None
+    if isinstance(raw_address, str) and raw_address.strip().endswith("/32"):
+        return raw_address.strip()
+    try:
+        network = ip_network(str(raw_address).split(",", 1)[0].strip(), strict=False)
+    except ValueError:
+        return None
+    if network.version != 4 or network.num_addresses <= client_index + 2:
+        return None
+    return f"{network.network_address + client_index + 2}/32"
 
 
 def _is_valid_amneziawg_hint_value(key: str, value: object) -> bool:

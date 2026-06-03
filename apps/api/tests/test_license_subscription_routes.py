@@ -614,15 +614,38 @@ async def test_public_wireguard_subscription_uses_linked_profile_and_host_runtim
         },
     )
     assert create_response.status_code == 201
+    second_response = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "wireguard-native",
+                "adapter": "wireguard-native",
+                "profile_id": str(profile.id),
+                "host_id": str(host.id),
+                "profile_title": "Linked WG 2",
+            },
+            "config_hash": "sha256:wireguard-linked-profile-second",
+        },
+    )
+    assert second_response.status_code == 201
 
     raw_response = await route_app.client.get(
         f"/api/v1/subscriptions/public/{create_response.json()['public_id']}/render"
         "?target=raw-uri",
     )
+    second_raw_response = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{second_response.json()['public_id']}/render"
+        "?target=raw-uri",
+    )
 
     assert raw_response.status_code == 200
+    assert second_raw_response.status_code == 200
     assert "[Interface]" in raw_response.text
     assert "Address = 10.66.0.2/32" in raw_response.text
+    assert "Address = 10.66.0.3/32" in second_raw_response.text
     assert "MTU = 1420" in raw_response.text
     assert "PublicKey = aGVsbG93b3JsZGhlbGxvd29ybGRoZWxsb3dvcmxkMDA=" in raw_response.text
     assert "Endpoint = 85.192.60.8:51820" in raw_response.text
