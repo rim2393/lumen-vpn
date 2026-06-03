@@ -260,7 +260,7 @@ async def test_apply_amneziawg_profile_queues_awg_quick_peer_config(
         assert config["interface"]["Jc"] == 4
         assert config["interface"]["S1"] == 60
         assert config["peers"][0]["public_key"]
-        assert config["peers"][0]["allowed_ips"] == "10.66.0.2/32"
+        assert config["peers"][0]["allowed_ips"] == "10.77.0.2/32"
 
 
 async def test_apply_profile_includes_node_policy_and_xray_plugin_rules(

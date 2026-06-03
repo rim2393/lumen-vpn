@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from uuid import UUID
 
 from cryptography import x509
@@ -2324,10 +2324,34 @@ async def list_profile_runtime_clients(
                 "wireguard_private_key": credentials.wireguard_private_key,
                 "wireguard_public_key": credentials.wireguard_public_key,
                 "flow": delivery.get("flow") or profile.config_json.get("flow"),
-                "address": delivery.get("address"),
+                "address": delivery.get("address")
+                or _wireguard_runtime_client_address(profile, len(clients)),
             }
         )
     return clients
+
+
+def _wireguard_runtime_client_address(profile: ProtocolProfile, client_index: int) -> str | None:
+    if _adapter_family(profile.adapter) != "wireguard":
+        return None
+    config = _profile_config_dict(profile)
+    interface = config.get("interface") if isinstance(config.get("interface"), dict) else {}
+    raw_address = (
+        interface.get("client_address")
+        or config.get("client_address")
+        or interface.get("address")
+        or config.get("address")
+        or "10.66.0.1/24"
+    )
+    if isinstance(raw_address, str) and "/" in raw_address and raw_address.strip().endswith("/32"):
+        return raw_address.strip()
+    try:
+        network = ip_network(str(raw_address).split(",", 1)[0].strip(), strict=False)
+    except ValueError:
+        return None
+    if network.version != 4 or network.num_addresses <= client_index + 2:
+        return None
+    return f"{network.network_address + client_index + 2}/32"
 
 
 def _computed_hysteria2_config(
