@@ -8,7 +8,7 @@ This file remains a broad backlog summary.
 
 ## Current
 
-- As of 2026-06-04 / API `v0.1.127`, the authoritative
+- As of 2026-06-04 / API `v0.1.128`, the authoritative
   `docs/EXECUTION_TRACKER.md` has no `OPEN`, `PARTIAL`, or `NEXT` rows left for
   backend/admin/node Remnawave parity. Do not restart old admin parity slices
   from this file without first checking the execution tracker and current live
