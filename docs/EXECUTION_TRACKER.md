@@ -33,10 +33,10 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.129` web production-reality hardening plus API `v0.1.128` subscription runtime-sync hardening deployed through signed public manifest on the real panel after GitHub-hosted Actions refused to start because of account billing/spending; subscription page `v0.1.120`, node-agent unchanged |
-| Product repo head | latest pushed `main` includes stale profile cleanup, PR-006 signed prod client compatibility evidence, IKEv2 PKI SAN hardening, API-key principal email hardening, and the API logging module rename |
-| Public installer manifest | `rim2393/lumen_vpn@b9ef228` publishes signed `v0.1.129` manifest and current public release verification key |
-| Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.128@sha256:e63e79d37ab4e82007c4ae7267c0cdd98f7aa4a01877bf223b7a12f6f2be6728` and Docker health `healthy`; prod `lumen-web` on digest-pinned `v0.1.129@sha256:747f0f5527972f74160a74b101db813643538fc97c49b8b5a519adfba1033dcb` and Docker health `healthy`; public `https://panel.lumentech.tel/healthz` returns `200`; prod `lumen-subscription/node-agent` on digest-pinned `v0.1.120`; backend DB shows real `node-01` active; official `upgrade.sh` has applied `LUMEN_VERSION=v0.1.129`; panel/API/web temporary files were cleaned after the `v0.1.129` deploy checks; node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
+| Latest production release | `v0.1.130` auth-shell/i18n hardening plus API `v0.1.128` subscription runtime-sync hardening deployed through signed public manifest on the real panel after GitHub-hosted Actions refused to start because of account billing/spending; subscription page `v0.1.120`, node-agent unchanged |
+| Product repo head | latest pushed `main` includes `07411a6` auth shell localization, stale profile cleanup, PR-006 signed prod client compatibility evidence, IKEv2 PKI SAN hardening, API-key principal email hardening, and the API logging module rename |
+| Public installer manifest | `rim2393/lumen_vpn@b41cf38` publishes signed `v0.1.130` manifest and current public release verification key |
+| Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.128@sha256:e63e79d37ab4e82007c4ae7267c0cdd98f7aa4a01877bf223b7a12f6f2be6728` and Docker health `healthy`; prod `lumen-web` on digest-pinned `v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f` and Docker health `healthy`; public `https://panel.lumentech.tel/healthz` returns `200`; prod `lumen-subscription/node-agent` on digest-pinned `v0.1.120`; backend DB shows real `node-01` active; official `upgrade.sh` has applied `LUMEN_VERSION=v0.1.130`; panel/API/web temporary files were cleaned after the `v0.1.130` deploy checks; node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. GitHub-hosted Actions remain externally blocked by account billing/spending until the account owner fixes billing; manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
 
 ## Execution Order
@@ -154,6 +154,31 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 official `v0.1.130` auth-shell/i18n hardening:
+  `07411a6` wrapped the auth layout in the same real `I18nProvider` contract as
+  the admin shell, made `/guard/login`, `/guard/mfa`, and `/guard/portal`
+  respect `lumen-ui-language`/`html lang`, and translated the hardcoded auth
+  copy/statuses instead of leaving an English island inside the RU panel.
+  Local gates passed: `npm exec -- tsc -b --noEmit`, `npm test -- --run
+  src/app/App.test.tsx src/shared/data/productionReality.test.ts` (`15
+  passed`). Web image was built on the panel VPS from a clean `git archive`
+  context and pushed as
+  `ghcr.io/rim2393/lumen-web:v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f`.
+  Public installer `rim2393/lumen_vpn@b41cf38` published the signed
+  `v0.1.130` manifest; the real panel validated the manifest with
+  `/opt/lumen/release-signing.pub` and ran official `upgrade.sh`, creating
+  encrypted backup `lumen-backup-20260604T111421Z.tar.gz.enc`, applying
+  `LUMEN_VERSION=v0.1.130`, and recreating `lumen-web-1`. Live browser smoke
+  created a temporary real owner, authenticated through the real
+  `/guard/login` form, set RU, and checked 17 routes including
+  `/guard/portal`; result was `ok=true`, `errors=0`, `failed=0`,
+  `badResponses=0`, `console=0`, all routes had `html lang=ru`, visible RU UI,
+  no `Something went wrong`, request validation/API failure, fake/mock/demo,
+  `undefined`, `Infinity`, `NaN`, or mojibake markers. Temporary user cleanup
+  returned `LEFTOVERS=0`. Final cleanliness checks: panel `/tmp=0`, API
+  `/tmp/lumen-*=0`, web `/tmp/lumen-*=0`, node `/tmp=0`; node installer
+  checkout `/root/lumen-node-installer` was removed and node
+  `NODE_ADMIN_CHECKOUTS=0`.
 - 2026-06-04 official `v0.1.129` web production-reality hardening:
   `b9f0bef` removed the static `developmentClient` import and fixture branch
   from the production API provider; tests must inject an explicit client, while
