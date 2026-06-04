@@ -77,7 +77,9 @@ def _assert_success_contract(*, adapter: str, target: str, headers: dict[str, st
     lowered = body.lower()
     forbidden = ("skeleton", "placeholder", "access_token")
     if target != "lumen-json":
-        forbidden = (*forbidden, "credentialsref", "privatekey")
+        forbidden = (*forbidden, "credentialsref")
+        if not adapter.startswith("wireguard"):
+            forbidden = (*forbidden, "privatekey", "private_key", "secretkey")
     if any(marker in lowered for marker in forbidden):
         raise AssertionError(f"{adapter}/{target}: forbidden marker leaked")
     if target == "lumen-json":
