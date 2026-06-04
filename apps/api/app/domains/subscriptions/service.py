@@ -17,6 +17,7 @@ from app.domains.node_plugins.service import list_effective_node_plugins, plugin
 from app.domains.nodes.models import Node
 from app.domains.protocols.models import Host, ProtocolProfile, Squad
 from app.domains.protocols.schemas import VAULT_REF_PREFIX
+from app.domains.protocols.service import mark_subscription_runtime_pending
 from app.domains.settings.models import PanelSetting
 from app.domains.settings.service import SUBSCRIPTION_DELIVERY_KEY
 from app.domains.subscription_assets.service import resolve_subpage_config
@@ -651,6 +652,13 @@ async def create_subscription(
     )
     session.add(subscription)
     await session.flush()
+    await mark_subscription_runtime_pending(
+        session,
+        delivery_profile=subscription.delivery_profile,
+        reason="subscription.created",
+        changed_fields=["subscription"],
+    )
+    await session.flush()
     return subscription
 
 
@@ -715,6 +723,7 @@ async def update_subscription(
 ) -> Subscription:
     subscription = await get_subscription(session, subscription_id=subscription_id)
     updated_fields = request.model_fields_set
+    previous_delivery_profile = dict(subscription.delivery_profile)
 
     if "node_id" in updated_fields and request.node_id is not None:
         node = await session.get(Node, request.node_id)
@@ -747,6 +756,20 @@ async def update_subscription(
         subscription.expires_at = request.expires_at
 
     await session.flush()
+    if {"delivery_profile", "node_id", "status", "expires_at"}.intersection(updated_fields):
+        await mark_subscription_runtime_pending(
+            session,
+            delivery_profile=previous_delivery_profile,
+            reason="subscription.updated",
+            changed_fields=sorted(updated_fields),
+        )
+        await mark_subscription_runtime_pending(
+            session,
+            delivery_profile=subscription.delivery_profile,
+            reason="subscription.updated",
+            changed_fields=sorted(updated_fields),
+        )
+        await session.flush()
     return subscription
 
 
@@ -755,6 +778,13 @@ async def revoke_subscription(session: AsyncSession, *, subscription_id: UUID) -
     subscription.status = "revoked"
     if subscription.revoked_at is None:
         subscription.revoked_at = utc_now()
+    await session.flush()
+    await mark_subscription_runtime_pending(
+        session,
+        delivery_profile=subscription.delivery_profile,
+        reason="subscription.revoked",
+        changed_fields=["status", "revoked_at"],
+    )
     await session.flush()
     return subscription
 
@@ -773,11 +803,25 @@ async def clone_subscription(session: AsyncSession, *, subscription_id: UUID) ->
     )
     session.add(clone)
     await session.flush()
+    await mark_subscription_runtime_pending(
+        session,
+        delivery_profile=clone.delivery_profile,
+        reason="subscription.cloned",
+        changed_fields=["subscription"],
+    )
+    await session.flush()
     return clone
 
 
 async def delete_subscription(session: AsyncSession, *, subscription_id: UUID) -> Subscription:
     subscription = await get_subscription(session, subscription_id=subscription_id)
+    await mark_subscription_runtime_pending(
+        session,
+        delivery_profile=subscription.delivery_profile,
+        reason="subscription.deleted",
+        changed_fields=["subscription"],
+    )
+    await session.flush()
     await session.delete(subscription)
     await session.flush()
     return subscription

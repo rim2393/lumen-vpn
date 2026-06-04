@@ -22,10 +22,13 @@ from app.domains.licenses.service import (
     update_license,
 )
 from app.domains.nodes.models import Node
+from app.domains.protocols.models import Host, ProtocolProfile
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest
 from app.domains.subscriptions.service import (
+    clone_subscription,
     create_subscription,
+    delete_subscription,
     get_subscription,
     list_subscriptions,
     revoke_subscription,
@@ -379,3 +382,84 @@ async def test_revoke_subscription_sets_status_and_revoked_at(
 
     assert revoked.status == "revoked"
     assert revoked.revoked_at is not None
+
+
+async def test_subscription_lifecycle_marks_linked_runtime_pending(
+    db_session: AsyncSession,
+) -> None:
+    user, license_record, node = await seed_user_license_node(db_session)
+    profile = ProtocolProfile(
+        name="subscription-runtime-profile",
+        node_id=node.id,
+        adapter="vless-reality",
+        status="active",
+        config_json={},
+        port_reservations=[{"port": 443, "protocol": "tcp"}],
+        metadata_json={},
+    )
+    db_session.add(profile)
+    await db_session.flush()
+    host = Host(
+        name="subscription-runtime-host",
+        hostname="runtime.example.test",
+        node_id=node.id,
+        protocol_profile_id=profile.id,
+        status="active",
+        port=443,
+        metadata_json={},
+    )
+    db_session.add(host)
+    await db_session.flush()
+
+    delivery_profile = {
+        "protocol": profile.adapter,
+        "adapter": profile.adapter,
+        "profile_id": str(profile.id),
+        "host_id": str(host.id),
+        "client": "happ,sing-box",
+    }
+    subscription = await create_subscription(
+        db_session,
+        request=SubscriptionCreateRequest(
+            user_id=user.id,
+            license_id=license_record.id,
+            node_id=node.id,
+            delivery_profile=delivery_profile,
+        ),
+    )
+    await db_session.refresh(profile)
+    await db_session.refresh(host)
+    assert profile.metadata_json["runtime_sync"]["reason"] == "subscription.created"
+    assert host.metadata_json["runtime_sync"]["reason"] == "subscription.created"
+
+    await update_subscription(
+        db_session,
+        subscription_id=subscription.id,
+        request=SubscriptionUpdateRequest(status="limited"),
+    )
+    await db_session.refresh(profile)
+    await db_session.refresh(host)
+    assert profile.metadata_json["runtime_sync"]["reason"] == "subscription.updated"
+    assert "status" in profile.metadata_json["runtime_sync"]["changed_fields"]
+    assert host.metadata_json["runtime_sync"]["reason"] == "subscription.updated"
+
+    await revoke_subscription(db_session, subscription_id=subscription.id)
+    await db_session.refresh(profile)
+    await db_session.refresh(host)
+    assert profile.metadata_json["runtime_sync"]["reason"] == "subscription.revoked"
+    assert "revoked_at" in profile.metadata_json["runtime_sync"]["changed_fields"]
+    assert host.metadata_json["runtime_sync"]["reason"] == "subscription.revoked"
+
+    clone = await clone_subscription(db_session, subscription_id=subscription.id)
+    await db_session.refresh(profile)
+    await db_session.refresh(host)
+    assert profile.metadata_json["runtime_sync"]["reason"] == "subscription.cloned"
+    assert host.metadata_json["runtime_sync"]["reason"] == "subscription.cloned"
+
+    await delete_subscription(db_session, subscription_id=clone.id)
+    await db_session.refresh(profile)
+    await db_session.refresh(host)
+    assert profile.metadata_json["runtime_sync"]["reason"] == "subscription.deleted"
+    assert profile.metadata_json["runtime_sync"]["pending_apply"] is True
+    assert host.metadata_json["runtime_sync"]["reason"] == "subscription.deleted"
+    assert host.metadata_json["runtime_sync"]["pending_apply"] is True

@@ -1382,6 +1382,49 @@ def _mark_host_runtime_pending(
     host.metadata_json = _metadata_with_runtime_sync(host.metadata_json, runtime_sync)
 
 
+async def mark_subscription_runtime_pending(
+    session: AsyncSession,
+    *,
+    delivery_profile: dict[str, str] | None,
+    reason: str,
+    changed_fields: list[str],
+) -> None:
+    """Mark linked runtime resources dirty after subscription membership changes."""
+
+    if not delivery_profile:
+        return
+
+    profile_id_text = delivery_profile.get("profile_id")
+    if profile_id_text:
+        try:
+            profile_id = UUID(profile_id_text)
+        except ValueError:
+            profile_id = None
+        if profile_id is not None:
+            profile = await session.get(ProtocolProfile, profile_id)
+            if profile is not None:
+                _mark_profile_runtime_pending(
+                    profile,
+                    reason=reason,
+                    changed_fields=changed_fields,
+                )
+
+    host_id_text = delivery_profile.get("host_id")
+    if host_id_text:
+        try:
+            host_id = UUID(host_id_text)
+        except ValueError:
+            host_id = None
+        if host_id is not None:
+            host = await session.get(Host, host_id)
+            if host is not None:
+                _mark_host_runtime_pending(
+                    host,
+                    reason=reason,
+                    changed_fields=changed_fields,
+                )
+
+
 def _mark_profile_apply_queued(profile: ProtocolProfile, *, command: NodeCommand) -> None:
     current = _runtime_sync_from_metadata(profile.metadata_json)
     runtime_sync: dict[str, object] = {

@@ -289,8 +289,20 @@ async def test_subscription_route_issues_real_subscription_from_profile(
                 select(AuditEvent).where(AuditEvent.action == "subscription.issued_from_profile")
             )
         ).scalar_one()
-    assert audit.resource_id == created["id"]
-    assert audit.metadata_json["profile_id"] == str(profile.id)
+        assert audit.resource_id == created["id"]
+        assert audit.metadata_json["profile_id"] == str(profile.id)
+        refreshed_profile = await session.get(ProtocolProfile, profile.id)
+        refreshed_host = await session.get(Host, host.id)
+        assert refreshed_profile is not None
+        assert refreshed_host is not None
+        profile_sync = refreshed_profile.metadata_json["runtime_sync"]
+        host_sync = refreshed_host.metadata_json["runtime_sync"]
+        assert profile_sync["pending_apply"] is True
+        assert profile_sync["reason"] == "subscription.created"
+        assert "subscription" in profile_sync["changed_fields"]
+        assert host_sync["pending_apply"] is True
+        assert host_sync["reason"] == "subscription.created"
+        assert "subscription" in host_sync["changed_fields"]
 
 
 async def test_subscription_route_rejects_host_from_another_profile(
