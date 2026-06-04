@@ -34,6 +34,10 @@ runtime protocols, node-agent, installer, upgrade or manifest behavior:
    license, profile, host, squad or other QA record created by the smoke.
 4. Verify panel host, API container and node host do not retain
    `/tmp/lumen-*` artifacts after the smoke.
+   When a smoke script is copied into a production container with `docker cp`,
+   remove it with root inside the container, for example
+   `docker exec -u 0 lumen-api-1 rm -f /tmp/lumen-*.py`, because the runtime
+   application user may not be allowed to delete host-copied files.
 5. Verify the node VPS contains only its runtime/config/state/secrets under
    `/opt/lumen-node`, with no admin checkout, installer checkout, build
    worktree or smoke script.
@@ -54,6 +58,9 @@ Until the account owner fixes billing/spending:
 - every manual release must still use the signed public manifest and official
   upgrade path;
 - every manual release must include live smoke evidence and cleanup evidence.
+- tag/workflow-dispatch releases must fail if `LUMEN_PUBLIC_REPO_TOKEN` is not
+  configured, because silently skipping the public installer dispatch would
+  bypass the signed manifest pipeline.
 
 After billing/spending is fixed, the next release must prove:
 
@@ -70,6 +77,11 @@ on a developer workstation, panel host or node host.
 
 Before marking the release pipeline fully healthy again:
 
+- product repo releases must have `LUMEN_PUBLIC_REPO_TOKEN` configured so the
+  private image workflow can dispatch the public signed-manifest workflow;
+- public installer releases must have `LUMEN_RELEASE_SIGNING_KEY` configured as
+  the Ed25519 private key secret and `LUMEN_RELEASE_SIGNING_KID` configured as
+  the non-secret key id;
 - install the signing secret in the approved CI/ops secret store;
 - verify the public release manifest validates against the deployed public key;
 - remove any temporary signing private key from hosts and local worktrees;

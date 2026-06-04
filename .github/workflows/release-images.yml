@@ -134,8 +134,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${PUBLIC_REPO_TOKEN}" ]; then
-            echo "LUMEN_PUBLIC_REPO_TOKEN is not configured; skipping public installer dispatch."
-            exit 0
+            echo "LUMEN_PUBLIC_REPO_TOKEN is required for signed public installer manifest dispatch." >&2
+            exit 1
           fi
           payload="$(
             jq -n \

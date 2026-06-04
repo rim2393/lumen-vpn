@@ -37,11 +37,11 @@ evidence here is wrong or stale.
 | Item | Current Evidence |
 | --- | --- |
 | Latest production release | `v0.1.132` IKEv2 traffic collector release deployed through the signed public manifest on the real panel and node after GitHub-hosted Actions remained blocked by account billing/spending |
-| Product repo head | latest pushed `main` includes `0caab45` IKEv2 dataplane accounting proof fixture/tracker, `d6965c5` IKEv2 traffic collector plus `d5daa33` WireGuard/AWG runtime traffic deltas and torrent-policy guard, auth-shell localization, stale profile cleanup, PR-006 signed prod client compatibility evidence, IKEv2 PKI SAN hardening, API-key principal email hardening, and API logging module rename |
+| Product repo head | latest pushed `main` includes backend/admin/node release guard automation, `0caab45` IKEv2 dataplane accounting proof fixture/tracker, `d6965c5` IKEv2 traffic collector plus `d5daa33` WireGuard/AWG runtime traffic deltas and torrent-policy guard, auth-shell localization, stale profile cleanup, PR-006 signed prod client compatibility evidence, IKEv2 PKI SAN hardening, API-key principal email hardening, and API logging module rename |
 | Public installer manifest | `rim2393/lumen_vpn@f038a72` publishes signed `v0.1.132` manifest and current public release verification key |
 | Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.131@sha256:e5952cd6d5697022e95e457b89293a78f522b3908e6fc530f5d658d1e3950ab4` and running; prod `lumen-web` on digest-pinned `v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f` and running; prod subscription page on digest-pinned `v0.1.120@sha256:5309dacd7f48ed587b931004f34ac6c5f13523c2a6554d62cfa191a0006cd601`; node VPS `lumen-node-node-agent-1` on digest-pinned `v0.1.132@sha256:175faa1bee6f0c2dc660d7e3c05dfebe81826d5335764d42e78bb8ae901d02eb` and running; public `https://panel.lumentech.tel/api/v1/health/ready` returns `200`; official panel `upgrade.sh` applied `LUMEN_VERSION=v0.1.132` with encrypted backup `lumen-backup-20260604T123806Z.tar.gz.enc`; panel `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. GitHub-hosted Actions remain externally blocked by account billing/spending until the account owner fixes billing; manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
-| Backend/admin/node release guard | `964533a` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. Local guard validation passed on 2026-06-04. GitHub run `26956024418` did not start any job, including the guard, because the account billing/spending blocker remains external. |
+| Backend/admin/node release guard | `76c2a36` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. The follow-up release workflow hardens signed manifest dispatch so `LUMEN_PUBLIC_REPO_TOKEN` is a hard release requirement instead of a silent skip. Local guard validation passed on 2026-06-04. GitHub runs `26956024418` and `26956113757` did not start any job, including the guard, because the account billing/spending blocker remains external. |
 
 ## Execution Order
 
@@ -160,6 +160,23 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 current-prod backend/admin/node guard smoke: after adding the
+  release guard locally, `scripts/live/admin-surface-smoke.py` was copied only
+  to the panel/API temporary paths, run inside `lumen-api-1` against
+  `https://panel.lumentech.tel`, and removed. The smoke returned `ok=true` with
+  real counts `nodes=1`, `profiles=46`, `hosts=18`, `squads=3`, `users=12`,
+  `subscriptions=11`, `licenses=11`, `api_keys=1`, `node_plugins=1`,
+  `auth_providers=8`, `setting_groups=4`, `settings=9`, `templates=1`,
+  `tools_sessions=200`, `tools_user_ips=124`, `tools_node_user_ips=124`,
+  `tools_top_users=12`, `tools_hwid=12`, `tools_srh=11`, `tools_torrent=5`,
+  HApp routing and X25519 utilities `ok`. Cleanup leftovers returned
+  `api_keys=0`, `users=0`, `qa_subscriptions=0`, `qa_profiles=0`,
+  `qa_hosts=0`, `qa_squads=0`. The API-container smoke file initially remained
+  because `docker cp` made it non-deletable by the app user; it was removed with
+  `docker exec -u 0`, and final checks returned panel `/tmp/lumen-* = 0`, API
+  `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node top-level entries
+  `.env,lumen-node.yml,secrets,state`, and prod API/web/subscription containers
+  healthy.
 - 2026-06-04 official `v0.1.131` admin/backend/subscription post-release
   smoke: after `f526724` and signed public manifest `rim2393/lumen_vpn@2796b2f`
   were deployed to the real panel/node, `scripts/live/admin-surface-smoke.py`

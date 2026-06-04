@@ -19,6 +19,7 @@ REALITY_CONTRACT = ROOT / "docs" / "PRODUCT_REALITY_CONTRACT.md"
 RELEASE_GUARD = ROOT / "docs" / "BACKEND_ADMIN_NODE_RELEASE_GUARD.md"
 ADMIN_SMOKE = ROOT / "scripts" / "live" / "admin-surface-smoke.py"
 QUALITY_WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release-images.yml"
 
 BACKEND_ADMIN_NODE_PREFIXES = {
     "PH",
@@ -76,6 +77,7 @@ def main() -> int:
     reality = read(REALITY_CONTRACT)
     guard = read(RELEASE_GUARD)
     workflow = read(QUALITY_WORKFLOW)
+    release_workflow = read(RELEASE_WORKFLOW)
 
     if not ADMIN_SMOKE.exists():
         fail("scripts/live/admin-surface-smoke.py is required")
@@ -94,6 +96,9 @@ def main() -> int:
             "digest-pinned",
             "signed public manifest",
             "Release signing",
+            "LUMEN_PUBLIC_REPO_TOKEN",
+            "LUMEN_RELEASE_SIGNING_KEY",
+            "LUMEN_RELEASE_SIGNING_KID",
             "Traffic accounting is mandatory",
             "docs/PRODUCT_REALITY_CONTRACT.md",
         ],
@@ -128,6 +133,20 @@ def main() -> int:
             "python scripts/validate_release_guard.py",
         ],
     )
+
+    require_contains(
+        ".github/workflows/release-images.yml",
+        release_workflow,
+        [
+            "LUMEN_PUBLIC_REPO_TOKEN",
+            "required for signed public installer manifest dispatch",
+            "exit 1",
+            "product-release-published",
+            "/dispatches",
+        ],
+    )
+    if "skipping public installer dispatch" in release_workflow:
+        fail("release-images.yml must not silently skip signed installer dispatch")
 
     print("release guard validation passed")
     return 0
