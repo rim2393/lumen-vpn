@@ -33,10 +33,10 @@ evidence here is wrong or stale.
 
 | Item | Current Evidence |
 | --- | --- |
-| Latest production release | `v0.1.125` API hotfix deployed by pinned GHCR digest on the real panel after GitHub-hosted Actions refused to start because of account billing/spending; web remains `v0.1.124`, subscription page `v0.1.120`, node-agent unchanged |
-| Product repo head | latest pushed `main` includes stale profile cleanup, PR-006 signed prod client compatibility evidence, and IKEv2 PKI SAN hardening |
+| Latest production release | `v0.1.126` API auth hardening deployed by pinned GHCR digest on the real panel after GitHub-hosted Actions refused to start because of account billing/spending; web remains `v0.1.124`, subscription page `v0.1.120`, node-agent unchanged |
+| Product repo head | latest pushed `main` includes stale profile cleanup, PR-006 signed prod client compatibility evidence, IKEv2 PKI SAN hardening, and API-key principal email hardening |
 | Public installer manifest | `rim2393/lumen_vpn@9499ff0` publishes signed `v0.1.124` manifest and current public release verification key |
-| Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.125` and Docker health `healthy`; prod `lumen-web` on digest-pinned `v0.1.124`; prod `lumen-subscription/node-agent` on digest-pinned `v0.1.120`; backend DB shows real `node-01` active; panel/API temporary files were cleaned after the `v0.1.125` smoke; node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
+| Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.126` and Docker health `healthy`; prod `lumen-web` on digest-pinned `v0.1.124`; prod `lumen-subscription/node-agent` on digest-pinned `v0.1.120`; backend DB shows real `node-01` active; panel/API temporary files were cleaned after the `v0.1.126` smoke; node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. GitHub-hosted Actions remain externally blocked by account billing/spending until the account owner fixes billing; manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
 
 ## Execution Order
@@ -153,6 +153,22 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 API-only hardening `4865087` was manually built as
+  `ghcr.io/rim2393/lumen-api:v0.1.126@sha256:7ae90dc364f9ecdb181a8951b7e559f75af440c8bb822926d7923aba7f4a4968`
+  because GitHub-hosted Actions still refuse to start due to account
+  billing/spending. The real panel container `lumen-api-1` was updated to that
+  pinned image and Docker health is `healthy`.
+- The production `scripts/live/issue-from-profile-smoke.py` was copied into
+  the live API container, run against `https://panel.lumentech.tel`, and
+  deleted from both the panel host and API container. It used a temporary real
+  owner, scoped API key, subscriber and license, then called the protected
+  `POST /api/v1/subscriptions/actions/issue-from-profile` endpoint against an
+  existing active real `vless-reality` profile+host on real `node-01`. The
+  endpoint returned `201`, public HApp render returned `200`, render URLs
+  included `happ`, `sing-box`, `mihomo` and the compatibility aliases, and
+  cleanup returned `0` subscriptions/api_keys/licenses/users. Final cleanup
+  checks confirmed `panel-host-smoke-clean`, `api-container-smoke-clean` and
+  `node-host-smoke-clean`.
 - 2026-06-04 API-only hotfix `45e9c7f` was manually built as
   `ghcr.io/rim2393/lumen-api:v0.1.125@sha256:da299b0ee8b0981b62342f1e6661a55f06f287d7568aa56b33b4e409a42c1566`
   because GitHub-hosted Actions still refuse to start due to account
