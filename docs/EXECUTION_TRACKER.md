@@ -154,6 +154,16 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 official `v0.1.128` post-upgrade admin surface smoke:
+  after `rim2393/lumen_vpn@ccdf53f` was installed through `upgrade.sh`,
+  `scripts/live/admin-surface-smoke.py` was copied only to the panel/API
+  temporary paths, run inside the prod API container against
+  `https://panel.lumentech.tel`, and deleted. It returned `ok=true` with real
+  counts `nodes=1`, `profiles=46`, `hosts=18`, `users=12`,
+  `subscriptions=11`, `licenses=11`, `node_plugins=1`, `auth_providers=8`,
+  `setting_groups=4`, `tools_sessions=200`, `tools_user_ips=115`,
+  `tools_node_user_ips=115`, HApp routing/X25519 utilities `ok`, and cleanup
+  leftovers all `0`; final temp checks returned `HOST_TMP=0` and `API_TMP=0`.
 - 2026-06-04 current-prod existing-app subscription matrix re-run on API
   `v0.1.127`: `scripts/live/client-compatibility-matrix-smoke.py` was copied
   into the prod API container, run against `https://panel.lumentech.tel`, and
