@@ -18,6 +18,7 @@ TRACKER = ROOT / "docs" / "EXECUTION_TRACKER.md"
 REALITY_CONTRACT = ROOT / "docs" / "PRODUCT_REALITY_CONTRACT.md"
 RELEASE_GUARD = ROOT / "docs" / "BACKEND_ADMIN_NODE_RELEASE_GUARD.md"
 BILLING_UNBLOCK = ROOT / "docs" / "GITHUB_ACTIONS_BILLING_UNBLOCK.md"
+PROTOCOL_CHECKLIST = ROOT / "docs" / "PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md"
 ADMIN_SMOKE = ROOT / "scripts" / "live" / "admin-surface-smoke.py"
 ADMIN_SMOKE_RUNNER = ROOT / "scripts" / "live" / "run-admin-surface-smoke-on-panel.sh"
 QUALITY_WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
@@ -79,6 +80,7 @@ def main() -> int:
     reality = read(REALITY_CONTRACT)
     guard = read(RELEASE_GUARD)
     billing_unblock = read(BILLING_UNBLOCK)
+    protocol_checklist = read(PROTOCOL_CHECKLIST)
     workflow = read(QUALITY_WORKFLOW)
     release_workflow = read(RELEASE_WORKFLOW)
 
@@ -106,6 +108,7 @@ def main() -> int:
             "LUMEN_PUBLIC_REPO_TOKEN",
             "LUMEN_RELEASE_SIGNING_KEY",
             "LUMEN_RELEASE_SIGNING_KID",
+            "docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md",
             "Traffic accounting is mandatory",
             "docs/PRODUCT_REALITY_CONTRACT.md",
         ],
@@ -131,6 +134,25 @@ def main() -> int:
     )
 
     require_contains(
+        "docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md",
+        protocol_checklist,
+        [
+            "node-agent `outbound.apply`",
+            "node-agent `outbound.remove`",
+            "rx_bytes",
+            "tx_bytes",
+            "node.traffic.reset",
+            "live production smoke proves nonzero dataplane bytes",
+            "explicit unsupported error",
+            "fake zeros",
+            "signed public manifest",
+            "cleanup counts returning `0`",
+            "node host cleanliness evidence",
+            "Local tests alone are not completion evidence",
+        ],
+    )
+
+    require_contains(
         "docs/EXECUTION_TRACKER.md",
         tracker,
         [
@@ -139,6 +161,7 @@ def main() -> int:
             "GitHub-hosted Actions remain externally blocked",
             "manual image promotion must stay digest-pinned",
             "docs/GITHUB_ACTIONS_BILLING_UNBLOCK.md",
+            "docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md",
         ],
     )
 

@@ -111,6 +111,9 @@ Any runtime/protocol change must follow this order:
 
 If the change only reaches local tests, keep the tracker row `PARTIAL`.
 
+Detailed protocol acceptance criteria are in
+`docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md`.
+
 Traffic accounting is mandatory for new protocol families. A protocol can have
 limited client-app feature parity, but it cannot be closed if node/backend GB
 accounting is missing or unproven.
