@@ -22,9 +22,11 @@
   apps/api/tests/test_auth_user_api_key_routes.py
   apps/api/tests/test_admin_compat_routes.py` -> `All checks passed` on
   2026-06-04.
+- [x] Убрать широкий lint-долг `A005`: модуль `apps/api/app/core/logging.py`
+  переименован в `apps/api/app/core/logging_config.py`; `python -m ruff check
+  apps/api/app/core apps/api/app/main.py ...` -> `All checks passed` on
+  2026-06-04.
 
 ## Открыто
 
-- [ ] Отдельно решить существующий широкий lint-долг `A005` для
-  `apps/api/app/core/logging.py`, если включаем полный `ruff check
-  apps/api/app/core`.
+- [ ] Нет открытых backend security TODO в этом файле на 2026-06-04.

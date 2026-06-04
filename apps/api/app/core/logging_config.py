@@ -20,4 +20,3 @@ def configure_logging(settings: Settings) -> None:
         wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelName(settings.log_level)),
         cache_logger_on_first_use=True,
     )
-

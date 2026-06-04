@@ -9,7 +9,7 @@ from app.api.compat_router import compat_router
 from app.api.v1.router import api_v1_router
 from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
-from app.core.logging import configure_logging
+from app.core.logging_config import configure_logging
 from app.db.session import create_engine
 from app.domains.users.bootstrap import bootstrap_first_admin
 
