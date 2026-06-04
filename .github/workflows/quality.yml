@@ -26,7 +26,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate backend/admin/node release guard
-        run: python scripts/validate_release_guard.py
+        run: |
+          python scripts/validate_release_guard.py
+          python scripts/validate_production_reality.py
 
   api-openapi:
     name: API OpenAPI drift

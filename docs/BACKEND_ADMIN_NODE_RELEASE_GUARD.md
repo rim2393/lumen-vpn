@@ -137,4 +137,10 @@ blocked if production can reach fake/demo/mock/placeholder state, seeded
 counters, synthetic nodes, optimistic success, mock-only API clients, generated
 demo subscriptions or hardcoded production numbers.
 
+The local and CI guard `scripts/validate_production_reality.py` enforces the
+frontend production boundary without requiring a web dependency install. It
+blocks development fixture imports, development API clients, old hardcoded fake
+dashboard counters, sample subscription URLs and pseudo-backend placeholder
+status labels in production web modules.
+
 Empty real state is valid. Fake positive state is not.

@@ -21,6 +21,7 @@ BILLING_UNBLOCK = ROOT / "docs" / "GITHUB_ACTIONS_BILLING_UNBLOCK.md"
 PROTOCOL_CHECKLIST = ROOT / "docs" / "PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md"
 ADMIN_SMOKE = ROOT / "scripts" / "live" / "admin-surface-smoke.py"
 ADMIN_SMOKE_RUNNER = ROOT / "scripts" / "live" / "run-admin-surface-smoke-on-panel.sh"
+PRODUCTION_REALITY_VALIDATOR = ROOT / "scripts" / "validate_production_reality.py"
 QUALITY_WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release-images.yml"
 
@@ -88,6 +89,8 @@ def main() -> int:
         fail("scripts/live/admin-surface-smoke.py is required")
     if not ADMIN_SMOKE_RUNNER.exists():
         fail("scripts/live/run-admin-surface-smoke-on-panel.sh is required")
+    if not PRODUCTION_REALITY_VALIDATOR.exists():
+        fail("scripts/validate_production_reality.py is required")
 
     validate_tracker_statuses(tracker)
 
@@ -111,6 +114,7 @@ def main() -> int:
             "docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md",
             "Traffic accounting is mandatory",
             "docs/PRODUCT_REALITY_CONTRACT.md",
+            "fake/demo/mock/placeholder",
         ],
     )
 
@@ -181,6 +185,7 @@ def main() -> int:
         [
             "Validate backend/admin/node release guard",
             "python scripts/validate_release_guard.py",
+            "python scripts/validate_production_reality.py",
         ],
     )
 

@@ -18,6 +18,10 @@ evidence here is wrong or stale.
 - Backend/admin/node release invariants are mandatory and live in
   `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`. The quality workflow validates the
   guard with `scripts/validate_release_guard.py`.
+- Production-reality invariants are mandatory and validated by
+  `scripts/validate_production_reality.py`; production web modules must not
+  import development fixtures/clients, old fake counters or placeholder
+  backend-success labels.
 - Protocol closure invariants are mandatory and live in
   `docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md`. A protocol row cannot be
   `DONE` without real node/backend `rx_bytes`/`tx_bytes` accounting evidence or
