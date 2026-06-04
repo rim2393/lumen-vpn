@@ -15,6 +15,9 @@ evidence here is wrong or stale.
   evidence prove it for the relevant surface.
 - If a task touches node runtime or public subscriptions, live evidence must
   include the real panel/node path after the signed manifest upgrade.
+- Backend/admin/node release invariants are mandatory and live in
+  `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`. The quality workflow validates the
+  guard with `scripts/validate_release_guard.py`.
 - If a task is intentionally deferred, mark it `DEFERRED` and explain the
   external dependency or product decision.
 - Keep evidence short and concrete: commit, version, workflow/run, endpoint,
@@ -38,6 +41,7 @@ evidence here is wrong or stale.
 | Public installer manifest | `rim2393/lumen_vpn@f038a72` publishes signed `v0.1.132` manifest and current public release verification key |
 | Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.131@sha256:e5952cd6d5697022e95e457b89293a78f522b3908e6fc530f5d658d1e3950ab4` and running; prod `lumen-web` on digest-pinned `v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f` and running; prod subscription page on digest-pinned `v0.1.120@sha256:5309dacd7f48ed587b931004f34ac6c5f13523c2a6554d62cfa191a0006cd601`; node VPS `lumen-node-node-agent-1` on digest-pinned `v0.1.132@sha256:175faa1bee6f0c2dc660d7e3c05dfebe81826d5335764d42e78bb8ae901d02eb` and running; public `https://panel.lumentech.tel/api/v1/health/ready` returns `200`; official panel `upgrade.sh` applied `LUMEN_VERSION=v0.1.132` with encrypted backup `lumen-backup-20260604T123806Z.tar.gz.enc`; panel `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. GitHub-hosted Actions remain externally blocked by account billing/spending until the account owner fixes billing; manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
+| Backend/admin/node release guard | `964533a` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. Local guard validation passed on 2026-06-04. GitHub run `26956024418` did not start any job, including the guard, because the account billing/spending blocker remains external. |
 
 ## Execution Order
 

@@ -19,6 +19,10 @@ This file remains a broad backlog summary.
   subscriptions, settings, subscription assets, tools, infra billing, IP
   control and utility endpoints through a temporary real API key, with cleanup
   returning `0`.
+- Backend/admin/node operational release invariants are now centralized in
+  `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md` and validated by
+  `scripts/validate_release_guard.py`. Treat a guard failure as a release
+  blocker, not as documentation drift.
 - Remaining active product risk is now evidence depth rather than known missing
   admin buttons: keep re-running backend/admin/node live smoke after each
   release, and only reopen a parity item when a current live/API/UI check proves
