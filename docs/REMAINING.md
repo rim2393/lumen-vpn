@@ -142,8 +142,8 @@ client evidence.
     per target app.
 - WireGuard/AWG torrent blocking must not be faked. Current implementation
   chooses clear unsupported policy status for blocking torrent policy on
-  WireGuard/AWG and must keep real traffic accounting through node-agent
-  `wg/awg show ... transfer` deltas after the `v0.1.131` live deploy.
+  WireGuard/AWG and keeps real traffic accounting through node-agent
+  `wg/awg show ... transfer` deltas.
 
 ### 4. Client Compatibility
 
