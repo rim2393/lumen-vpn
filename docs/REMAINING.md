@@ -8,27 +8,42 @@ This file remains a broad backlog summary.
 
 ## Current
 
-- Remnawave parity is still being closed screen by screen; no admin-visible
-  item may be marked complete without a real API, database state, or external
-  service state behind it.
+- As of 2026-06-04 / API `v0.1.127`, the authoritative
+  `docs/EXECUTION_TRACKER.md` has no `OPEN`, `PARTIAL`, or `NEXT` rows left for
+  backend/admin/node Remnawave parity. Do not restart old admin parity slices
+  from this file without first checking the execution tracker and current live
+  state.
+- Protected admin surface live smoke exists at
+  `scripts/live/admin-surface-smoke.py`. The latest prod run on
+  `https://panel.lumentech.tel` checked real nodes/profiles/hosts/squads/users,
+  subscriptions, settings, subscription assets, tools, infra billing, IP
+  control and utility endpoints through a temporary real API key, with cleanup
+  returning `0`.
+- Remaining active product risk is now evidence depth rather than known missing
+  admin buttons: keep re-running backend/admin/node live smoke after each
+  release, and only reopen a parity item when a current live/API/UI check proves
+  a real gap.
 - `docs/PRODUCT_REALITY_CONTRACT.md` is the mandatory rule for all remaining
   work: no fake, mock, placeholder, demo-only, synthetic, or hardcoded
   production behavior may be shipped.
 - All UI/API counters and lists must show the actual live installation state.
   If a feature has no real node/API/database backing yet, it must be unavailable
   with a real backend reason instead of showing seeded or presentational data.
-- Every additional protocol must be enabled in order: adapter, node-agent apply,
-  subscription renderer, client import fixture, live VPS verification.
+- Every additional protocol regression or extension must be enabled in order:
+  adapter, node-agent apply, subscription renderer, client import fixture, live
+  VPS verification.
 - Development API clients and fixtures must remain unreachable from production
   install scripts, deployed images, live admin UI, and public subscription URLs.
 - Payment provider selection is intentionally deferred.
 - Legal documents are deferred until external beta/commercial phase.
 
-## Audit Plan After v0.1.64
+## Historical Audit Plan After v0.1.64
 
-This is the active completion order. A row can be closed only after code,
-tests, official image release, public manifest promotion, production upgrade,
-and live panel/node evidence where the feature touches runtime behavior.
+This section is retained as historical context. The active completion order and
+status are now in `docs/EXECUTION_TRACKER.md`. A row can be considered closed
+only after code, tests, official image release, public manifest promotion,
+production upgrade, and live panel/node evidence where the feature touches
+runtime behavior.
 
 ### 1. Release And Live Baseline
 

@@ -10,6 +10,12 @@ Execution tracker: `docs/EXECUTION_TRACKER.md`. Update that tracker with task
 IDs, status and evidence before starting a new parity slice, so completed work
 is not repeated after context compaction.
 
+2026-06-04 update: this audit file is historical. The current backend/admin/node
+status is in `docs/EXECUTION_TRACKER.md`; after API `v0.1.127`, that tracker has
+no `OPEN`, `PARTIAL`, or `NEXT` Remnawave parity rows outside client evidence.
+The latest protected admin surface evidence is the prod run of
+`scripts/live/admin-surface-smoke.py` against `https://panel.lumentech.tel`.
+
 ## Current P0 Findings
 
 | Area | Finding | Status |
