@@ -165,6 +165,22 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 current-prod operational guard smoke after `9f56581`:
+  `scripts/live/run-admin-surface-smoke-on-panel.sh` was copied only to the
+  real panel `/tmp` together with `admin-surface-smoke.py`, run against
+  `https://panel.lumentech.tel`, and cleaned itself. The smoke returned
+  `ok=true` with real protected counts `nodes=1`, `profiles=46`, `hosts=18`,
+  `squads=3`, `users=12`, `subscriptions=11`, `licenses=11`, `api_keys=1`,
+  `node_plugins=1`, `auth_providers=8`, `setting_groups=4`, `settings=9`,
+  `templates=1`, tools counts including `tools_sessions=200`,
+  `tools_user_ips=124`, `tools_node_user_ips=124`, `tools_top_users=12`,
+  `tools_hwid=12`, `tools_srh=11`, `tools_torrent=5`, HApp routing and X25519
+  utilities `ok`. Cleanup leftovers returned `0` for temporary API keys,
+  users, subscriptions, profiles, hosts and squads; the runner printed
+  `panel_tmp_lumen_count=0` and `api_tmp_lumen_count=0`. Separate node check
+  returned `node_tmp_lumen_count=0`, `node_admin_checkout_count=0`, top-level
+  `/opt/lumen-node` entries `.env,state,lumen-node.yml,secrets`, and
+  `lumen-node-node-agent-1` running `ghcr.io/rim2393/lumen-node-agent:v0.1.132`.
 - 2026-06-04 current-prod backend/admin/node guard smoke: after adding the
   release guard locally, `scripts/live/admin-surface-smoke.py` was copied only
   to the panel/API temporary paths, run inside `lumen-api-1` against
