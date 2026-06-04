@@ -180,6 +180,90 @@ async def test_profile_runtime_readiness_reports_real_blockers(route_app: RouteA
     assert "active_subscription_required" in records[blocked_profile_id]["blockers"]
 
 
+async def test_stale_profile_cleanup_requires_candidates_and_confirmation(
+    route_app: RouteApp,
+) -> None:
+    stale_profile_id, stale_node_id = await _seed_profile(
+        route_app,
+        "vless-reality",
+        with_subscription=False,
+    )
+    ready_profile_id, ready_node_id = await _seed_profile(route_app, "hysteria2")
+    async with route_app.sessionmaker() as session:
+        for profile_id, node_id, hostname in (
+            (stale_profile_id, stale_node_id, "stale.example.test"),
+            (ready_profile_id, ready_node_id, "ready.example.test"),
+        ):
+            session.add(
+                Host(
+                    name=f"cleanup-{hostname}",
+                    hostname=hostname,
+                    node_id=UUID(node_id),
+                    protocol_profile_id=UUID(profile_id),
+                    status="active",
+                    port=443,
+                    hidden=False,
+                    subscription_excluded=False,
+                )
+            )
+        await session.commit()
+
+    candidates_response = await route_app.client.get("/api/v1/profiles/stale-cleanup-candidates")
+    assert candidates_response.status_code == 200, candidates_response.text
+    candidates = candidates_response.json()["items"]
+    assert [item["profile_id"] for item in candidates] == [stale_profile_id]
+    assert candidates[0]["runtime_clients"] == 0
+    assert candidates[0]["active_hosts"] == 1
+    assert candidates[0]["recommended_action"] == "disable"
+
+    bad_confirmation = await route_app.client.post(
+        "/api/v1/profiles/stale-cleanup",
+        json={
+            "ids": [stale_profile_id],
+            "action": "disable",
+            "confirmation": "disable",
+        },
+    )
+    assert bad_confirmation.status_code == 422
+    assert bad_confirmation.json()["error"]["code"] == (
+        "stale_profile_cleanup_confirmation_required"
+    )
+
+    protected_response = await route_app.client.post(
+        "/api/v1/profiles/stale-cleanup",
+        json={
+            "ids": [ready_profile_id],
+            "action": "disable",
+            "confirmation": "DISABLE_STALE_PROFILES",
+        },
+    )
+    assert protected_response.status_code == 422
+    assert protected_response.json()["error"]["code"] == (
+        "stale_profile_cleanup_candidate_required"
+    )
+
+    cleanup_response = await route_app.client.post(
+        "/api/v1/profiles/stale-cleanup",
+        json={
+            "ids": [stale_profile_id],
+            "action": "disable",
+            "confirmation": "DISABLE_STALE_PROFILES",
+        },
+    )
+    assert cleanup_response.status_code == 200, cleanup_response.text
+    assert cleanup_response.json()["updated"] == 1
+
+    async with route_app.sessionmaker() as session:
+        profile = await session.get(ProtocolProfile, UUID(stale_profile_id))
+        assert profile is not None
+        assert profile.status == "disabled"
+        assert profile.metadata_json["runtime_sync"]["pending_apply"] is True
+
+    candidates_after = await route_app.client.get("/api/v1/profiles/stale-cleanup-candidates")
+    assert candidates_after.status_code == 200
+    assert candidates_after.json()["items"] == []
+
+
 async def test_apply_ikev2_profile_queues_concrete_strongswan_config(
     route_app: RouteApp,
 ) -> None:

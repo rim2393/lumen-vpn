@@ -5797,6 +5797,216 @@
         "title": "ProfileInboundResponse",
         "type": "object"
       },
+      "ProfileLatestApplyCommandResponse": {
+        "properties": {
+          "adapter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "implementation_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implementation Status"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "adapter",
+          "created_at",
+          "claimed_at",
+          "completed_at",
+          "error_code",
+          "implementation_status"
+        ],
+        "title": "ProfileLatestApplyCommandResponse",
+        "type": "object"
+      },
+      "ProfileRuntimeReadinessListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileRuntimeReadinessResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ProfileRuntimeReadinessListResponse",
+        "type": "object"
+      },
+      "ProfileRuntimeReadinessResponse": {
+        "properties": {
+          "active_hosts": {
+            "title": "Active Hosts",
+            "type": "integer"
+          },
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "apply_ready": {
+            "title": "Apply Ready",
+            "type": "boolean"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "last_command_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Command Id"
+          },
+          "latest_apply_command": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileLatestApplyCommandResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node_id": {
+            "format": "uuid",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "pending_apply": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Apply"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "runtime_clients": {
+            "title": "Runtime Clients",
+            "type": "integer"
+          },
+          "runtime_sync_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Sync Status"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "node_id",
+          "adapter",
+          "active_hosts",
+          "runtime_clients",
+          "apply_ready",
+          "blockers",
+          "runtime_sync_status",
+          "pending_apply",
+          "last_command_id",
+          "latest_apply_command"
+        ],
+        "title": "ProfileRuntimeReadinessResponse",
+        "type": "object"
+      },
       "ProtocolAdapterListResponse": {
         "properties": {
           "items": {
@@ -7655,6 +7865,143 @@
         "title": "SrhInspectorRow",
         "type": "object"
       },
+      "StaleProfileCleanupCandidateResponse": {
+        "properties": {
+          "active_hosts": {
+            "title": "Active Hosts",
+            "type": "integer"
+          },
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "latest_apply_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Apply Status"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node_id": {
+            "format": "uuid",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "recommended_action": {
+            "enum": [
+              "disable",
+              "delete"
+            ],
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "runtime_clients": {
+            "title": "Runtime Clients",
+            "type": "integer"
+          },
+          "runtime_sync_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Sync Status"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "node_id",
+          "adapter",
+          "status",
+          "active_hosts",
+          "runtime_clients",
+          "blockers",
+          "latest_apply_status",
+          "runtime_sync_status",
+          "recommended_action"
+        ],
+        "title": "StaleProfileCleanupCandidateResponse",
+        "type": "object"
+      },
+      "StaleProfileCleanupListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StaleProfileCleanupCandidateResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "StaleProfileCleanupListResponse",
+        "type": "object"
+      },
+      "StaleProfileCleanupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "disable",
+              "delete"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "confirmation": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Confirmation",
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids",
+          "action",
+          "confirmation"
+        ],
+        "title": "StaleProfileCleanupRequest",
+        "type": "object"
+      },
       "SubscriptionCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7801,6 +8148,89 @@
           "id"
         ],
         "title": "SubscriptionDeviceRecord",
+        "type": "object"
+      },
+      "SubscriptionIssueFromProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "config_hash": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Hash"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "host_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Id"
+          },
+          "license_id": {
+            "format": "uuid",
+            "title": "License Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_title": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Title"
+          },
+          "render_targets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Render Targets",
+            "type": "array"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "license_id",
+          "profile_id"
+        ],
+        "title": "SubscriptionIssueFromProfileRequest",
         "type": "object"
       },
       "SubscriptionListResponse": {
@@ -10982,6 +11412,259 @@
           }
         },
         "summary": "Read All Profile Inbounds",
+        "tags": [
+          "remna-config-profiles-compat"
+        ]
+      }
+    },
+    "/api/config-profiles/runtime-readiness": {
+      "get": {
+        "operationId": "read_profile_runtime_readiness_api_config_profiles_runtime_readiness_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRuntimeReadinessListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Profile Runtime Readiness",
+        "tags": [
+          "remna-config-profiles-compat"
+        ]
+      }
+    },
+    "/api/config-profiles/stale-cleanup": {
+      "post": {
+        "operationId": "stale_profile_cleanup_api_config_profiles_stale_cleanup_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaleProfileCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceBulkActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stale Profile Cleanup",
+        "tags": [
+          "remna-config-profiles-compat"
+        ]
+      }
+    },
+    "/api/config-profiles/stale-cleanup-candidates": {
+      "get": {
+        "operationId": "read_stale_profile_cleanup_candidates_api_config_profiles_stale_cleanup_candidates_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleProfileCleanupListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Stale Profile Cleanup Candidates",
         "tags": [
           "remna-config-profiles-compat"
         ]
@@ -27006,6 +27689,259 @@
         ]
       }
     },
+    "/api/v1/profiles/runtime-readiness": {
+      "get": {
+        "operationId": "read_profile_runtime_readiness_api_v1_profiles_runtime_readiness_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRuntimeReadinessListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Profile Runtime Readiness",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/v1/profiles/stale-cleanup": {
+      "post": {
+        "operationId": "stale_profile_cleanup_api_v1_profiles_stale_cleanup_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaleProfileCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceBulkActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stale Profile Cleanup",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/v1/profiles/stale-cleanup-candidates": {
+      "get": {
+        "operationId": "read_stale_profile_cleanup_candidates_api_v1_profiles_stale_cleanup_candidates_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleProfileCleanupListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Stale Profile Cleanup Candidates",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
     "/api/v1/profiles/{profile_id}": {
       "delete": {
         "operationId": "delete_profile_route_api_v1_profiles__profile_id__delete",
@@ -30974,6 +31910,97 @@
           }
         },
         "summary": "Create Subscription",
+        "tags": [
+          "subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/actions/issue-from-profile": {
+      "post": {
+        "operationId": "issue_subscription_from_profile_route_api_v1_subscriptions_actions_issue_from_profile_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionIssueFromProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Subscription From Profile Route",
         "tags": [
           "subscriptions"
         ]

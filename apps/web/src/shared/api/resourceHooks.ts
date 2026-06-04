@@ -34,6 +34,7 @@ import type {
   SquadCreateRequest,
   SquadUpdateRequest,
   SquadUserMutationRequest,
+  StaleProfileCleanupRequest,
   SubscriptionCreateRequest,
   SubscriptionIssueFromProfileRequest,
   SubscriptionPageConfigCloneRequest,
@@ -416,6 +417,32 @@ export function useBulkProfiles() {
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
       void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileRuntimeReadiness })
+    },
+  })
+}
+
+export function useStaleProfileCleanupCandidates() {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    queryKey: ['resource', 'profiles', 'stale-cleanup-candidates'] as const,
+    queryFn: apiClient.listStaleProfileCleanupCandidates,
+  })
+}
+
+export function useCleanupStaleProfiles() {
+  const apiClient = useApiClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: StaleProfileCleanupRequest) => apiClient.cleanupStaleProfiles(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profiles })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileGlobalInbounds })
+      void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.profileRuntimeReadiness })
+      void queryClient.invalidateQueries({
+        queryKey: ['resource', 'profiles', 'stale-cleanup-candidates'],
+      })
     },
   })
 }

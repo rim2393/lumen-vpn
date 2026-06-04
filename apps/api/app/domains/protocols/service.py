@@ -47,6 +47,8 @@ from app.domains.protocols.schemas import (
     SquadUpdateRequest,
     SquadUserMutationRequest,
     SquadUserResponse,
+    StaleProfileCleanupCandidateResponse,
+    StaleProfileCleanupRequest,
 )
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.renderers import (
@@ -455,6 +457,90 @@ async def list_profile_runtime_readiness(
             )
         )
     return records
+
+
+async def list_stale_profile_cleanup_candidates(
+    session: AsyncSession,
+) -> list[StaleProfileCleanupCandidateResponse]:
+    candidates: list[StaleProfileCleanupCandidateResponse] = []
+    for readiness in await list_profile_runtime_readiness(session):
+        if "profile_not_active" in readiness.blockers:
+            continue
+        if readiness.runtime_clients != 0:
+            continue
+        if not _stale_profile_cleanup_blockers(readiness.blockers):
+            continue
+        profile = await get_profile(session, profile_id=readiness.profile_id)
+        latest_status = (
+            readiness.latest_apply_command.status if readiness.latest_apply_command else None
+        )
+        candidates.append(
+            StaleProfileCleanupCandidateResponse(
+                profile_id=readiness.profile_id,
+                name=readiness.name,
+                node_id=readiness.node_id,
+                adapter=readiness.adapter,
+                status=profile.status,
+                active_hosts=readiness.active_hosts,
+                runtime_clients=readiness.runtime_clients,
+                blockers=readiness.blockers,
+                latest_apply_status=latest_status,
+                runtime_sync_status=readiness.runtime_sync_status,
+                recommended_action=(
+                    "delete" if _profile_looks_temporary(profile) else "disable"
+                ),
+            )
+        )
+    return candidates
+
+
+async def cleanup_stale_profiles(
+    session: AsyncSession,
+    *,
+    request: StaleProfileCleanupRequest,
+) -> int:
+    expected_confirmation = (
+        "DELETE_STALE_PROFILES" if request.action == "delete" else "DISABLE_STALE_PROFILES"
+    )
+    if request.confirmation != expected_confirmation:
+        raise APIError(
+            code="stale_profile_cleanup_confirmation_required",
+            message="Stale profile cleanup requires the exact confirmation token.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=[expected_confirmation],
+        )
+
+    candidates = {
+        candidate.profile_id: candidate
+        for candidate in await list_stale_profile_cleanup_candidates(session)
+    }
+    missing = [str(profile_id) for profile_id in request.ids if profile_id not in candidates]
+    if missing:
+        raise APIError(
+            code="stale_profile_cleanup_candidate_required",
+            message=(
+                "Only active stale profiles without real runtime clients can be cleaned up "
+                "through this action."
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=missing,
+        )
+
+    profiles = await _get_profiles_by_ids(session, request.ids)
+    if request.action == "delete":
+        for profile in profiles:
+            await session.delete(profile)
+    else:
+        for profile in profiles:
+            if profile.status != "disabled":
+                _mark_profile_runtime_pending(
+                    profile,
+                    reason="profile.stale_cleanup",
+                    changed_fields=["status"],
+                )
+            profile.status = "disabled"
+    await session.flush()
+    return len(profiles)
 
 
 async def get_profile(session: AsyncSession, *, profile_id: UUID) -> ProtocolProfile:
@@ -1434,6 +1520,23 @@ def _optional_string(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _stale_profile_cleanup_blockers(blockers: list[str]) -> bool:
+    blocker_set = set(blockers)
+    return bool({"active_subscription_required", "active_host_required"} & blocker_set)
+
+
+def _profile_looks_temporary(profile: ProtocolProfile) -> bool:
+    metadata = profile.metadata_json if isinstance(profile.metadata_json, dict) else {}
+    qa_value = metadata.get("qa")
+    if isinstance(qa_value, str) and qa_value.strip():
+        return True
+    normalized_name = profile.name.lower()
+    return any(
+        marker in normalized_name
+        for marker in ("qa-", "qa_", "test-", "test_", "smoke", "matrix", "live-v0")
+    )
 
 
 def _mark_runtime_applied(

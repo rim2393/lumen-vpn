@@ -42,6 +42,7 @@ import type {
   SquadCreateRequest,
   SquadUpdateRequest,
   SquadUserMutationRequest,
+  StaleProfileCleanupRequest,
   SubscriptionCreateRequest,
   SubscriptionIssueFromProfileRequest,
   SubscriptionPageConfigCloneRequest,
@@ -138,6 +139,10 @@ export function createHttpLumenApiClient({
           method: 'POST',
         },
       ),
+    listStaleProfileCleanupCandidates: () =>
+      request('/api/v1/profiles/stale-cleanup-candidates'),
+    cleanupStaleProfiles: (payload: StaleProfileCleanupRequest) =>
+      request('/api/v1/profiles/stale-cleanup', { body: payload, method: 'POST' }),
     bulkUsers: (action: string, payload: UserBulkActionRequest) =>
       request(`/api/v1/users/bulk/${encodeURIComponent(action)}`, {
         body: payload,

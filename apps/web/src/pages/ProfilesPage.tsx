@@ -43,6 +43,8 @@ import {
   useReorderProfiles,
   useSquadsPageData,
   useBulkProfiles,
+  useCleanupStaleProfiles,
+  useStaleProfileCleanupCandidates,
   useUpdateProfile,
   useUsersPageData,
 } from '../shared/api/resourceHooks'
@@ -53,6 +55,7 @@ import type {
   ProfileInboundRecord,
   ProfileRuntimeReadinessRecord,
   ProtocolProfileRecord,
+  StaleProfileCleanupCandidateRecord,
   SubscriptionRecord,
   UserRecord,
 } from '../shared/api/types'
@@ -128,6 +131,7 @@ export function ProfilesPage() {
   const licensesQuery = useLicensesPageData()
   const globalInboundsQuery = useGlobalProfileInbounds()
   const readinessQuery = useProfileRuntimeReadiness()
+  const staleCleanupQuery = useStaleProfileCleanupCandidates()
   const createProfile = useCreateProfile()
   const updateProfile = useUpdateProfile()
   const deleteProfile = useDeleteProfile()
@@ -135,6 +139,7 @@ export function ProfilesPage() {
   const reorderProfiles = useReorderProfiles()
   const applyProfileToNode = useApplyProfileToNode()
   const issueSubscriptionFromProfile = useIssueSubscriptionFromProfile()
+  const cleanupStaleProfiles = useCleanupStaleProfiles()
   const profiles = profilesQuery.data?.items ?? []
   const adapters = adaptersQuery.data?.items ?? []
   const nodes = nodesQuery.data?.items ?? []
@@ -142,6 +147,7 @@ export function ProfilesPage() {
   const hosts = hostsQuery.data?.items ?? []
   const users = usersQuery.data?.items ?? []
   const licenses = licensesQuery.data?.items ?? []
+  const staleCleanupCandidates = staleCleanupQuery.data?.items ?? []
   const [selectedProfileId, setSelectedProfileId] = useState('')
   const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set())
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
@@ -165,6 +171,7 @@ export function ProfilesPage() {
     bulkProfiles.isPending ||
     applyProfileToNode.isPending ||
     issueSubscriptionFromProfile.isPending ||
+    cleanupStaleProfiles.isPending ||
     reorderProfiles.isPending
   const selectionBusy = isMutating
   const confirmDanger = (message: string) => window.confirm(message)
@@ -373,6 +380,7 @@ export function ProfilesPage() {
     hostsQuery.isLoading ||
     usersQuery.isLoading ||
     licensesQuery.isLoading ||
+    staleCleanupQuery.isLoading ||
     globalInboundsQuery.isLoading
   const error =
     profilesQuery.error ??
@@ -382,6 +390,7 @@ export function ProfilesPage() {
     hostsQuery.error ??
     usersQuery.error ??
     licensesQuery.error ??
+    staleCleanupQuery.error ??
     globalInboundsQuery.error
   const profileStats = {
     active: profiles.filter((profile) => profile.status === 'active').length,
@@ -656,6 +665,26 @@ export function ProfilesPage() {
       return subscription
     } catch (error) {
       setFormError(error instanceof Error ? error.message : t('Subscription could not be issued.'))
+      throw error
+    }
+  }
+
+  async function handleCleanupStaleProfiles(request: {
+    action: 'disable' | 'delete'
+    confirmation: string
+    ids: string[]
+  }) {
+    setFormError(null)
+    setActionMessage(null)
+    try {
+      const response = await cleanupStaleProfiles.mutateAsync(request)
+      setActionMessage(
+        t('Stale profile cleanup completed: {count}', {
+          count: response.updated,
+        }),
+      )
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('Stale profile cleanup failed.'))
       throw error
     }
   }
@@ -1016,6 +1045,13 @@ export function ProfilesPage() {
                 profile={selectedProfile}
                 t={t}
                 users={users}
+              />
+
+              <StaleProfileCleanupPanel
+                candidates={staleCleanupCandidates}
+                onCleanup={handleCleanupStaleProfiles}
+                pending={cleanupStaleProfiles.isPending}
+                t={t}
               />
 
               <ProfileDetailPanel
@@ -1744,6 +1780,209 @@ function ProfileSubscriptionIssuer({
           </div>
         </div>
       ) : null}
+    </article>
+  )
+}
+
+function StaleProfileCleanupPanel({
+  candidates,
+  onCleanup,
+  pending,
+  t,
+}: {
+  candidates: StaleProfileCleanupCandidateRecord[]
+  onCleanup: (request: {
+    action: 'disable' | 'delete'
+    confirmation: string
+    ids: string[]
+  }) => Promise<void>
+  pending: boolean
+  t: (value: string, params?: Record<string, string | number>) => string
+}) {
+  const [action, setAction] = useState<'disable' | 'delete'>('disable')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmation, setConfirmation] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const available = new Set(candidates.map((candidate) => candidate.profile_id))
+      const next = new Set<string>()
+      for (const id of current) {
+        if (available.has(id)) {
+          next.add(id)
+        }
+      }
+      return next
+    })
+  }, [candidates])
+
+  const expectedConfirmation = action === 'delete' ? 'DELETE_STALE_PROFILES' : 'DISABLE_STALE_PROFILES'
+  const selectedCount = selectedIds.size
+  const deleteRecommendations = candidates.filter(
+    (candidate) => candidate.recommended_action === 'delete',
+  ).length
+
+  function toggleCandidate(profileId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(profileId)) {
+        next.delete(profileId)
+      } else {
+        next.add(profileId)
+      }
+      return next
+    })
+  }
+
+  function selectRecommendedDelete() {
+    setSelectedIds(
+      new Set(
+        candidates
+          .filter((candidate) => candidate.recommended_action === 'delete')
+          .map((candidate) => candidate.profile_id),
+      ),
+    )
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    if (selectedIds.size === 0) {
+      setError(t('Select at least one stale profile first.'))
+      return
+    }
+    if (confirmation !== expectedConfirmation) {
+      setError(t('Enter confirmation token exactly: {token}', { token: expectedConfirmation }))
+      return
+    }
+    await onCleanup({
+      action,
+      confirmation,
+      ids: Array.from(selectedIds),
+    })
+    setSelectedIds(new Set())
+    setConfirmation('')
+  }
+
+  return (
+    <article className="panel">
+      <div className="panel__header">
+        <div>
+          <p className="eyebrow">{t('Runtime hygiene')}</p>
+          <h2>{t('Stale profiles')}</h2>
+        </div>
+        <StatusBadge tone={candidates.length > 0 ? 'watch' : 'good'}>
+          {t('Candidates: {count}', { count: candidates.length })}
+        </StatusBadge>
+      </div>
+
+      {candidates.length === 0 ? (
+        <p className="auth-card__note">{t('No active stale profiles without real clients.')}</p>
+      ) : (
+        <form className="resource-form" onSubmit={handleSubmit}>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setSelectedIds(new Set(candidates.map((candidate) => candidate.profile_id)))}
+              disabled={pending}
+            >
+              <CheckCircle2 size={16} aria-hidden="true" />
+              {t('Select all')}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={selectRecommendedDelete}
+              disabled={pending || deleteRecommendations === 0}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              {t('Select delete recommendations')}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={pending || selectedCount === 0}
+            >
+              <RotateCcw size={16} aria-hidden="true" />
+              {t('Clear')}
+            </button>
+          </div>
+
+          <div className="details-card">
+            {candidates.slice(0, 8).map((candidate) => (
+              <label key={candidate.profile_id} className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(candidate.profile_id)}
+                  onChange={() => toggleCandidate(candidate.profile_id)}
+                  disabled={pending}
+                />
+                <span>
+                  <strong>{candidate.name}</strong>
+                  <small>
+                    {candidate.adapter} · {t('hosts')}: {candidate.active_hosts} ·{' '}
+                    {t('clients')}: {candidate.runtime_clients} ·{' '}
+                    {candidate.blockers.join(', ')}
+                  </small>
+                </span>
+                <StatusBadge tone={candidate.recommended_action === 'delete' ? 'danger' : 'watch'}>
+                  {candidate.recommended_action}
+                </StatusBadge>
+              </label>
+            ))}
+            {candidates.length > 8 ? (
+              <p className="auth-card__note">
+                {t('Showing first {count} candidates; use Select all for the full backend-validated set.', {
+                  count: 8,
+                })}
+              </p>
+            ) : null}
+          </div>
+
+          <label htmlFor="stale-profile-action">
+            {t('Action')}
+            <select
+              id="stale-profile-action"
+              value={action}
+              onChange={(event) => {
+                setAction(event.target.value as 'disable' | 'delete')
+                setConfirmation('')
+              }}
+              disabled={pending}
+            >
+              <option value="disable">{t('Disable selected')}</option>
+              <option value="delete">{t('Delete selected')}</option>
+            </select>
+          </label>
+
+          <label htmlFor="stale-profile-confirmation">
+            {t('Confirmation token')}
+            <input
+              id="stale-profile-confirmation"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              disabled={pending}
+              placeholder={expectedConfirmation}
+            />
+          </label>
+
+          <p className="auth-card__note">
+            {t('Backend will reject any selected profile that has real runtime clients.')}
+          </p>
+          {error ? <FormError message={error} /> : null}
+          <button
+            type="submit"
+            className={action === 'delete' ? 'button button--danger' : 'button button--primary'}
+            disabled={pending || selectedCount === 0}
+          >
+            {action === 'delete' ? <Trash2 size={16} aria-hidden="true" /> : <Ban size={16} aria-hidden="true" />}
+            {pending ? t('Cleaning...') : t('Run cleanup for {count}', { count: selectedCount })}
+          </button>
+        </form>
+      )}
     </article>
   )
 }

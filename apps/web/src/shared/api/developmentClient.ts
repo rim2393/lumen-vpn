@@ -75,6 +75,7 @@ import type {
   SquadUpdateRequest,
   SquadUserMutationRequest,
   SrhInspectorResponse,
+  StaleProfileCleanupRequest,
   SubscriptionCreateRequest,
   SubscriptionIssueFromProfileRequest,
   SubscriptionListResponse,
@@ -570,6 +571,87 @@ export function createDevelopmentLumenApiClient(): LumenApiClient {
         }
       }
       return { updated: selected.length }
+    },
+    listStaleProfileCleanupCandidates: async () => ({
+      items: profiles
+        .filter((profile) => profile.status === 'active')
+        .map((profile) => {
+          const profileHosts = hosts.filter(
+            (host) =>
+              host.protocol_profile_id === profile.id &&
+              host.status === 'active' &&
+              !host.hidden &&
+              !host.subscription_excluded,
+          )
+          const runtimeClients = subscriptions.filter((subscription) => {
+            const delivery = subscription.delivery_profile
+            return (
+              subscription.status === 'active' &&
+              subscription.node_id === profile.node_id &&
+              (delivery.profile_id === profile.id ||
+                (!delivery.profile_id &&
+                  (delivery.adapter === profile.adapter || delivery.protocol === profile.adapter)))
+            )
+          })
+          const blockers = [
+            ...(profileHosts.length === 0 ? ['active_host_required'] : []),
+            ...(runtimeClients.length === 0 ? ['active_subscription_required'] : []),
+          ]
+          return { blockers, profile, profileHosts, runtimeClients }
+        })
+        .filter((item) => item.runtimeClients.length === 0 && item.blockers.length > 0)
+        .map((item) => ({
+          active_hosts: item.profileHosts.length,
+          adapter: item.profile.adapter,
+          blockers: item.blockers,
+          latest_apply_status: item.profile.runtime_sync?.status ?? null,
+          name: item.profile.name,
+          node_id: item.profile.node_id,
+          profile_id: item.profile.id,
+          recommended_action: item.profile.name.toLowerCase().includes('qa') ? 'delete' : 'disable',
+          runtime_clients: item.runtimeClients.length,
+          runtime_sync_status: item.profile.runtime_sync?.status ?? null,
+          status: item.profile.status,
+        })),
+    }),
+    cleanupStaleProfiles: async (request: StaleProfileCleanupRequest) => {
+      const allowed = new Set(
+        profiles
+          .filter((profile) => profile.status === 'active')
+          .filter((profile) => {
+            const runtimeClients = subscriptions.filter((subscription) => {
+              const delivery = subscription.delivery_profile
+              return (
+                subscription.status === 'active' &&
+                subscription.node_id === profile.node_id &&
+                (delivery.profile_id === profile.id ||
+                  (!delivery.profile_id &&
+                    (delivery.adapter === profile.adapter || delivery.protocol === profile.adapter)))
+              )
+            })
+            return runtimeClients.length === 0
+          })
+          .map((profile) => profile.id),
+      )
+      const ids = request.ids.filter((id) => allowed.has(id))
+      if (ids.length !== request.ids.length) {
+        throw new Error('Only stale profiles can be cleaned up')
+      }
+      if (request.action === 'delete') {
+        for (const id of ids) {
+          const index = profiles.findIndex((profile) => profile.id === id)
+          if (index >= 0) {
+            profiles.splice(index, 1)
+          }
+        }
+      } else {
+        for (const profile of profiles) {
+          if (ids.includes(profile.id)) {
+            profile.status = 'disabled'
+          }
+        }
+      }
+      return { updated: ids.length }
     },
     checkPortConflicts: async (request: PortCheckRequest): Promise<PortCheckResponse> => {
       const conflicts = profiles

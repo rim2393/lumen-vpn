@@ -35,6 +35,8 @@ from app.domains.protocols.schemas import (
     SquadResponse,
     SquadUpdateRequest,
     SquadUserMutationRequest,
+    StaleProfileCleanupListResponse,
+    StaleProfileCleanupRequest,
 )
 from app.domains.protocols.service import (
     add_squad_users,
@@ -42,6 +44,7 @@ from app.domains.protocols.service import (
     bulk_set_status,
     bulk_update_hosts,
     check_port_conflicts,
+    cleanup_stale_profiles,
     create_host,
     create_profile,
     create_squad,
@@ -62,6 +65,7 @@ from app.domains.protocols.service import (
     list_profiles,
     list_protocol_adapters,
     list_squads,
+    list_stale_profile_cleanup_candidates,
     profile_response,
     remove_squad_users,
     reorder_hosts,
@@ -142,6 +146,38 @@ async def read_profile_runtime_readiness(
     return ProfileRuntimeReadinessListResponse(
         items=await list_profile_runtime_readiness(session)
     )
+
+
+@profiles_router.get(
+    "/stale-cleanup-candidates",
+    response_model=StaleProfileCleanupListResponse,
+)
+async def read_stale_profile_cleanup_candidates(
+    _: Manager,
+    session: DatabaseSession,
+) -> StaleProfileCleanupListResponse:
+    return StaleProfileCleanupListResponse(
+        items=await list_stale_profile_cleanup_candidates(session)
+    )
+
+
+@profiles_router.post("/stale-cleanup", response_model=ResourceBulkActionResponse)
+async def stale_profile_cleanup(
+    request: StaleProfileCleanupRequest,
+    principal: Manager,
+    session: DatabaseSession,
+) -> ResourceBulkActionResponse:
+    updated = await cleanup_stale_profiles(session, request=request)
+    await record_audit_event(
+        session,
+        principal=principal,
+        action=f"protocol_profile.stale_cleanup.{request.action}",
+        resource_type="protocol_profile",
+        resource_id="bulk",
+        metadata_json={"ids": [str(profile_id) for profile_id in request.ids], "updated": updated},
+    )
+    await session.commit()
+    return ResourceBulkActionResponse(updated=updated)
 
 
 @profiles_router.get("/{profile_id}", response_model=ProtocolProfileResponse)

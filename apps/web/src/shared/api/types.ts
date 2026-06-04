@@ -596,6 +596,30 @@ export type ProfileRuntimeReadinessListResponse = {
   items: ProfileRuntimeReadinessRecord[]
 }
 
+export type StaleProfileCleanupCandidateRecord = {
+  active_hosts: number
+  adapter: string
+  blockers: string[]
+  latest_apply_status: string | null
+  name: string
+  node_id: string
+  profile_id: string
+  recommended_action: 'disable' | 'delete'
+  runtime_clients: number
+  runtime_sync_status: string | null
+  status: string
+}
+
+export type StaleProfileCleanupListResponse = {
+  items: StaleProfileCleanupCandidateRecord[]
+}
+
+export type StaleProfileCleanupRequest = {
+  action: 'disable' | 'delete'
+  confirmation: string
+  ids: string[]
+}
+
 export type ProfileComputedNodeRecord = {
   capabilities: Record<string, string>
   id: string
@@ -1376,6 +1400,8 @@ export type LumenApiClient = {
     action: string,
     request: ProfileBulkActionRequest,
   ) => Promise<ResourceBulkActionResponse>
+  listStaleProfileCleanupCandidates: () => Promise<StaleProfileCleanupListResponse>
+  cleanupStaleProfiles: (request: StaleProfileCleanupRequest) => Promise<ResourceBulkActionResponse>
   bulkHosts: (
     action: string,
     request: HostBulkActionRequest,

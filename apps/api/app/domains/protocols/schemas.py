@@ -148,6 +148,32 @@ class ProfileRuntimeReadinessListResponse(BaseModel):
     items: list[ProfileRuntimeReadinessResponse]
 
 
+class StaleProfileCleanupCandidateResponse(BaseModel):
+    profile_id: UUID
+    name: str
+    node_id: UUID
+    adapter: str
+    status: str
+    active_hosts: int
+    runtime_clients: int
+    blockers: list[str]
+    latest_apply_status: str | None
+    runtime_sync_status: str | None
+    recommended_action: Literal["disable", "delete"]
+
+
+class StaleProfileCleanupListResponse(BaseModel):
+    items: list[StaleProfileCleanupCandidateResponse]
+
+
+class StaleProfileCleanupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[UUID] = Field(min_length=1)
+    action: Literal["disable", "delete"]
+    confirmation: str = Field(min_length=1, max_length=64)
+
+
 class ProtocolProfileReorderRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
