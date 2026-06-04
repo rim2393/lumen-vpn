@@ -155,6 +155,29 @@ evidence here is wrong or stale.
 
 ### Backend/Subscription Smoke After API Hotfix
 
+- 2026-06-04 official `v0.1.131` admin/backend/subscription post-release
+  smoke: after `f526724` and signed public manifest `rim2393/lumen_vpn@2796b2f`
+  were deployed to the real panel/node, `scripts/live/admin-surface-smoke.py`
+  and `scripts/live/client-compatibility-matrix-smoke.py` were copied only to
+  the panel/API temporary paths, run inside the prod `lumen-api-1` container
+  against `https://panel.lumentech.tel`, and deleted afterwards. Admin surface
+  smoke returned `ok=true` with real counts `nodes=1`, `profiles=46`,
+  `hosts=18`, `users=12`, `subscriptions=11`, `licenses=11`,
+  `node_plugins=1`, `auth_providers=8`, `setting_groups=4`,
+  `tools_sessions=200`, `tools_user_ips=115`, `tools_node_user_ips=115`,
+  HApp routing/X25519 utilities `ok`, and cleanup leftovers all `0`.
+  Existing-app subscription matrix created only temporary real user/license/
+  subscription records linked to an existing active real `vless-reality`
+  profile+host on real `node-01`, checked all 21 public render targets
+  (`raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`, `streisand`,
+  `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`, `clash`,
+  `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`, `nekoray`,
+  `xray-json`, `amnezia`, `lumen-json`) and all returned `200` with expected
+  content families; cleanup leftovers were `0` subscriptions/licenses/users.
+  Final cleanup checks returned API container `/tmp/lumen-* = 0`, panel
+  `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node admin checkouts `0`, and
+  public ready health `200`.
+
 - 2026-06-04 official `v0.1.130` auth-shell/i18n hardening:
   `07411a6` wrapped the auth layout in the same real `I18nProvider` contract as
   the admin shell, made `/guard/login`, `/guard/mfa`, and `/guard/portal`
