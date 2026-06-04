@@ -18,6 +18,7 @@ TRACKER = ROOT / "docs" / "EXECUTION_TRACKER.md"
 REALITY_CONTRACT = ROOT / "docs" / "PRODUCT_REALITY_CONTRACT.md"
 RELEASE_GUARD = ROOT / "docs" / "BACKEND_ADMIN_NODE_RELEASE_GUARD.md"
 ADMIN_SMOKE = ROOT / "scripts" / "live" / "admin-surface-smoke.py"
+ADMIN_SMOKE_RUNNER = ROOT / "scripts" / "live" / "run-admin-surface-smoke-on-panel.sh"
 QUALITY_WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release-images.yml"
 
@@ -81,6 +82,8 @@ def main() -> int:
 
     if not ADMIN_SMOKE.exists():
         fail("scripts/live/admin-surface-smoke.py is required")
+    if not ADMIN_SMOKE_RUNNER.exists():
+        fail("scripts/live/run-admin-surface-smoke-on-panel.sh is required")
 
     validate_tracker_statuses(tracker)
 
@@ -88,6 +91,7 @@ def main() -> int:
         "docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md",
         guard,
         [
+            "scripts/live/run-admin-surface-smoke-on-panel.sh",
             "scripts/live/admin-surface-smoke.py",
             "cleanup returns `0`",
             "/tmp/lumen-*",

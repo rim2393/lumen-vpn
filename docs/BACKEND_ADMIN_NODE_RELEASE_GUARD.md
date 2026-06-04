@@ -26,7 +26,10 @@ remain separately tracked in `docs/EXECUTION_TRACKER.md`.
 After every production release that touches backend, admin UI, subscriptions,
 runtime protocols, node-agent, installer, upgrade or manifest behavior:
 
-1. Run `scripts/live/admin-surface-smoke.py` against the real production panel.
+1. Run `scripts/live/run-admin-surface-smoke-on-panel.sh` on the real panel
+   host. The wrapper executes `scripts/live/admin-surface-smoke.py` against the
+   real production panel through the API container and performs root cleanup of
+   host/API `/tmp/lumen-*` artifacts.
 2. Verify real protected surfaces for nodes, profiles, hosts, squads, users,
    subscriptions, settings, subscription assets, tools, infra billing, IP
    control and utility endpoints.

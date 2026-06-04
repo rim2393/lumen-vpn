@@ -41,7 +41,7 @@ evidence here is wrong or stale.
 | Public installer manifest | `rim2393/lumen_vpn@f038a72` publishes signed `v0.1.132` manifest and current public release verification key |
 | Prod health | Panel API container `lumen-api-1` on digest-pinned `v0.1.131@sha256:e5952cd6d5697022e95e457b89293a78f522b3908e6fc530f5d658d1e3950ab4` and running; prod `lumen-web` on digest-pinned `v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f` and running; prod subscription page on digest-pinned `v0.1.120@sha256:5309dacd7f48ed587b931004f34ac6c5f13523c2a6554d62cfa191a0006cd601`; node VPS `lumen-node-node-agent-1` on digest-pinned `v0.1.132@sha256:175faa1bee6f0c2dc660d7e3c05dfebe81826d5335764d42e78bb8ae901d02eb` and running; public `https://panel.lumentech.tel/api/v1/health/ready` returns `200`; official panel `upgrade.sh` applied `LUMEN_VERSION=v0.1.132` with encrypted backup `lumen-backup-20260604T123806Z.tar.gz.enc`; panel `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node VPS contains only `/opt/lumen-node` runtime/config/state/policies files and no installer/admin checkout |
 | Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. GitHub-hosted Actions remain externally blocked by account billing/spending until the account owner fixes billing; manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
-| Backend/admin/node release guard | `76c2a36` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. `95df8d7` hardens signed manifest dispatch so `LUMEN_PUBLIC_REPO_TOKEN` is a hard release requirement instead of a silent skip, and the guard now checks the release workflow for that invariant. Local guard validation passed on 2026-06-04. GitHub runs `26956024418`, `26956113757`, and `26956499317` did not start any job, including the guard, because the account billing/spending blocker remains external. |
+| Backend/admin/node release guard | `76c2a36` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. `95df8d7` hardens signed manifest dispatch so `LUMEN_PUBLIC_REPO_TOKEN` is a hard release requirement instead of a silent skip, and the guard now checks the release workflow for that invariant. The follow-up runner `scripts/live/run-admin-surface-smoke-on-panel.sh` makes post-release admin smoke repeatable on the panel host with API-container root cleanup. Local guard validation passed on 2026-06-04. GitHub runs `26956024418`, `26956113757`, and `26956499317` did not start any job, including the guard, because the account billing/spending blocker remains external. |
 | Public installer release guard | `rim2393/lumen_vpn@8a238e8` adds `scripts/validate-release-pipeline-guard.sh`, wires it into public `ci.yml`, and documents it in `docs/PRODUCTION_RELEASES.md`/`docs/OPERATIONS.md`. It verifies required release secrets, signed manifest generation/validation, official `upgrade.sh` deploy path, no silent signing/manifest skips, and CI registration. Public installer CI run `26957035526` passed all jobs: release-pipeline-guard, shellcheck, compose, secret-scan, public-boundary and release-manifest. |
 
 ## Execution Order
@@ -178,6 +178,20 @@ evidence here is wrong or stale.
   `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node top-level entries
   `.env,lumen-node.yml,secrets,state`, and prod API/web/subscription containers
   healthy.
+- 2026-06-04 reusable admin smoke runner evidence:
+  `scripts/live/run-admin-surface-smoke-on-panel.sh` was added to remove the
+  manual `docker cp`/root cleanup footgun. The first live dry run found and
+  fixed the source-equals-host-temp edge case. The corrected runner was then
+  copied only to the panel host together with `admin-surface-smoke.py`, run
+  against `https://panel.lumentech.tel`, and returned `ok=true` with the same
+  real admin counts (`nodes=1`, `profiles=46`, `hosts=18`, `users=12`,
+  `subscriptions=11`, tools/settings/auth checks) and cleanup leftovers all
+  `0`. The runner itself printed `panel_tmp_lumen_count=0` and
+  `api_tmp_lumen_count=0`; final host checks returned panel `/tmp/lumen-* = 0`,
+  API `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node top-level entries
+  `.env,lumen-node.yml,secrets,state`, and prod containers healthy. Local gates:
+  Bash syntax check, ShellCheck `0.11.0`, `python scripts/validate_release_guard.py`,
+  and `git diff --check`.
 - 2026-06-04 official `v0.1.131` admin/backend/subscription post-release
   smoke: after `f526724` and signed public manifest `rim2393/lumen_vpn@2796b2f`
   were deployed to the real panel/node, `scripts/live/admin-surface-smoke.py`
