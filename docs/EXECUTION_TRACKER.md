@@ -214,6 +214,23 @@ evidence here is wrong or stale.
   reloads at 3 seconds each returned Russian shell and `NaN=false`; no code
   change was required. Temporary UI smoke scripts were removed from the panel
   host, API container and local product workspace.
+- 2026-06-04 current-prod active profile render matrix re-run on `v0.1.127`:
+  `scripts/live/active-profile-render-matrix-smoke.py` was copied only to the
+  panel VPS/API container, run against `https://panel.lumentech.tel`, and
+  deleted immediately afterwards. It used existing real active profile+host
+  bindings on real `node-01`, created only temporary real user/license/
+  subscription records per adapter, and checked 18 active adapters across 21
+  public render targets. Successful `200` renders or expected
+  `422 subscription_render_target_unsupported_for_protocol` responses were
+  verified for `http-proxy`, `hysteria2`, `naiveproxy`,
+  `openvpn-shadowsocks`, `openvpn-udp`, `shadowsocks-native`, `socks5`,
+  `trojan-tcp-reality`, `trojan-tcp-tls`, `tuic-v5`, `vless-grpc-tls`,
+  `vless-reality`, `vless-tcp`, `vless-tcp-tls`, `vless-ws-tls`,
+  `vmess-ws-tls`, `wireguard-amneziawg`, and `wireguard-native`.
+  Cleanup returned `0` subscriptions/licenses/users. Final checks confirmed
+  `PANEL_RENDER_MATRIX_CLEAN` and `NODE_RENDER_MATRIX_CLEAN`; the node VPS was
+  not used for scripts or build artifacts and still runs only
+  `lumen-node-node-agent-1`.
 - 2026-06-04 API-only lint/startup hardening `3c7625d` was manually built as
   `ghcr.io/rim2393/lumen-api:v0.1.127@sha256:340ef210410ced6d788537b280a11994c5f897b7a0d94481be4db4a52224956b`
   because GitHub-hosted Actions still refuse to start due to account
