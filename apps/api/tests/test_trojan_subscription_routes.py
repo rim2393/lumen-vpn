@@ -503,13 +503,20 @@ async def test_xray_edge_subscription_render_matrix(
     sing_box = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
     )
-    assert sing_box.status_code == 200, sing_box.text
-    sing_box_outbounds = [
-        outbound for outbound in sing_box.json()["outbounds"] if outbound.get("type") != "selector"
-    ]
     if expected_network == "xhttp":
-        assert sing_box_outbounds == []
+        assert sing_box.status_code == 422, sing_box.text
+        assert (
+            sing_box.json()["error"]["code"]
+            == "subscription_render_target_unsupported_for_protocol"
+        )
+        assert sing_box.json()["error"]["details"] == ["sing-box", adapter]
     else:
+        assert sing_box.status_code == 200, sing_box.text
+        sing_box_outbounds = [
+            outbound
+            for outbound in sing_box.json()["outbounds"]
+            if outbound.get("type") != "selector"
+        ]
         assert sing_box_outbounds[0]["type"] == expected_protocol
         if expected_network != "tcp":
             assert sing_box_outbounds[0]["transport"]["type"] == expected_network

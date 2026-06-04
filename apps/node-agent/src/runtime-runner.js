@@ -158,14 +158,27 @@ function scheduleNodeAgentRestart(input = {}) {
 function resetRuntimeTrafficState(input = {}) {
   const env = input.env ?? {};
   const stateFile = env.LUMEN_RUNTIME_TELEMETRY_STATE_FILE ?? DEFAULT_TELEMETRY_STATE_FILE;
+  const resetEnv = { ...env };
+  if (env.LUMEN_STATE_DIR) {
+    resetEnv.LUMEN_WIREGUARD_TRAFFIC_STATE_FILE ??= join(
+      env.LUMEN_STATE_DIR,
+      "runtime",
+      "wireguard-traffic-state.json"
+    );
+    resetEnv.LUMEN_IKEV2_TRAFFIC_STATE_FILE ??= join(
+      env.LUMEN_STATE_DIR,
+      "runtime",
+      "ikev2-traffic-state.json"
+    );
+  }
   mkdirSync(dirname(stateFile), { recursive: true, mode: 0o700 });
   writeFileSync(
     stateFile,
     `${JSON.stringify({ emitted: {}, offsets: {}, resetAt: new Date().toISOString() }, null, 2)}\n`,
     { mode: 0o600 }
   );
-  const wireguardStateFile = resetWireguardTrafficState({ env });
-  const ikev2StateFile = resetIkev2TrafficState({ env });
+  const wireguardStateFile = resetWireguardTrafficState({ env: resetEnv });
+  const ikev2StateFile = resetIkev2TrafficState({ env: resetEnv });
   return Object.freeze({
     implementationStatus: "node-traffic-reset",
     stateFile,

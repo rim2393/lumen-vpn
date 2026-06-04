@@ -1887,6 +1887,15 @@ test("run once executes node traffic reset against runtime telemetry state", asy
     assert.equal(result.command.status, "succeeded");
     const telemetryState = JSON.parse(readFileSync(telemetryStateFile, "utf8"));
     assert.deepEqual(telemetryState.offsets, {});
+    const wireguardState = JSON.parse(
+      readFileSync(join(stateDir, "runtime", "wireguard-traffic-state.json"), "utf8")
+    );
+    assert.deepEqual(wireguardState.peers, {});
+    const ikev2State = JSON.parse(
+      readFileSync(join(stateDir, "runtime", "ikev2-traffic-state.json"), "utf8")
+    );
+    assert.equal(ikev2State.rxBytes, 0);
+    assert.equal(ikev2State.txBytes, 0);
     const completed = JSON.parse(calls[2].options.body);
     assert.equal(completed.result_json.outputs.implementationStatus, "node-traffic-reset");
   } finally {
