@@ -232,7 +232,7 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert get_response.json()["render_formats"] == ["happ", "hiddify"]
 
     browser_page_response = await route_app.client.get(
-        created["public_render_urls"]["happ"],
+        f"{created['public_render_urls']['happ']}&hwid=route-browser-device",
         headers={
             "Accept": "text/html,application/xhtml+xml",
             "X-Forwarded-Host": "panel.example.test",
@@ -245,6 +245,16 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert "Добавить подписку" in browser_page_response.text
     assert "raw=1" in browser_page_response.text
     assert "https://panel.example.test" in browser_page_response.text
+    assert (
+        'href="https://panel.example.test/api/v1/subscriptions/public/'
+        in browser_page_response.text
+    )
+    assert "target=hiddify" in browser_page_response.text
+    assert "target=sing-box" in browser_page_response.text
+    assert "target=amnezia" in browser_page_response.text
+    assert "hwid=route-browser-device" in browser_page_response.text
+    assert 'src="data:image/svg+xml,' in browser_page_response.text
+    assert "QR subscription" in browser_page_response.text
 
     raw_browser_response = await route_app.client.get(
         f"{created['public_render_urls']['happ']}&raw=1",

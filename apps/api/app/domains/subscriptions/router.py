@@ -2,9 +2,10 @@
 import json
 from html import escape as html_escape
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from uuid import UUID
 
+import segno
 from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -367,6 +368,10 @@ def _wants_browser_subscription_page(request: Request) -> bool:
 
 def _public_request_url_with_query(request: Request, **query_params: str) -> str:
     url = request.url.include_query_params(**query_params)
+    return _public_url_from_request_url(request, url)
+
+
+def _public_url_from_request_url(request: Request, url: object) -> str:
     scheme = (request.headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip()
     host = (
         (request.headers.get("x-forwarded-host") or "").split(",", 1)[0].strip()
@@ -375,6 +380,40 @@ def _public_request_url_with_query(request: Request, **query_params: str) -> str
     if scheme or host:
         url = url.replace(scheme=scheme or url.scheme, netloc=host or url.netloc)
     return str(url)
+
+
+def _public_subscription_target_url(request: Request, target: str) -> str:
+    query_items = [
+        (key, value)
+        for key, value in request.query_params.multi_items()
+        if key not in {"format", "raw", "target"}
+    ]
+    query_items.append(("target", target))
+    return _public_url_from_request_url(
+        request,
+        request.url.replace(query=urlencode(query_items)),
+    )
+
+
+def _subscription_qr_data_uri(value: str) -> str:
+    qr_svg = segno.make(value, error="m").svg_inline(scale=5, border=2)
+    return f"data:image/svg+xml,{quote(qr_svg, safe='')}"
+
+
+def _subscription_target_tabs(request: Request, current_target: str) -> str:
+    targets = (
+        ("happ", "Happ"),
+        ("hiddify", "Hiddify"),
+        ("sing-box", "Sing-box"),
+        ("amnezia", "Amnezia"),
+    )
+    tabs: list[str] = []
+    for target, label in targets:
+        class_name = "tab active" if target == current_target else "tab"
+        href = html_escape(_public_subscription_target_url(request, target), quote=True)
+        aria_current = ' aria-current="page"' if target == current_target else ""
+        tabs.append(f'<a class="{class_name}" href="{href}"{aria_current}>{html_escape(label)}</a>')
+    return "".join(tabs)
 
 
 def _subscription_browser_page(
@@ -411,7 +450,8 @@ def _subscription_browser_page(
     escaped_raw = html_escape(raw_url, quote=True)
     encoded_raw = quote(raw_url, safe="")
     add_link = f"happ://add/{encoded_raw}" if render_target == "happ" else raw_url
-    app_title = "Happ" if render_target == "happ" else render_target
+    tabs_html = _subscription_target_tabs(request, render_target)
+    qr_data_uri = html_escape(_subscription_qr_data_uri(raw_url), quote=True)
     body = f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -450,12 +490,14 @@ def _subscription_browser_page(
     .metric.gold {{ border-color: #806321; background: rgba(82,64,24,.34); }}
     h2 {{ margin: 0 0 18px; font-size: 24px; }}
     .tabs {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }}
-    .tab {{ border: 1px solid #314457; color: #dce8f3; background: #1b2430; border-radius: 8px; padding: 12px 18px; font-weight: 700; }}
+    .tab {{ border: 1px solid #314457; color: #dce8f3; background: #1b2430; border-radius: 8px; padding: 12px 18px; font-weight: 700; text-decoration: none; }}
     .tab.active {{ color: #45e5ff; border-color: #1fc7e8; background: rgba(32,164,196,.18); }}
     .step {{ display: grid; grid-template-columns: 44px 1fr; gap: 18px; align-items: start; padding: 18px 20px; border: 1px solid #293645; border-radius: 14px; background: rgba(26,35,47,.78); margin-top: 14px; }}
     .icon {{ display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(32,172,204,.16); color: #48dfff; border: 1px solid #218fa5; font-weight: 900; }}
     .button {{ display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; margin-right: 10px; padding: 12px 18px; border-radius: 8px; background: #164d61; color: #54e7ff; border: 0; text-decoration: none; font-weight: 800; cursor: pointer; }}
     .button:hover {{ background: #1e637b; }}
+    .qr {{ display: inline-grid; place-items: center; margin-top: 16px; padding: 12px; border-radius: 14px; background: #fff; }}
+    .qr img {{ display: block; width: min(220px, 62vw); height: min(220px, 62vw); }}
     .raw {{ overflow-wrap: anywhere; color: #9fb0c1; font-size: 13px; margin-top: 12px; }}
     @media (max-width: 640px) {{ main {{ width: min(100% - 20px, 760px); padding-top: 20px; }} section {{ padding: 20px; }} .grid {{ grid-template-columns: 1fr; }} }}
   </style>
@@ -484,10 +526,7 @@ def _subscription_browser_page(
     <section>
       <h2>\u0423\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430</h2>
       <div class="tabs">
-        <button class="tab active" type="button">{html_escape(app_title)}</button>
-        <button class="tab" type="button">Hiddify</button>
-        <button class="tab" type="button">Sing-box</button>
-        <button class="tab" type="button">Amnezia</button>
+        {tabs_html}
       </div>
       <div class="step">
         <div class="icon">v</div>
@@ -504,6 +543,7 @@ def _subscription_browser_page(
           <p class="muted">\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u043d\u0438\u0436\u0435 - \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u043e\u0442\u043a\u0440\u043e\u0435\u0442\u0441\u044f, \u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.</p>
           <a class="button" href="{html_escape(add_link, quote=True)}">\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443</a>
           <button class="button" type="button" data-url="{escaped_raw}" onclick="navigator.clipboard.writeText(this.dataset.url)">\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443</button>
+          <div class="qr"><img alt="QR subscription" src="{qr_data_uri}"></div>
           <p class="raw">{escaped_raw}</p>
         </div>
       </div>
