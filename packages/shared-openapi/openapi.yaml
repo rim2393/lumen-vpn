@@ -1103,9 +1103,7 @@
       "HappRoutingRow": {
         "properties": {
           "delivery_profile": {
-            "additionalProperties": {
-              "type": "string"
-            },
+            "additionalProperties": true,
             "title": "Delivery Profile",
             "type": "object"
           },
@@ -9437,9 +9435,7 @@
             "type": "string"
           },
           "metadata_json": {
-            "additionalProperties": {
-              "type": "string"
-            },
+            "additionalProperties": true,
             "title": "Metadata Json",
             "type": "object"
           },

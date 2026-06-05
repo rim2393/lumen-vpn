@@ -157,8 +157,26 @@ export function ToolsPage() {
     happQuery,
     snippetsQuery,
   ]
-  const isLoading = queries.some((query) => query.isLoading)
-  const error = queries.find((query) => query.isError)?.error
+  const activeQueries =
+    activeTool === 'hwid'
+      ? [hwidQuery]
+      : activeTool === 'top-users'
+        ? [topUsersQuery]
+        : activeTool === 'user-ips'
+          ? [userIpsQuery, nodeUserIpsQuery]
+          : activeTool === 'srh'
+            ? [srhQuery]
+            : activeTool === 'sessions'
+              ? [sessionsQuery]
+              : activeTool === 'torrent'
+                ? [torrentQuery]
+                : activeTool === 'happ'
+                  ? [happQuery]
+                  : activeTool === 'snippets'
+                    ? [snippetsQuery]
+                    : []
+  const isLoading = activeQueries.some((query) => query.isLoading)
+  const error = activeQueries.find((query) => query.isError)?.error
   const handleBuildHappRouting = () => {
     setHappBuildError(null)
     let profileJson: Record<string, unknown> | null = null
@@ -498,10 +516,7 @@ export function ToolsPage() {
         description="Diagnostics and utility surfaces for device binding, subscription parsing, sessions, torrent policy, and HApp routing."
       />
 
-      {isLoading ? <LoadingState label="Loading tools context..." /> : null}
-      {error ? <ErrorState title="Tools unavailable" error={error} /> : null}
-      {!isLoading && !error ? (
-        <section className="resource-grid">
+      <section className="resource-grid">
           <article className="panel panel--wide">
             <div className="panel__header">
               <div>
@@ -760,16 +775,19 @@ export function ToolsPage() {
                 )
               })}
             </div>
-            {activeTable.rows.length > 0 ? (
+            {isLoading ? <LoadingState label="Loading tools context..." /> : null}
+            {error ? <ErrorState title={`${activeTable.title} unavailable`} error={error} /> : null}
+            {!isLoading && !error && activeTable.rows.length > 0 ? (
               <DataTable
                 caption="Operational tools"
                 columns={activeTable.columns}
                 rows={activeTable.rows}
               />
-            ) : (
+            ) : null}
+            {!isLoading && !error && activeTable.rows.length === 0 ? (
               <EmptyState title="No data" description={activeTable.empty} />
-            )}
-            {activeTool === 'user-ips' ? (
+            ) : null}
+            {activeTool === 'user-ips' && !nodeUserIpsQuery.isError ? (
               <div className="details-card">
                 <h3>Node user IPs</h3>
                 {(nodeUserIpsQuery.data?.items.length ?? 0) > 0 ? (
@@ -975,9 +993,13 @@ export function ToolsPage() {
                 <span>{summaryQuery.data?.happ_routes ?? 0}</span>
               </li>
             </ul>
+            {summaryQuery.isError ? (
+              <p className="auth-card__note" role="alert">
+                Summary endpoint is unavailable; tool tabs stay usable independently.
+              </p>
+            ) : null}
           </article>
         </section>
-      ) : null}
     </section>
   )
 }

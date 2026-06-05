@@ -72,7 +72,7 @@ class TorrentReportRow(BaseModel):
     actor_email: str | None
     resource_type: str
     resource_id: str | None
-    metadata_json: dict[str, str]
+    metadata_json: dict[str, object]
     created_at: datetime
 
 
@@ -93,7 +93,7 @@ class HappRoutingRow(BaseModel):
     node_name: str | None
     node_status: str | None
     route_status: str
-    delivery_profile: dict[str, str]
+    delivery_profile: dict[str, object]
 
 
 class HappRoutingResponse(BaseModel):
