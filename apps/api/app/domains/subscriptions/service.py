@@ -422,7 +422,7 @@ async def build_subscription_manifest(
                             "network": delivery.get("network") or "public",
                         },
                         "security": security,
-                        "flow": delivery.get("flow"),
+                        "flow": delivery.get("flow") or _profile_config_string(profile, "flow"),
                         "path": _override_string(host_overrides, "path")
                         or delivery.get("path")
                         or _host_string(host, "path")
@@ -697,6 +697,9 @@ async def issue_subscription_from_profile(
         "format": render_targets[0],
         "profile_title": _normalize_profile_issue_title(request.profile_title) or profile.name,
     }
+    profile_flow = _profile_config_string(profile, "flow")
+    if profile_flow:
+        delivery_profile["flow"] = profile_flow
     if host.sni:
         delivery_profile["server_name"] = host.sni
     elif host.hostname:

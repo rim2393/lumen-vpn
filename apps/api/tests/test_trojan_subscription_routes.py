@@ -16,7 +16,9 @@ from app.db.session import create_engine, get_db_session
 from app.domains.licenses.models import License
 from app.domains.licenses.service import hash_license_key
 from app.domains.nodes.models import Node
-from app.domains.protocols.models import ProtocolProfile
+from app.domains.protocols.models import Host, ProtocolProfile
+from app.domains.subscriptions.schemas import SubscriptionIssueFromProfileRequest
+from app.domains.subscriptions.service import issue_subscription_from_profile
 from app.domains.users.models import User
 from app.main import create_app
 
@@ -149,6 +151,71 @@ async def test_trojan_subscription_renders_all_client_formats(route_app: RouteTe
     )
     assert mihomo.status_code == 200
     assert 'type: "trojan"' in mihomo.text
+
+
+async def test_lumen_json_uses_profile_flow_for_profile_backed_vless(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    async with route_app.sessionmaker() as session:
+        profile = ProtocolProfile(
+            name="profile-backed-vless-reality",
+            node_id=node.id,
+            adapter="vless-reality",
+            status="active",
+            credentials_ref="vault://nodes/test/vless-reality",
+            config_json={
+                "port": "18451",
+                "network": "tcp",
+                "flow": "xtls-rprx-vision",
+                "security": {
+                    "type": "reality",
+                    "serverName": "www.microsoft.com",
+                    "fingerprint": "chrome",
+                    "publicKey": "reality-public",
+                    "shortId": "abcd",
+                    "spiderX": "/",
+                },
+            },
+            port_reservations=[],
+            metadata_json={},
+        )
+        session.add(profile)
+        await session.flush()
+        host = Host(
+            name="profile-backed-vless-host",
+            hostname="node.85-192-60-8.sslip.io",
+            node_id=node.id,
+            protocol_profile_id=profile.id,
+            status="active",
+            tags=[],
+            metadata_json={},
+        )
+        session.add(host)
+        await session.commit()
+
+    async with route_app.sessionmaker() as session:
+        subscription = await issue_subscription_from_profile(
+            session,
+            request=SubscriptionIssueFromProfileRequest(
+                user_id=user.id,
+                license_id=license_record.id,
+                profile_id=profile.id,
+                host_id=host.id,
+                profile_title="Profile backed VLESS",
+                render_targets=["lumen-json"],
+                config_hash="sha256:profile-backed-vless",
+            ),
+        )
+        await session.commit()
+
+    native = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{subscription.public_id}/render?target=lumen-json",
+    )
+    assert native.status_code == 200, native.text
+    protocol = native.json()["nodes"][0]["protocols"][0]
+    assert protocol["adapter"] == "vless-reality"
+    assert protocol["flow"] == "xtls-rprx-vision"
 
 
 async def test_shadowsocks_subscription_renders_all_client_formats(
@@ -338,8 +405,8 @@ async def test_xhttp_subscription_does_not_emit_fake_sing_box_transport(
     sing_box = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
     )
-    assert sing_box.status_code == 200
-    assert all(outbound.get("type") != "vless" for outbound in sing_box.json()["outbounds"])
+    assert sing_box.status_code == 422
+    assert "xhttp" in sing_box.text.lower()
 
     xray = await route_app.client.get(
         f"/api/v1/subscriptions/public/{public_id}/render?target=xray-json",
