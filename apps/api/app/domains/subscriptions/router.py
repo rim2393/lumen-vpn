@@ -395,9 +395,8 @@ def _public_subscription_target_url(request: Request, target: str) -> str:
     )
 
 
-def _subscription_qr_data_uri(value: str) -> str:
-    qr_svg = segno.make(value, error="m").svg_inline(scale=5, border=2)
-    return f"data:image/svg+xml,{quote(qr_svg, safe='')}"
+def _subscription_qr_svg(value: str) -> str:
+    return segno.make(value, error="m").svg_inline(scale=5, border=2)
 
 
 def _subscription_target_tabs(request: Request, current_target: str) -> str:
@@ -451,7 +450,7 @@ def _subscription_browser_page(
     encoded_raw = quote(raw_url, safe="")
     add_link = f"happ://add/{encoded_raw}" if render_target == "happ" else raw_url
     tabs_html = _subscription_target_tabs(request, render_target)
-    qr_data_uri = html_escape(_subscription_qr_data_uri(raw_url), quote=True)
+    qr_svg = _subscription_qr_svg(raw_url)
     body = f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -497,7 +496,7 @@ def _subscription_browser_page(
     .button {{ display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; margin-right: 10px; padding: 12px 18px; border-radius: 8px; background: #164d61; color: #54e7ff; border: 0; text-decoration: none; font-weight: 800; cursor: pointer; }}
     .button:hover {{ background: #1e637b; }}
     .qr {{ display: inline-grid; place-items: center; margin-top: 16px; padding: 12px; border-radius: 14px; background: #fff; }}
-    .qr img {{ display: block; width: min(220px, 62vw); height: min(220px, 62vw); }}
+    .qr svg {{ display: block; width: min(220px, 62vw); height: min(220px, 62vw); }}
     .raw {{ overflow-wrap: anywhere; color: #9fb0c1; font-size: 13px; margin-top: 12px; }}
     @media (max-width: 640px) {{ main {{ width: min(100% - 20px, 760px); padding-top: 20px; }} section {{ padding: 20px; }} .grid {{ grid-template-columns: 1fr; }} }}
   </style>
@@ -543,7 +542,7 @@ def _subscription_browser_page(
           <p class="muted">\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u043d\u0438\u0436\u0435 - \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u043e\u0442\u043a\u0440\u043e\u0435\u0442\u0441\u044f, \u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.</p>
           <a class="button" href="{html_escape(add_link, quote=True)}">\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443</a>
           <button class="button" type="button" data-url="{escaped_raw}" onclick="navigator.clipboard.writeText(this.dataset.url)">\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443</button>
-          <div class="qr"><img alt="QR subscription" src="{qr_data_uri}"></div>
+          <div class="qr" role="img" aria-label="QR subscription">{qr_svg}</div>
           <p class="raw">{escaped_raw}</p>
         </div>
       </div>

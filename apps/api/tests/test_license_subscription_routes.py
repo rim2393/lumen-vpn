@@ -253,7 +253,8 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert "target=sing-box" in browser_page_response.text
     assert "target=amnezia" in browser_page_response.text
     assert "hwid=route-browser-device" in browser_page_response.text
-    assert 'src="data:image/svg+xml,' in browser_page_response.text
+    assert '<div class="qr" role="img" aria-label="QR subscription"><svg' in browser_page_response.text
+    assert 'src="data:image/svg+xml,' not in browser_page_response.text
     assert "QR subscription" in browser_page_response.text
 
     raw_browser_response = await route_app.client.get(
