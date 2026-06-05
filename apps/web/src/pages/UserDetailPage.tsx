@@ -111,19 +111,22 @@ function parseRequiredNumber(value: string, field: string): number {
   return parsed
 }
 
-function editorStateToRequest(state: UserEditorState): UserUpdateRequest {
+function sameJson(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function editorStateToRequest(state: UserEditorState, user: UserRecord): UserUpdateRequest {
   const metadata = JSON.parse(state.metadataJson || '{}') as unknown
   if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
     throw new Error('metadata_json must be a JSON object.')
   }
   const password = state.password.trim()
-  return {
+  const next = {
     device_limit: parseNullableNumber(state.deviceLimit, 'device_limit'),
     display_name: state.displayName.trim() || null,
     email: state.email.trim(),
     expires_at: fromInputDateTime(state.expiresAt),
     metadata_json: metadata as Record<string, unknown>,
-    ...(password ? { password } : {}),
     role: state.role,
     status: state.status.trim() || 'active',
     tags: state.tags
@@ -135,6 +138,33 @@ function editorStateToRequest(state: UserEditorState): UserUpdateRequest {
     traffic_used_gb: parseRequiredNumber(state.trafficUsed, 'traffic_used_gb'),
     username: state.username.trim() || null,
   }
+  const request: UserUpdateRequest = {}
+  if (next.device_limit !== user.device_limit) request.device_limit = next.device_limit
+  if (next.display_name !== user.display_name) request.display_name = next.display_name
+  if (next.email !== user.email) request.email = next.email
+  if ((next.expires_at ?? null) !== (user.expires_at ?? null)) request.expires_at = next.expires_at
+  if (!sameJson(next.metadata_json, user.metadata_json)) request.metadata_json = next.metadata_json
+  if (password) request.password = password
+  if (next.role !== user.role) request.role = next.role
+  if (next.status !== user.status) request.status = next.status
+  if (!sameJson(next.tags, user.tags)) request.tags = next.tags
+  if (next.telegram_id !== user.telegram_id) request.telegram_id = next.telegram_id
+  if (next.traffic_limit_gb !== user.traffic_limit_gb) request.traffic_limit_gb = next.traffic_limit_gb
+  if (next.traffic_used_gb !== user.traffic_used_gb) request.traffic_used_gb = next.traffic_used_gb
+  if (next.username !== user.username) request.username = next.username
+  return request
+}
+
+function hasUserUpdateChanges(request: UserUpdateRequest) {
+  return Object.keys(request).length > 0
+}
+
+function normalizeMetadataJson(value: string) {
+  const metadata = JSON.parse(value || '{}') as unknown
+  if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new Error('metadata_json must be a JSON object.')
+  }
+  return JSON.stringify(metadata, null, 2)
 }
 
 function mutationError(error: unknown, fallback: string) {
@@ -207,7 +237,12 @@ export function UserDetailPage() {
     setEditorError(null)
     setSavedMessage(null)
     try {
-      const request = editorStateToRequest(editor)
+      const request = editorStateToRequest(editor, user)
+      if (!hasUserUpdateChanges(request)) {
+        setSavedMessage(t('No changes to save.'))
+        setEditor((current) => (current ? { ...current, metadataJson: normalizeMetadataJson(current.metadataJson), password: '' } : current))
+        return
+      }
       await updateUser.mutateAsync({ id: user.id, request })
       await query.refetch()
       setSavedMessage(t('User saved.'))

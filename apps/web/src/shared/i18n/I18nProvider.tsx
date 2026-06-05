@@ -990,6 +990,7 @@ const ru: Record<string, string> = {
   'Save user': 'Сохранить пользователя',
   'Reset form': 'Сбросить форму',
   'Delete user': 'Удалить пользователя',
+  'No changes to save.': 'Нет изменений для сохранения.',
   'User saved.': 'Пользователь сохранен.',
   'User could not be saved.': 'Не удалось сохранить пользователя.',
   'Current values': 'Текущие значения',
