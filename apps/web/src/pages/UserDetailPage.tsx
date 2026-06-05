@@ -164,7 +164,6 @@ export function UserDetailPage() {
     if (user) {
       setEditor(userToEditorState(user))
       setEditorError(null)
-      setSavedMessage(null)
     }
   }, [user])
 
