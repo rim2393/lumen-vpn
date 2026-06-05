@@ -2,7 +2,7 @@
 import json
 from html import escape as html_escape
 from typing import Annotated
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from uuid import UUID
 
 import segno
@@ -55,6 +55,7 @@ from app.domains.subscriptions.service import (
 )
 
 router = APIRouter()
+public_subscription_router = APIRouter()
 SubscriptionReader = Annotated[
     Principal,
     Depends(require_permission(Permission.SUBSCRIPTION_READ)),
@@ -275,8 +276,70 @@ async def render_public_subscription(
     user_agent: str | None = Header(default=None, alias="User-Agent"),
     raw: bool = Query(default=False, description="Force raw client subscription output."),
 ) -> Response:
+    render_target = normalize_render_target(target or render_format)
+    return await _render_public_subscription_request(
+        public_id=public_id,
+        request=request,
+        session=session,
+        settings=settings,
+        render_target=render_target,
+        device_id=device_id,
+        hwid=hwid,
+        x_lumen_hwid=x_lumen_hwid,
+        x_device_id=x_device_id,
+        user_agent=user_agent,
+        raw=raw,
+    )
+
+
+@public_subscription_router.get("/sub/{public_id}")
+@public_subscription_router.get("/sub/{public_id}/{target_path}")
+async def render_short_public_subscription(
+    public_id: str,
+    request: Request,
+    session: DatabaseSession,
+    settings: RuntimeSettings,
+    target_path: str | None = None,
+    target: str | None = Query(default=None),
+    render_format: str | None = Query(default=None, alias="format"),
+    device_id: str | None = Query(default=None),
+    hwid: str | None = Query(default=None),
+    x_lumen_hwid: str | None = Header(default=None, alias="X-Lumen-HWID"),
+    x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
+    user_agent: str | None = Header(default=None, alias="User-Agent"),
+    raw: bool = Query(default=False, description="Force raw client subscription output."),
+) -> Response:
+    render_target = normalize_render_target(target_path or target or render_format or "happ")
+    return await _render_public_subscription_request(
+        public_id=public_id,
+        request=request,
+        session=session,
+        settings=settings,
+        render_target=render_target,
+        device_id=device_id,
+        hwid=hwid,
+        x_lumen_hwid=x_lumen_hwid,
+        x_device_id=x_device_id,
+        user_agent=user_agent,
+        raw=raw,
+    )
+
+
+async def _render_public_subscription_request(
+    *,
+    public_id: str,
+    request: Request,
+    session: AsyncSession,
+    settings: Settings,
+    render_target: str,
+    device_id: str | None,
+    hwid: str | None,
+    x_lumen_hwid: str | None,
+    x_device_id: str | None,
+    user_agent: str | None,
+    raw: bool,
+) -> Response:
     try:
-        render_target = normalize_render_target(target or render_format)
         manifest = await build_and_record_public_subscription_request(
             session,
             public_id=public_id,
@@ -371,6 +434,11 @@ def _public_request_url_with_query(request: Request, **query_params: str) -> str
     return _public_url_from_request_url(request, url)
 
 
+def _public_subscription_page_url(request: Request, public_id: str) -> str:
+    url = request.url.replace(path=f"/sub/{quote(public_id, safe='')}", query="")
+    return _public_url_from_request_url(request, url)
+
+
 def _public_url_from_request_url(request: Request, url: object) -> str:
     scheme = (request.headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip()
     host = (
@@ -426,9 +494,9 @@ def _subscription_browser_page(
     metadata = _dict_value(manifest, "metadata")
     provider = _dict_value(manifest, "provider")
     subpage = _dict_value(metadata, "subpage")
-    raw_url = _public_request_url_with_query(request, raw="1")
     title = _string_value(subpage.get("title")) or _string_value(provider.get("name")) or "Lumen VPN"
     username = _string_value(subscription.get("id")) or "subscription"
+    subscription_url = _public_subscription_page_url(request, username)
     status = "\u0410\u043a\u0442\u0438\u0432\u043d\u0430"
     expires_at = _string_value(subscription.get("expiresAt"))
     traffic_limit = _string_value(metadata.get("trafficLimitGb"))
@@ -446,10 +514,10 @@ def _subscription_browser_page(
         if expires_at
         else "\u041d\u0435 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043e"
     )
-    escaped_raw = html_escape(raw_url, quote=True)
-    add_link = raw_url
+    escaped_raw = html_escape(subscription_url, quote=True)
+    add_link = subscription_url
     tabs_html = _subscription_target_tabs(request, render_target)
-    qr_svg = _subscription_qr_svg(raw_url)
+    qr_svg = _subscription_qr_svg(subscription_url)
     client_label = {
         "happ": "Happ",
         "hiddify": "Hiddify",

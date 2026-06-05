@@ -11,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging_config import configure_logging
 from app.db.session import create_engine
+from app.domains.subscriptions.router import public_subscription_router
 from app.domains.users.bootstrap import bootstrap_first_admin
 
 
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     register_error_handlers(app)
     app.include_router(compat_router)
+    app.include_router(public_subscription_router)
     app.include_router(api_v1_router, prefix=resolved_settings.api_v1_prefix)
     return app
 
