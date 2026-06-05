@@ -232,7 +232,6 @@ async def test_profile_transport_overrides_host_xhttp_metadata_for_happ(
             credentials_ref="vault://nodes/test/vless-grpc",
             config_json={
                 "port": "18464",
-                "network": "grpc",
                 "serviceName": "lumenGrpc",
                 "security": {"type": "tls", "serverName": "node.85-192-60-8.sslip.io"},
             },

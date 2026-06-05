@@ -432,6 +432,7 @@ async def build_subscription_manifest(
                             "transport": _override_string(host_overrides, "transport")
                             or delivery.get("transport")
                             or _profile_transport(profile)
+                            or _adapter_transport(adapter)
                             or _host_transport(host)
                             or _default_transport(protocol_type),
                             "network": delivery.get("network") or "public",
@@ -1453,6 +1454,7 @@ async def _build_manifest_protocol_entry(
             "transport": _override_string(host_overrides, "transport")
             or delivery.get("transport")
             or _profile_transport(profile)
+            or _adapter_transport(adapter)
             or _host_transport(host)
             or _default_transport(protocol_type),
             "network": delivery.get("network") or "public",
@@ -1653,6 +1655,15 @@ def _profile_transport(profile: ProtocolProfile | None) -> str | None:
         value = _profile_config_string(profile, key)
         if value is not None and value.lower() in allowed:
             return value.lower()
+    return None
+
+
+def _adapter_transport(adapter: str) -> str | None:
+    normalized = adapter.lower().replace("_", "-")
+    tokens = set(normalized.split("-"))
+    for transport in ("splithttp", "httpupgrade", "xhttp", "grpc", "quic", "ws"):
+        if transport in tokens:
+            return transport
     return None
 
 
