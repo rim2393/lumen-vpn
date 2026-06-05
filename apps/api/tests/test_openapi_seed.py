@@ -21,6 +21,7 @@ def test_openapi_seed_includes_current_admin_node_tools_and_subscription_surface
         "/api/v1/api-keys",
         "/api/v1/node-plugins",
         "/api/v1/nodes/{node_id}/commands",
+        "/api/v1/nodes/{node_id}/protocol-selection",
         "/api/v1/profiles/{profile_id}/apply-to-node",
         "/api/v1/response-rules/test",
         "/api/v1/settings/groups/{group_key}",

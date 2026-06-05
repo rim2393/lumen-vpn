@@ -4671,6 +4671,91 @@
         "title": "NodePluginUpdateRequest",
         "type": "object"
       },
+      "NodeProtocolSelectionItem": {
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "runtime_sync": {
+            "additionalProperties": true,
+            "title": "Runtime Sync",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "adapter",
+          "status",
+          "enabled",
+          "runtime_sync"
+        ],
+        "title": "NodeProtocolSelectionItem",
+        "type": "object"
+      },
+      "NodeProtocolSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled_profile_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Enabled Profile Ids",
+            "type": "array"
+          }
+        },
+        "title": "NodeProtocolSelectionRequest",
+        "type": "object"
+      },
+      "NodeProtocolSelectionResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NodeProtocolSelectionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "node_id": {
+            "format": "uuid",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "queued_commands": {
+            "items": {
+              "$ref": "#/components/schemas/NodeCommandResponse"
+            },
+            "title": "Queued Commands",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node_id",
+          "items",
+          "queued_commands"
+        ],
+        "title": "NodeProtocolSelectionResponse",
+        "type": "object"
+      },
       "NodeProvisioningTarget": {
         "additionalProperties": false,
         "properties": {
@@ -26770,6 +26855,196 @@
           }
         },
         "summary": "Pause Existing Node",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/api/v1/nodes/{node_id}/protocol-selection": {
+      "get": {
+        "operationId": "read_node_protocol_selection_api_v1_nodes__node_id__protocol_selection_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Node Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeProtocolSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Node Protocol Selection",
+        "tags": [
+          "nodes"
+        ]
+      },
+      "put": {
+        "operationId": "update_node_protocol_selection_api_v1_nodes__node_id__protocol_selection_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Node Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Lumen-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lumen-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "lumen_access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lumen Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeProtocolSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeProtocolSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Node Protocol Selection",
         "tags": [
           "nodes"
         ]
