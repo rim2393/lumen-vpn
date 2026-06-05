@@ -190,6 +190,7 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
                 "format": "happ",
                 "profile_page_url": "https://profiles.example.test/sub",
                 "protocol": "vless",
+                "require_hwid": False,
             },
             "config_hash": "sha256:route-config",
         },
@@ -200,6 +201,7 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert created["status"] == "active"
     assert created["config_hash"] == "sha256:route-config"
     assert created["delivery_profile"]["protocol"] == "vless"
+    assert created["delivery_profile"]["require_hwid"] is False
     assert created["public_page_url"] == f"/sub/{created['public_id']}"
     assert created["public_manifest_url"] == (
         f"/api/v1/subscriptions/public/{created['public_id']}/manifest"
@@ -222,6 +224,7 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     listed = list_response.json()["items"]
     assert [item["id"] for item in listed] == [created["id"]]
     assert listed[0]["public_render_urls"] == created["public_render_urls"]
+    assert listed[0]["delivery_profile"]["require_hwid"] is False
 
     get_response = await route_app.client.get(f"/api/v1/subscriptions/{created['id']}")
     assert get_response.status_code == 200

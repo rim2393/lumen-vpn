@@ -30,7 +30,7 @@ class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-    delivery_profile: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
+    delivery_profile: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     config_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

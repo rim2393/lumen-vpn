@@ -10,7 +10,7 @@ class SubscriptionCreateRequest(BaseModel):
     user_id: UUID
     license_id: UUID
     node_id: UUID | None = None
-    delivery_profile: dict[str, str] = Field(default_factory=dict)
+    delivery_profile: dict[str, object] = Field(default_factory=dict)
     config_hash: str | None = Field(default=None, max_length=128)
     expires_at: datetime | None = None
 
@@ -33,7 +33,7 @@ class SubscriptionUpdateRequest(BaseModel):
 
     status: str | None = Field(default=None, min_length=1, max_length=32)
     node_id: UUID | None = None
-    delivery_profile: dict[str, str] | None = None
+    delivery_profile: dict[str, object] | None = None
     config_hash: str | None = Field(default=None, max_length=128)
     expires_at: datetime | None = None
 
@@ -45,7 +45,7 @@ class SubscriptionResponse(BaseModel):
     license_id: UUID
     node_id: UUID | None
     status: str
-    delivery_profile: dict[str, str]
+    delivery_profile: dict[str, object]
     config_hash: str | None
     expires_at: datetime | None
     revoked_at: datetime | None

@@ -110,7 +110,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def ensure_no_inline_secret_keys(values: dict[str, str], *, field_name: str) -> None:
+def ensure_no_inline_secret_keys(values: dict[str, object], *, field_name: str) -> None:
     for key in values:
         normalized = key.replace("-", "_").lower()
         if any(fragment in normalized for fragment in SECRET_FIELD_FRAGMENTS):

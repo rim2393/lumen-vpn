@@ -8018,9 +8018,7 @@
             "title": "Config Hash"
           },
           "delivery_profile": {
-            "additionalProperties": {
-              "type": "string"
-            },
+            "additionalProperties": true,
             "title": "Delivery Profile",
             "type": "object"
           },
@@ -8445,9 +8443,7 @@
             "type": "string"
           },
           "delivery_profile": {
-            "additionalProperties": {
-              "type": "string"
-            },
+            "additionalProperties": true,
             "title": "Delivery Profile",
             "type": "object"
           },
@@ -8772,9 +8768,7 @@
           "delivery_profile": {
             "anyOf": [
               {
-                "additionalProperties": {
-                  "type": "string"
-                },
+                "additionalProperties": true,
                 "type": "object"
               },
               {
