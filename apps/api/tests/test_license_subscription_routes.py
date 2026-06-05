@@ -231,6 +231,25 @@ async def test_subscription_routes_create_list_and_get(route_app: RouteTestApp) 
     assert get_response.json()["public_id"] == created["public_id"]
     assert get_response.json()["render_formats"] == ["happ", "hiddify"]
 
+    browser_page_response = await route_app.client.get(
+        created["public_render_urls"]["happ"],
+        headers={"Accept": "text/html,application/xhtml+xml"},
+    )
+    assert browser_page_response.status_code == 200
+    assert browser_page_response.headers["content-type"].startswith("text/html")
+    assert browser_page_response.headers["x-lumen-subscription-page"] == "browser"
+    assert "Добавить подписку" in browser_page_response.text
+    assert "raw=1" in browser_page_response.text
+
+    raw_browser_response = await route_app.client.get(
+        f"{created['public_render_urls']['happ']}&raw=1",
+        headers={"Accept": "text/html,application/xhtml+xml"},
+    )
+    assert raw_browser_response.status_code == 200
+    assert raw_browser_response.headers["x-lumen-render-target"] == "happ"
+    assert not raw_browser_response.headers["content-type"].startswith("text/html")
+    assert "vless://" in raw_browser_response.text
+
 
 async def test_subscription_route_issues_real_subscription_from_profile(
     route_app: RouteTestApp,

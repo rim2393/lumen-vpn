@@ -1,5 +1,8 @@
+# ruff: noqa: E501, RUF001
 import json
+from html import escape as html_escape
 from typing import Annotated
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
@@ -269,6 +272,7 @@ async def render_public_subscription(
     x_lumen_hwid: str | None = Header(default=None, alias="X-Lumen-HWID"),
     x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
     user_agent: str | None = Header(default=None, alias="User-Agent"),
+    raw: bool = Query(default=False, description="Force raw client subscription output."),
 ) -> Response:
     try:
         render_target = normalize_render_target(target or render_format)
@@ -287,6 +291,13 @@ async def render_public_subscription(
         raise
     rendered = render_subscription_for_target(manifest, settings=settings, target=render_target)
     rendered = await _apply_subscription_template(session, rendered, render_target=render_target)
+    if not raw and _wants_browser_subscription_page(request):
+        return _subscription_browser_page(
+            manifest,
+            request=request,
+            rendered=rendered,
+            render_target=render_target,
+        )
     return _render_response(rendered, render_target=render_target)
 
 
@@ -347,6 +358,171 @@ def _render_response(rendered: RenderedSubscription, *, render_target: str) -> R
             "x-lumen-render-target": render_target,
         },
     )
+
+
+def _wants_browser_subscription_page(request: Request) -> bool:
+    accept = request.headers.get("accept", "")
+    return "text/html" in accept.lower()
+
+
+def _subscription_browser_page(
+    manifest: dict[str, object],
+    *,
+    request: Request,
+    rendered: RenderedSubscription,
+    render_target: str,
+) -> Response:
+    subscription = _dict_value(manifest, "subscription")
+    metadata = _dict_value(manifest, "metadata")
+    provider = _dict_value(manifest, "provider")
+    subpage = _dict_value(metadata, "subpage")
+    raw_url = str(request.url.include_query_params(raw="1"))
+    title = _string_value(subpage.get("title")) or _string_value(provider.get("name")) or "Lumen VPN"
+    username = _string_value(subscription.get("id")) or "subscription"
+    status = "Активна"
+    expires_at = _string_value(subscription.get("expiresAt"))
+    traffic_limit = _string_value(metadata.get("trafficLimitGb"))
+    traffic_used = _string_value(metadata.get("trafficUsedGb")) or "0"
+    traffic_label = (
+        f"{html_escape(traffic_used)} GB / {html_escape(traffic_limit)} GB"
+        if traffic_limit
+        else f"{html_escape(traffic_used)} GB"
+    )
+    escaped_title = html_escape(title)
+    escaped_username = html_escape(username)
+    escaped_status = html_escape(status)
+    escaped_expires = html_escape(_human_date(expires_at) if expires_at else "Не ограничено")
+    escaped_raw = html_escape(raw_url, quote=True)
+    encoded_raw = quote(raw_url, safe="")
+    add_link = f"happ://add/{encoded_raw}" if render_target == "happ" else escaped_raw
+    app_title = "Happ" if render_target == "happ" else render_target
+    body = f"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escaped_title}</title>
+  <style>
+    :root {{ color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0; min-height: 100vh; color: #f4f7fb;
+      background: radial-gradient(circle at 30% 0%, #1b2441 0, #101720 42%, #0c1118 100%);
+    }}
+    body::before {{
+      content: ""; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 64px 64px; pointer-events: none;
+    }}
+    main {{ position: relative; width: min(760px, calc(100% - 28px)); margin: 0 auto; padding: 36px 0 64px; }}
+    header {{ display: flex; align-items: center; justify-content: space-between; padding: 18px 0 34px; }}
+    .brand {{ display: flex; align-items: center; gap: 12px; color: #43d9f5; font-size: 24px; font-weight: 800; }}
+    .mark {{ width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg,#35e4ff,#1468ff); }}
+    .telegram {{ color: #41d9ff; border: 1px solid #263545; border-radius: 10px; padding: 12px 14px; text-decoration: none; }}
+    section {{ border: 1px solid #293341; background: rgba(19,25,35,.86); border-radius: 16px; padding: 28px 32px; margin-bottom: 28px; box-shadow: 0 18px 60px rgba(0,0,0,.24); }}
+    .summary {{ display: grid; grid-template-columns: 48px 1fr; gap: 18px; align-items: start; }}
+    .ok {{ display: grid; place-items: center; width: 48px; height: 48px; color: #42e0b5; border: 1px solid #168467; background: rgba(20,124,95,.18); border-radius: 50%; font-size: 24px; }}
+    h1 {{ margin: 0 0 4px; font-size: 22px; }}
+    .muted {{ color: #9aa6b5; margin: 0; }}
+    .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }}
+    .metric {{ border: 1px solid #304052; border-radius: 9px; padding: 12px; background: rgba(28,38,52,.68); }}
+    .metric b {{ display: block; margin-top: 6px; }}
+    .metric.blue {{ border-color: #245c91; background: rgba(28,66,103,.45); }}
+    .metric.green {{ border-color: #1d7d51; background: rgba(22,82,54,.38); }}
+    .metric.red {{ border-color: #8b3444; background: rgba(86,32,47,.38); }}
+    .metric.gold {{ border-color: #806321; background: rgba(82,64,24,.34); }}
+    h2 {{ margin: 0 0 18px; font-size: 24px; }}
+    .tabs {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }}
+    .tab {{ border: 1px solid #314457; color: #dce8f3; background: #1b2430; border-radius: 8px; padding: 12px 18px; font-weight: 700; }}
+    .tab.active {{ color: #45e5ff; border-color: #1fc7e8; background: rgba(32,164,196,.18); }}
+    .step {{ display: grid; grid-template-columns: 44px 1fr; gap: 18px; align-items: start; padding: 18px 20px; border: 1px solid #293645; border-radius: 14px; background: rgba(26,35,47,.78); margin-top: 14px; }}
+    .icon {{ display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(32,172,204,.16); color: #48dfff; border: 1px solid #218fa5; }}
+    .button {{ display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 18px; border-radius: 8px; background: #164d61; color: #54e7ff; border: 0; text-decoration: none; font-weight: 800; cursor: pointer; }}
+    .button:hover {{ background: #1e637b; }}
+    .raw {{ overflow-wrap: anywhere; color: #9fb0c1; font-size: 13px; margin-top: 12px; }}
+    @media (max-width: 640px) {{ main {{ width: min(100% - 20px, 760px); padding-top: 20px; }} section {{ padding: 20px; }} .grid {{ grid-template-columns: 1fr; }} }}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand"><span class="mark"></span><span>{escaped_title}</span></div>
+      <a class="telegram" href="https://t.me/lumentech" rel="noreferrer">Telegram</a>
+    </header>
+    <section>
+      <div class="summary">
+        <div class="ok">✓</div>
+        <div>
+          <h1>{escaped_username}</h1>
+          <p class="muted">Подписка готова к установке</p>
+          <div class="grid">
+            <div class="metric blue"><span>Имя пользователя</span><b>{escaped_username}</b></div>
+            <div class="metric green"><span>Статус</span><b>{escaped_status}</b></div>
+            <div class="metric red"><span>Истекает</span><b>{escaped_expires}</b></div>
+            <div class="metric gold"><span>Трафик</span><b>{traffic_label}</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Установка</h2>
+      <div class="tabs">
+        <button class="tab active" type="button">{html_escape(app_title)}</button>
+        <button class="tab" type="button">Hiddify</button>
+        <button class="tab" type="button">Sing-box</button>
+        <button class="tab" type="button">Amnezia</button>
+      </div>
+      <div class="step">
+        <div class="icon">↓</div>
+        <div>
+          <h3>Установка приложения</h3>
+          <p class="muted">Установите подходящий клиент для вашей платформы, затем добавьте подписку кнопкой ниже.</p>
+          <a class="button" href="https://www.happ.su/main" target="_blank" rel="noreferrer">Открыть сайт приложения</a>
+        </div>
+      </div>
+      <div class="step">
+        <div class="icon">＋</div>
+        <div>
+          <h3>Добавление подписки</h3>
+          <p class="muted">Нажмите кнопку ниже — приложение откроется, и подписка добавится автоматически.</p>
+          <a class="button" href="{html_escape(add_link, quote=True)}">Добавить подписку</a>
+          <button class="button" type="button" data-url="{escaped_raw}" onclick="navigator.clipboard.writeText(this.dataset.url)">Скопировать ссылку</button>
+          <p class="raw">{escaped_raw}</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
+"""
+    return Response(
+        content=body,
+        media_type="text/html; charset=utf-8",
+        headers={
+            **rendered.headers,
+            "cache-control": "no-store",
+            "content-disposition": 'inline; filename="subscription.html"',
+            "x-lumen-render-target": render_target,
+            "x-lumen-subscription-page": "browser",
+        },
+    )
+
+
+def _dict_value(mapping: dict[str, object], key: str) -> dict[str, object]:
+    value = mapping.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _string_value(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _human_date(value: str) -> str:
+    return value.split("T", 1)[0]
 
 
 async def build_and_record_public_subscription_request(

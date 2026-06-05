@@ -32384,6 +32384,18 @@
             }
           },
           {
+            "description": "Force raw client subscription output.",
+            "in": "query",
+            "name": "raw",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Force raw client subscription output.",
+              "title": "Raw",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "header",
             "name": "X-Lumen-HWID",
             "required": false,
