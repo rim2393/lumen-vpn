@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Ban, Save, Send, Trash2 } from 'lucide-react'
 import {
   useApplyProfileToNode,
@@ -243,44 +243,72 @@ export function HostsPage() {
           <RuntimeSyncBadge status={runtimeSyncStatus(host)} />,
           <StatusBadge tone={toneForStatus(host.status)}>{host.status}</StatusBadge>,
           <div className="inline-actions">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`Edit ${host.name}`}
-              onClick={() => setSelectedHostId(host.id)}
+            <HostActionTooltip
+              text={t('Open host editor: DNS, node binding, profile, squad, port, SNI, masks, and JSON metadata.')}
             >
-              <Save size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              disabled={!host.protocol_profile_id || applyProfileToNode.isPending}
-              aria-label={`Apply ${host.name} profile to node`}
-              onClick={() => host.protocol_profile_id && void applyProfileToNode.mutateAsync(host.protocol_profile_id)}
-            >
-              <Send size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`${host.status === 'active' ? 'Disable' : 'Enable'} ${host.name}`}
-              onClick={() =>
-                void updateHost.mutateAsync({
-                  id: host.id,
-                  request: { status: host.status === 'active' ? 'disabled' : 'active' },
-                })
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t('Edit {name}', { name: host.name })}
+                onClick={() => setSelectedHostId(host.id)}
+              >
+                <Save size={16} aria-hidden="true" />
+              </button>
+            </HostActionTooltip>
+            <HostActionTooltip
+              text={
+                host.protocol_profile_id
+                  ? t('Apply this host profile to the node runtime. The backend will enqueue a real node-agent command.')
+                  : t('Attach a protocol profile first, then this action can apply the host runtime to the node.')
               }
             >
-              <Ban size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`Delete ${host.name}`}
-              onClick={() => void deleteHost.mutateAsync(host.id)}
+              <button
+                type="button"
+                className="icon-button"
+                disabled={!host.protocol_profile_id || applyProfileToNode.isPending}
+                aria-label={t('Apply {name} to node', { name: host.name })}
+                onClick={() => host.protocol_profile_id && void applyProfileToNode.mutateAsync(host.protocol_profile_id)}
+              >
+                <Send size={16} aria-hidden="true" />
+              </button>
+            </HostActionTooltip>
+            <HostActionTooltip
+              text={
+                host.status === 'active'
+                  ? t('Disable the host. It stops being used in active routes and generated subscriptions.')
+                  : t('Enable the host. It becomes available again for routes and generated subscriptions.')
+              }
             >
-              <Trash2 size={16} aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={
+                  host.status === 'active'
+                    ? t('Disable {name}', { name: host.name })
+                    : t('Enable {name}', { name: host.name })
+                }
+                onClick={() =>
+                  void updateHost.mutateAsync({
+                    id: host.id,
+                    request: { status: host.status === 'active' ? 'disabled' : 'active' },
+                  })
+                }
+              >
+                <Ban size={16} aria-hidden="true" />
+              </button>
+            </HostActionTooltip>
+            <HostActionTooltip
+              text={t('Delete this host from the panel. Runtime must be resynchronized after removal.')}
+            >
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t('Delete {name}', { name: host.name })}
+                onClick={() => void deleteHost.mutateAsync(host.id)}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </HostActionTooltip>
           </div>,
         ],
         id: host.id,
@@ -318,6 +346,14 @@ export function HostsPage() {
       tableEyebrow="Ingress hosts"
       tableTitle="Host routing"
     />
+  )
+}
+
+function HostActionTooltip({ children, text }: { children: ReactNode; text: string }) {
+  return (
+    <span className="host-action-tooltip" data-tooltip={text}>
+      {children}
+    </span>
   )
 }
 

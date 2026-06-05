@@ -243,6 +243,18 @@ const ru: Record<string, string> = {
   'Select host': 'Выберите хост',
   'Edit public endpoint, routing bindings, inbound tag, port and metadata.':
     'Измените публичную точку входа, привязки маршрутизации, inbound-тег, порт и метаданные.',
+  'Open host editor: DNS, node binding, profile, squad, port, SNI, masks, and JSON metadata.':
+    'Открыть редактор хоста: DNS, привязка ноды, профиль, сквад, порт, SNI, маски и JSON-метаданные.',
+  'Apply this host profile to the node runtime. The backend will enqueue a real node-agent command.':
+    'Применить профиль этого хоста в runtime ноды. Бэкенд поставит реальную команду node-agent в очередь.',
+  'Attach a protocol profile first, then this action can apply the host runtime to the node.':
+    'Сначала привяжите протокольный профиль, после этого действие сможет применить runtime хоста на ноду.',
+  'Disable the host. It stops being used in active routes and generated subscriptions.':
+    'Отключить хост. Он перестанет использоваться в активных маршрутах и сгенерированных подписках.',
+  'Enable the host. It becomes available again for routes and generated subscriptions.':
+    'Включить хост. Он снова станет доступен для маршрутов и сгенерированных подписок.',
+  'Delete this host from the panel. Runtime must be resynchronized after removal.':
+    'Удалить хост из панели. После удаления runtime нужно пересинхронизировать.',
   // Squads page
   'Squad registry': 'Реестр сквадов',
   'Squad inventory': 'Инвентарь сквадов',

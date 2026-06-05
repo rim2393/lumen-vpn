@@ -164,6 +164,70 @@ h2 {
   flex-wrap: nowrap;
 }
 
+.host-action-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.host-action-tooltip::after {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 30;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 12px;
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  content: attr(data-tooltip);
+  background: rgb(18 22 18 / 96%);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+  opacity: 0;
+  transform: translate(50%, 6px);
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
+}
+
+.host-action-tooltip::before {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 3px);
+  z-index: 31;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  content: '';
+  background: rgb(18 22 18 / 96%);
+  border-right: 1px solid var(--color-line-strong);
+  border-bottom: 1px solid var(--color-line-strong);
+  opacity: 0;
+  transform: translate(50%, 6px) rotate(45deg);
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
+}
+
+.host-action-tooltip:hover::after,
+.host-action-tooltip:focus-within::after,
+.host-action-tooltip:hover::before,
+.host-action-tooltip:focus-within::before {
+  opacity: 1;
+  transform: translate(50%, 0);
+}
+
+.host-action-tooltip:hover::before,
+.host-action-tooltip:focus-within::before {
+  transform: translate(50%, 0) rotate(45deg);
+}
+
 .status-chip {
   display: inline-flex;
   align-items: center;
