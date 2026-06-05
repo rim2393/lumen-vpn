@@ -83,6 +83,7 @@ RAW_URI_IMPORTABLE_PROTOCOLS = frozenset(
     }
 )
 RAW_URI_CLIENT_TARGETS = RAW_URI_TARGETS - frozenset({"raw-uri"})
+DEFAULT_SHADOWSOCKS_METHOD = "aes-256-gcm"
 
 
 @dataclass(frozen=True)
@@ -417,7 +418,7 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or "2022-blake3-aes-128-gcm"
+        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
         password = shadowsocks_password_for_method(credentials, str(method))
         userinfo = base64.urlsafe_b64encode(
             f"{method}:{password}".encode()
@@ -767,7 +768,7 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or "2022-blake3-aes-128-gcm"
+        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
         base.update(
             {
                 "type": "ss",
@@ -956,7 +957,7 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
         return compact_object(base)
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or "2022-blake3-aes-128-gcm"
+        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
         base.update(
             {
                 "method": method,
@@ -1147,7 +1148,7 @@ def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or "2022-blake3-aes-128-gcm"
+        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
         server = {
             "address": protocol["endpoint"]["host"],
             "port": protocol["endpoint"]["port"],

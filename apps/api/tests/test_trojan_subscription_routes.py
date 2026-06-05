@@ -391,6 +391,43 @@ async def test_shadowsocks_subscription_renders_all_client_formats(
     assert 'type: "ss"' in mihomo.text
 
 
+async def test_shadowsocks_subscription_defaults_to_xray_compatible_method(
+    route_app: RouteTestApp,
+) -> None:
+    user, license_record, node = await _seed(route_app)
+    create = await route_app.client.post(
+        "/api/v1/subscriptions",
+        json={
+            "user_id": str(user.id),
+            "license_id": str(license_record.id),
+            "node_id": str(node.id),
+            "delivery_profile": {
+                "protocol": "shadowsocks-native",
+                "adapter": "shadowsocks-native",
+                "profile_title": "Lumen SS default",
+                "port": "8388",
+            },
+            "config_hash": "sha256:ss-default",
+        },
+    )
+    assert create.status_code == 201, create.text
+    public_id = create.json()["public_id"]
+
+    raw = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=happ",
+    )
+    assert raw.status_code == 200, raw.text
+    userinfo = raw.text.removeprefix("ss://").split("@", 1)[0]
+    decoded = base64.urlsafe_b64decode(userinfo + "=" * (-len(userinfo) % 4)).decode()
+    assert decoded.startswith("aes-256-gcm:")
+
+    sing_box = await route_app.client.get(
+        f"/api/v1/subscriptions/public/{public_id}/render?target=sing-box",
+    )
+    assert sing_box.status_code == 200
+    assert sing_box.json()["outbounds"][0]["method"] == "aes-256-gcm"
+
+
 async def test_shadowsocks_v2ray_plugin_subscription_renders_plugin_fields(
     route_app: RouteTestApp,
 ) -> None:
