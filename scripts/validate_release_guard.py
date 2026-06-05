@@ -162,7 +162,7 @@ def main() -> int:
         [
             "docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md",
             "scripts/validate_release_guard.py",
-            "GitHub-hosted Actions remain externally blocked",
+            "GitHub-hosted Actions",
             "manual image promotion must stay digest-pinned",
             "docs/GITHUB_ACTIONS_BILLING_UNBLOCK.md",
             "docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md",
