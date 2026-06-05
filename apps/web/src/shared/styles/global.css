@@ -63,6 +63,29 @@ button {
   cursor: pointer;
 }
 
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 var(--space-3);
+  color: var(--color-ink);
+  background: rgb(255 255 255 / 6%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+textarea {
+  min-height: 92px;
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-muted);
+}
+
 a {
   color: inherit;
 }
@@ -1564,8 +1587,30 @@ h2 {
   gap: var(--space-3);
 }
 
+.form-grid > *,
+.field {
+  min-width: 0;
+}
+
 .form-grid__wide {
   grid-column: 1 / -1;
+}
+
+.form-grid label,
+.field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-muted-strong);
+  font-weight: 700;
+}
+
+.field--inline {
+  grid-template-columns: auto minmax(180px, 1fr);
+  align-items: center;
+}
+
+.toolbar .field--inline {
+  width: min(100%, 620px);
 }
 
 .form-error {
