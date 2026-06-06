@@ -132,6 +132,15 @@ deployed before being marked done.
   Squads/productionReality vitest, full web vitest (`60 passed`), production
   build, release guard, production reality guard, and `git diff --check`.
   Live deploy/evidence is required before this pass is marked released.
+- 2026-06-06: RSP-006 Squads first parity pass released through official image
+  build and installer deploy at product commit `1001551`. Live
+  `https://panel.lumentech.tel/squads` evidence: 4 real squad rows, no
+  `A valid API key is required`, no internal `http://api:8000`, inventory panel
+  is bounded (`809px` wide) with internal table scroll (`1180px` scroll width),
+  side workflow stack is aligned to the same top (`left=845`, `width=389`),
+  raw `Open`/`internal`/`external` row text is gone, action aria labels are
+  Russian, and deleting `bear` opens an inline Russian confirmation before any
+  API call. Cancel closes the dialog and leaves all 4 rows intact.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
