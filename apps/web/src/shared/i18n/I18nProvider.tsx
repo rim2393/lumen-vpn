@@ -202,6 +202,42 @@ const ru: Record<string, string> = {
     'Платная ёмкость приостановлена политикой лицензии.',
   'None reported': 'Не сообщено',
   'Node inventory': 'Реестр нод',
+  'Node protocol assignment matrix': 'Матрица протоколов ноды',
+  'Profile status': 'Статус профиля',
+  'Runtime sync': 'Синхронизация runtime',
+  'Toggle this real profile on the selected node': 'Включить или отключить этот реальный профиль на выбранной ноде',
+  'Toggle protocol {name}': 'Переключить протокол {name}',
+  'will be enabled': 'будет включен',
+  'will be disabled': 'будет отключен',
+  'in sync': 'синхронно',
+  '{count} pending changes': '{count} изменений ожидают',
+  'Pending node protocol changes': 'Ожидающие изменения протоколов ноды',
+  'Update protocols queues real runtime apply commands.': 'Обновление протоколов ставит в очередь реальные runtime apply команды.',
+  'Discard changes': 'Отменить изменения',
+  'Applying...': 'Применение...',
+  'Disable node {name}': 'Отключить ноду {name}',
+  'Pause node {name}': 'Поставить ноду {name} на паузу',
+  'Quarantine node {name}': 'Поместить ноду {name} в карантин',
+  'Restart node {name}': 'Перезапустить ноду {name}',
+  'Reset traffic on {name}': 'Сбросить трафик на {name}',
+  'Restart all nodes': 'Перезапустить все ноды',
+  'Reset all node traffic': 'Сбросить трафик всех нод',
+  'This queues a real pause command. Customer traffic must stop after node-agent applies the command.':
+    'Это ставит в очередь реальную команду паузы. Клиентский трафик должен остановиться после применения node-agent.',
+  'This queues a real node pause command and removes the node from active customer delivery.':
+    'Это ставит в очередь реальную команду паузы и убирает ноду из активной доставки.',
+  'This marks the node as quarantined through the live API. The node should not receive customer traffic.':
+    'Это переводит ноду в карантин через живой API. Нода не должна получать клиентский трафик.',
+  'This queues node.restart for the real node-agent container. Active sessions on this node can disconnect.':
+    'Это ставит node.restart для реального node-agent контейнера. Активные сессии на этой ноде могут отключиться.',
+  'This queues a real traffic counter reset for the selected node. Historical counters can change after node-agent applies it.':
+    'Это ставит реальный сброс счетчиков трафика на выбранной ноде. Исторические счетчики могут измениться.',
+  'This queues node.restart for every registered node through the production control API.':
+    'Это ставит node.restart для каждой зарегистрированной ноды через production API.',
+  'This queues real traffic resets for every registered node. Use only after confirming billing and traffic reporting expectations.':
+    'Это ставит реальный сброс трафика для всех нод. Используйте только после проверки биллинга и учета трафика.',
+  'This queues real pause commands for every registered node and can stop customer traffic across the fleet.':
+    'Это ставит реальные команды паузы для всех нод и может остановить клиентский трафик.',
   'Node provisioning and heartbeat inventory': 'Провижининг нод и реестр пульса',
   'Infrastructure mesh': 'Инфраструктурная сеть',
   'Refresh nodes': 'Обновить ноды',

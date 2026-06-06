@@ -5,6 +5,7 @@ import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient
 import type {
   LumenApiClient,
   NodeResponse,
+  NodeProtocolSelectionResponse,
   NodeResumeRequest,
   ProvisioningJobCreateRequest,
   ProvisioningJobResponse,
@@ -268,10 +269,112 @@ describe('NodesPage backend wiring', () => {
     expect(restartButtons[1]).toBeDisabled()
 
     await user.click(restartButtons[0])
+    expect(restartNode).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('alertdialog', { name: /restart node edge-action/i })
+    expect(dialog).toHaveTextContent(/real API/i)
+    await user.click(within(dialog).getByRole('button', { name: /^restart$/i }))
 
     await waitFor(() => expect(restartNode).toHaveBeenCalledWith('node-action'))
     expect(await screen.findByText(/Last node action/i)).toBeInTheDocument()
     expect(screen.getByText(/node.restart queued as cmd_restart_1/i)).toBeInTheDocument()
+  })
+
+  it('updates selected node protocols from the checkbox matrix through the real API contract', async () => {
+    const user = userEvent.setup()
+    const updateNodeProtocolSelection = vi.fn(
+      async (_nodeId: string, _request: { enabled_profile_ids: string[] }): Promise<NodeProtocolSelectionResponse> => ({
+        items: [
+          {
+            adapter: 'vless',
+            enabled: true,
+            name: 'VLESS Reality',
+            profile_id: 'profile-vless',
+            runtime_sync: { pending_apply: true, status: 'apply_queued' },
+            status: 'active',
+          },
+          {
+            adapter: 'hysteria2',
+            enabled: true,
+            name: 'Hysteria2 TLS',
+            profile_id: 'profile-hy2',
+            runtime_sync: { pending_apply: true, status: 'apply_queued' },
+            status: 'active',
+          },
+        ],
+        node_id: 'node-protocols',
+        queued_commands: [
+          {
+            claimed_at: null,
+            command_type: 'outbound.apply',
+            completed_at: null,
+            created_at: '2026-05-27T10:00:00Z',
+            error_code: null,
+            error_message: null,
+            id: 'cmd-protocol-1',
+            node_id: 'node-protocols',
+            payload_json: { profileId: 'profile-hy2' },
+            result_json: null,
+            status: 'queued',
+            updated_at: '2026-05-27T10:00:00Z',
+          },
+        ],
+      }),
+    )
+    const node: NodeResponse = {
+      capabilities: {},
+      id: 'node-protocols',
+      last_seen_at: '2026-05-27T09:30:00Z',
+      name: 'edge-protocols',
+      public_address: '203.0.113.40',
+      region: 'eu',
+      sort_order: 0,
+      status: 'active',
+    }
+    const apiClient = createTestClient({
+      getNodeProtocolSelection: async () => ({
+        items: [
+          {
+            adapter: 'vless',
+            enabled: true,
+            name: 'VLESS Reality',
+            profile_id: 'profile-vless',
+            runtime_sync: { pending_apply: false, status: 'applied' },
+            status: 'active',
+          },
+          {
+            adapter: 'hysteria2',
+            enabled: false,
+            name: 'Hysteria2 TLS',
+            profile_id: 'profile-hy2',
+            runtime_sync: { pending_apply: false, status: 'never_applied' },
+            status: 'disabled',
+          },
+        ],
+        node_id: 'node-protocols',
+        queued_commands: [],
+      }),
+      listNodeCommands: async () => ({ items: [] }),
+      listNodeMetrics: async () => ({ items: [] }),
+      listNodes: async () => ({ items: [node] }),
+      updateNodeProtocolSelection,
+    })
+
+    renderWithRouter('/nodes', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByText('edge-protocols')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Inspect' }))
+    expect(await screen.findByRole('table', { name: /node protocol assignment matrix/i })).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText(/hysteria2 tls/i))
+    expect(screen.getByText(/1 pending changes/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /update protocols/i }))
+
+    await waitFor(() =>
+      expect(updateNodeProtocolSelection).toHaveBeenCalledWith('node-protocols', {
+        enabled_profile_ids: ['profile-vless', 'profile-hy2'],
+      }),
+    )
+    expect(await screen.findByText(/1 runtime command queued/i)).toBeInTheDocument()
   })
 
   it('requires inline confirmation before deleting a real node', async () => {
