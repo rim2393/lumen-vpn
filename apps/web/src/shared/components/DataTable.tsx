@@ -3,6 +3,7 @@ import { useI18n } from '../i18n/I18nProvider'
 
 type DataTableRow = {
   cells: ReactNode[]
+  className?: string
   id: string
 }
 
@@ -30,7 +31,7 @@ export function DataTable({ caption, columns, rows }: DataTableProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
+            <tr className={row.className} key={row.id}>
               {row.cells.map((cell, index) => (
                 <td key={`${row.id}-${columns[index]}`}>{cell}</td>
               ))}

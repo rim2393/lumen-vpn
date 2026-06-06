@@ -1274,7 +1274,7 @@ h2 {
 
 .users-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.36fr);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
   gap: var(--space-4);
   align-items: start;
 }
@@ -1293,6 +1293,10 @@ h2 {
   gap: var(--space-3);
   align-items: end;
   margin: var(--space-4) 0;
+  padding: var(--space-3);
+  background: rgb(0 0 0 / 12%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
 }
 
 .users-toolbar__search {
@@ -1333,6 +1337,92 @@ h2 {
 
 .users-focus-card .profile-facts {
   margin-top: var(--space-4);
+}
+
+.users-side {
+  position: sticky;
+  top: calc(var(--space-5) + 76px);
+  display: grid;
+  gap: var(--space-4);
+  max-height: calc(100svh - 120px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.users-directory .data-table-wrap {
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.users-directory .data-table {
+  min-width: 1080px;
+}
+
+.users-directory .data-table caption {
+  padding: var(--space-3);
+  margin: 0;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: rgb(255 255 255 / 3%);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.users-directory .data-table th,
+.users-directory .data-table td {
+  padding: 10px var(--space-3);
+}
+
+.users-directory .data-table tbody tr {
+  transition:
+    background 140ms var(--ease-out),
+    box-shadow 140ms var(--ease-out);
+}
+
+.users-directory .data-table tbody tr:hover,
+.users-directory .data-table__row--selected {
+  background: rgb(83 224 173 / 8%);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.users-table-identity {
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  max-width: 100%;
+}
+
+.users-table-identity span {
+  overflow: hidden;
+  color: var(--color-ink-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.users-table-identity small {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.users-focus-card {
+  border-color: rgb(83 224 173 / 26%);
+}
+
+.users-focus-card__header h2 {
+  overflow-wrap: anywhere;
+}
+
+.users-focus-card .inline-actions {
+  margin-top: var(--space-4);
+}
+
+.users-focus-card .inline-actions .button {
+  flex: 1 1 150px;
 }
 
 .user-detail-page {
@@ -1980,6 +2070,12 @@ h2 {
   .user-detail-workspace,
   .user-editor-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .users-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 

@@ -252,6 +252,18 @@ export function UsersPage() {
       setFormError(t('Select at least one user first.'))
       return
     }
+    if (
+      action === 'delete' &&
+      !globalThis.confirm(t('Delete selected users confirmation', { count: selectedIds.size }))
+    ) {
+      return
+    }
+    if (
+      action === 'revoke' &&
+      !globalThis.confirm(t('Revoke selected users confirmation', { count: selectedIds.size }))
+    ) {
+      return
+    }
     setFormError(null)
     await bulkUsers.mutateAsync({
       action,
@@ -439,6 +451,7 @@ export function UsersPage() {
             caption={t('User directory')}
             columns={['Select', 'User', 'Devices', 'Traffic', 'Expires', 'Tags', 'Status', 'Actions']}
             rows={filteredUsers.map((user) => ({
+              className: user.id === focusedUser?.id ? 'data-table__row--selected' : undefined,
               cells: [
                 <input
                   aria-label={t('Select {name}', { name: formatUserName(user) })}
@@ -448,12 +461,13 @@ export function UsersPage() {
                 />,
                 <div>
                   <Link
-                    className="text-link"
+                    className="users-table-identity text-link"
                     to={`/users/${user.id}`}
                     onMouseEnter={() => setFocusedUserId(user.id)}
                     onFocus={() => setFocusedUserId(user.id)}
                   >
-                    {formatUserName(user)}
+                    <span>{formatUserName(user)}</span>
+                    <small>{user.id.slice(0, 8)}</small>
                   </Link>
                   <p className="table-subtext">{user.email}</p>
                 </div>,
@@ -468,6 +482,7 @@ export function UsersPage() {
                   <Link
                     className="icon-button"
                     aria-label={t('Open {name}', { name: formatUserName(user) })}
+                    title={t('Open detail')}
                     to={`/users/${user.id}`}
                     onMouseEnter={() => setFocusedUserId(user.id)}
                     onFocus={() => setFocusedUserId(user.id)}
@@ -478,6 +493,7 @@ export function UsersPage() {
                     type="button"
                     className="icon-button"
                     aria-label={t('Toggle status {name}', { name: formatUserName(user) })}
+                    title={user.status === 'active' ? t('Disable') : t('Enable')}
                     disabled={enableUser.isPending || disableUser.isPending}
                     onClick={() =>
                       void (user.status === 'active'
@@ -491,6 +507,7 @@ export function UsersPage() {
                     type="button"
                     className="icon-button"
                     aria-label={t('Reset traffic {name}', { name: formatUserName(user) })}
+                    title={t('Reset traffic')}
                     disabled={resetUserTraffic.isPending}
                     onClick={() => void resetUserTraffic.mutateAsync(user.id)}
                   >
@@ -592,6 +609,27 @@ function FocusedUserCard({
   t: (value: string, params?: Record<string, string | number>) => string
   user: UserRecord | undefined
 }) {
+  async function revokeFocusedUser(user: UserRecord) {
+    if (!globalThis.confirm(t('Revoke user confirmation', { name: formatUserName(user) }))) {
+      return
+    }
+    await revokeUser.mutateAsync(user.id)
+  }
+
+  async function deleteFocusedUser(user: UserRecord) {
+    if (!globalThis.confirm(t('Delete user confirmation', { name: formatUserName(user) }))) {
+      return
+    }
+    await deleteUser.mutateAsync(user.id)
+  }
+
+  async function resetFocusedUserTraffic(user: UserRecord) {
+    if (!globalThis.confirm(t('Reset user traffic confirmation', { name: formatUserName(user) }))) {
+      return
+    }
+    await resetUserTraffic.mutateAsync(user.id)
+  }
+
   if (!user) {
     return (
       <article className="panel">
@@ -604,7 +642,7 @@ function FocusedUserCard({
 
   return (
     <article className="panel users-focus-card">
-      <div className="panel__header">
+      <div className="panel__header users-focus-card__header">
         <div>
           <p className="eyebrow">{t('Selected user')}</p>
           <h2>{formatUserName(user)}</h2>
@@ -646,15 +684,15 @@ function FocusedUserCard({
           <Ban size={16} aria-hidden="true" />
           {user.status === 'active' ? t('Disable') : t('Enable')}
         </button>
-        <button type="button" className="button button--secondary" onClick={() => void resetUserTraffic.mutateAsync(user.id)}>
+        <button type="button" className="button button--secondary" onClick={() => void resetFocusedUserTraffic(user)}>
           <RotateCcw size={16} aria-hidden="true" />
           {t('Reset traffic')}
         </button>
-        <button type="button" className="button button--secondary" onClick={() => void revokeUser.mutateAsync(user.id)}>
+        <button type="button" className="button button--secondary" onClick={() => void revokeFocusedUser(user)}>
           <Ban size={16} aria-hidden="true" />
           {t('Revoke')}
         </button>
-        <button type="button" className="button button--secondary" onClick={() => void deleteUser.mutateAsync(user.id)}>
+        <button type="button" className="button button--danger" onClick={() => void deleteFocusedUser(user)}>
           <Trash2 size={16} aria-hidden="true" />
           {t('Delete')}
         </button>

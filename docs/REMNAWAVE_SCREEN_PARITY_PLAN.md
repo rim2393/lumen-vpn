@@ -67,3 +67,10 @@ admin Users/Profile/Hosts.
   fallback URL so browser deep-link failures are visible instead of looking
   like a dead button. Regression gate: subscription route pytest (`23 passed`)
   and ruff on the changed API/test files.
+- 2026-06-06: RSP-002 Users first admin pass started. Scope: real API-backed
+  Users list only, no fake rows. Changes add selected-row styling, denser
+  Remnawave-like directory treatment, sticky focused-user action panel,
+  tooltips/titles for icon actions, and confirmation gates for dangerous
+  revoke/delete flows. Local web `npm run build` passed. Full `npm run lint`
+  still fails on pre-existing repository-wide web lint debt outside this
+  Users pass; keep this as a separate quality closure item instead of hiding it.
