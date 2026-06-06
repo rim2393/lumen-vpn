@@ -1033,6 +1033,7 @@ h2 {
 
 .settings-page {
   max-width: 1380px;
+  container-type: inline-size;
 }
 
 .settings-summary-grid {
@@ -1074,7 +1075,7 @@ h2 {
 
 .settings-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.42fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.36fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -1092,6 +1093,8 @@ h2 {
 }
 
 .settings-group-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
   display: grid;
   gap: var(--space-4);
   min-width: 0;
@@ -1137,11 +1140,26 @@ h2 {
 
 .settings-group-card textarea,
 .settings-workbench .auth-card textarea {
-  min-height: 112px;
+  max-height: 240px;
+  min-height: 96px;
   padding-block: var(--space-3);
   font-family: var(--font-mono);
   line-height: 1.5;
   resize: vertical;
+}
+
+.settings-advanced-json {
+  max-height: min(520px, calc(100vh - 260px));
+  overflow: auto;
+}
+
+.settings-advanced-json:not([open]) {
+  max-height: none;
+  overflow: visible;
+}
+
+.settings-advanced-json textarea {
+  max-height: 220px;
 }
 
 .checkbox-row {
@@ -1162,10 +1180,12 @@ h2 {
 }
 
 .settings-provider-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 132px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
-  align-items: center;
+  align-items: start;
   min-width: 0;
   padding: var(--space-3);
   background: rgb(255 255 255 / 4%);
@@ -1212,13 +1232,45 @@ h2 {
 .settings-provider-card__actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-2);
   min-width: 0;
 }
 
+.settings-security-loader {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.settings-security-loader p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.settings-security-confirm {
+  margin-top: var(--space-3);
+}
+
+.settings-registry-panel .data-table-wrap {
+  max-height: min(520px, calc(100vh - 280px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 .settings-registry-panel .data-table {
   min-width: 980px;
+  table-layout: fixed;
+}
+
+.settings-registry-panel .data-table th,
+.settings-registry-panel .data-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.settings-registry-panel .data-table td:nth-child(2) {
+  white-space: normal;
 }
 
 .settings-key {

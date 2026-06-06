@@ -361,6 +361,15 @@ const ru: Record<string, string> = {
   'Setting saved.': 'Настройка сохранена.',
   'Save setting': 'Сохранить настройку',
   'Loading providers...': 'Загрузка провайдеров...',
+  'api ready': 'api готов',
+  'Load on demand': 'Загрузка по запросу',
+  'Open this panel to load real MFA methods and passkeys for the current operator account.':
+    'Откройте этот блок, чтобы загрузить реальные MFA-методы и passkey текущего оператора.',
+  'Open security methods': 'Открыть методы безопасности',
+  'Production API confirmation': 'Подтверждение production API',
+  'Delete security method {label}': 'Удалить метод безопасности {label}',
+  'This removes a real MFA or passkey method from the current operator account.':
+    'Это удалит реальный MFA-метод или passkey из текущего аккаунта оператора.',
   'Manage subscription information, auth provider toggles, response headers, and panel-wide metadata.':
     'Управляйте подпиской, переключателями провайдеров аутентификации, заголовками ответов и метаданными панели.',
   // Dashboard sections

@@ -1907,6 +1907,9 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('heading', { name: /MFA and passkeys/i })).toBeInTheDocument()
+    expect(listMfaMethods).not.toHaveBeenCalled()
+    expect(listWebAuthnCredentials).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: /open security methods/i }))
     expect(await screen.findByText('Existing authenticator')).toBeInTheDocument()
     expect(await screen.findByText('Laptop passkey')).toBeInTheDocument()
 
@@ -1921,9 +1924,15 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(verifyTotpSetup).toHaveBeenCalledWith('mfa_pending', '123456'))
 
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    expect(deleteMfaMethod).not.toHaveBeenCalled()
+    const mfaDialog = await screen.findByRole('alertdialog', { name: /delete security method existing authenticator/i })
+    expect(mfaDialog).toHaveTextContent(/real MFA or passkey/i)
+    await user.click(within(mfaDialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteMfaMethod).toHaveBeenCalledWith('mfa_existing'))
 
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[1])
+    const passkeyDialog = await screen.findByRole('alertdialog', { name: /delete security method laptop passkey/i })
+    await user.click(within(passkeyDialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteWebAuthnCredential).toHaveBeenCalledWith('passkey_existing'))
   })
 
