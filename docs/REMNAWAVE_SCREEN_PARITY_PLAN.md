@@ -352,3 +352,30 @@ deployed before being marked done.
   standalone `None` text, no internal `http://api:8000` leak, and clicking a
   real host delete action opens an inline production API confirmation that can
   be cancelled without deleting.
+- 2026-06-06: RSP-005 destructive-action and public subscription import pass
+  released through the official image build and installer deploy path at
+  product commit `f5f1395` and installer workflow `27058042519`.
+  NodePlugins, Nodes and Subscriptions no longer use native browser
+  `confirm(...)`; each dangerous delete action now opens an inline production
+  API confirmation panel and only calls the real delete mutation after the
+  operator confirms. Public subscription browser pages now make the HApp add
+  action deterministic: the button stores the real raw subscription URL in
+  `data-raw-url`, attempts to copy it to clipboard, then opens the client
+  deep link. If the browser/client does not hand off, the page shows a visible
+  fallback and QR/raw remain available. Local gates passed:
+  `npx vitest run src/pages/NodePluginsPage.test.tsx src/pages/NodesPage.test.tsx src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`37 passed`), `python -m pytest tests/test_license_subscription_routes.py -k "browser_page or qr_svg"`
+  from `apps/api` (`1 passed`), `npm run build`,
+  `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, and `git diff --check`.
+  Live evidence after deploy: `https://sub.lumentech.tel/sub/.../happ?hwid=...`
+  with browser `Accept` returns `text/html; charset=utf-8`,
+  `x-lumen-subscription-page=browser`, inline SVG QR is present,
+  `data-raw-url` is present, `window.location.href = link.href` is present,
+  `happ://add/...raw=1` is present, and no `src="data:image...` QR fallback is
+  used. The raw endpoint returns `text/plain; charset=utf-8`,
+  `x-lumen-render-target=happ`, and real protocol output including `vless://`,
+  `trojan://`, and `ss://`. Live admin asset `/assets/index-BoRcw4Mm.js`
+  contains no `window.confirm`, `globalThis.confirm`, or `.confirm(` native
+  browser confirmation calls and contains the inline delete copy for node,
+  node plugin and subscription delete confirmations.

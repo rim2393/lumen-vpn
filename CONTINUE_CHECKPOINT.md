@@ -227,6 +227,24 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   `В·`; source now uses the real middle dot. Live panel JS asset
   `/assets/index-DSOse94a.js` contains neither `В·` nor escaped
   `\u0412\u00b7`.
+- Live prod evidence for release
+  `main-f5f139502dc94e297b95f09d37a26e9f4ef6bda7`: official signed
+  publish/deploy workflow `27058042519` completed successfully. NodePlugins,
+  Nodes and Subscriptions destructive deletes now use inline production API
+  confirmations instead of native browser `confirm(...)`. Local gates passed:
+  web focused Vitest (`37 passed`), API subscription browser-page pytest
+  (`1 passed` from `apps/api`), web production build, release guard,
+  production reality guard, and `git diff --check`. Live public subscription
+  evidence on `https://sub.lumentech.tel/sub/.../happ?hwid=...` with browser
+  `Accept`: status 200, `text/html; charset=utf-8`,
+  `x-lumen-subscription-page=browser`, inline SVG QR present, `data-raw-url`
+  present, HApp `happ://add/...raw=1` present, `window.location.href =
+  link.href` present, and no `src="data:image...` QR fallback. Live raw HApp
+  endpoint status 200, `text/plain; charset=utf-8`,
+  `x-lumen-render-target=happ`, and real protocol output includes `vless://`,
+  `trojan://`, and `ss://`. Live admin asset `/assets/index-BoRcw4Mm.js`
+  contains no native confirm calls and contains inline delete confirmation copy
+  for nodes, node plugins and subscriptions.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
@@ -243,12 +261,18 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
 
 ## Next Suggested Work
 
-1. Restore production VPS/provider firewall reachability, then rerun the
-   official deploy/upgrade flow for already-published `v0.1.63` and live-smoke
-   subscription lookup, clone, delete, devices, and raw preview.
-2. Commit and release the local `generic_oauth2` auth-provider parity slice
-   after final diff review.
-3. Continue the remaining real-runtime protocol gaps: Android IKEv2/IPsec.
-4. Do not mark WireGuard/AWG torrent blocking complete through a fake policy artifact. Native WireGuard needs a real enforceable design such as nftables marks/routing or an explicit unsupported/enforced-by-edge status; ordinary `wg-quick` cannot do BitTorrent protocol detection by itself.
-5. Continue Remnawave parity UI pages only against live API state; no fake counters or static placeholder rows.
-6. Keep official release/update path mandatory for production validation.
+1. Continue Remnawave parity UI pages only against live API state; no fake
+   counters or static placeholder rows. The next practical page slice is Users
+   detail parity, then Subscriptions/Subscription page configs, then Settings
+   and Tools.
+2. For each admin page slice, replace remaining native/browser-only UX with
+   real inline controls, add focused tests, run build/guards, push, wait
+   product workflows, deploy by official installer workflow, and record live
+   evidence here.
+3. Continue the remaining real-runtime protocol gaps after admin/backend/node
+   page parity: Android IKEv2/IPsec, then client compatibility matrix.
+4. Do not mark WireGuard/AWG torrent blocking complete through a fake policy
+   artifact. Native WireGuard needs a real enforceable design such as nftables
+   marks/routing or an explicit unsupported/enforced-by-edge status; ordinary
+   `wg-quick` cannot do BitTorrent protocol detection by itself.
+5. Keep official release/update path mandatory for production validation.
