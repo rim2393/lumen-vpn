@@ -40,10 +40,12 @@ official deploy and live browser/API verification all pass.
 
 ## Current Priority
 
-RSP-001 is active because the live public subscription page works technically
-but does not meet the requested Remnawave-like visual quality. The next commit
-must improve that page first, then deploy and verify live before moving to
-admin Users/Profile/Hosts.
+RSP-003 Profiles remains active for the functional smoke closure, then the
+work must continue screen by screen through RSP-002/RSP-004/RSP-005 and the
+remaining admin surfaces. The current product is not yet accepted as
+Remnawave-like visual/function parity: every page still needs a click-through
+pass where all visible actions are real, dense, responsive and production
+deployed before being marked done.
 
 ## Progress Log
 
@@ -138,3 +140,22 @@ admin Users/Profile/Hosts.
   470px with both JSON textareas and the real `Build JSON from protocol
   fields` button present, sticky save/cancel bar remains visible, and no
   internal `http://api:8000` URL leaks.
+- 2026-06-06: RSP-003 functional smoke ran against the live production
+  backend, not mock data. A disabled real QA profile was created from the
+  `/profiles` UI on `node-01` with adapter `vless-reality` and reserved
+  port `28531/tcp`, then edited from the same UI and verified on the live
+  table. The smoke did not apply that disabled QA profile. Instead, the
+  existing active profile `Live vless-ws-tls 1780292415` was applied through
+  the real row action and queued command
+  `bd6242e9-f05f-4df7-b830-c7c6117c35ef` for node
+  `d40a27ae-29fa-4cd1-88ee-269957de1e30`. The temporary QA profile was then
+  removed through the official authenticated backend endpoint
+  `DELETE /api/v1/profiles/{profile_id}`. Final live browser verification on
+  `https://panel.lumentech.tel/profiles` showed the QA row absent and the
+  real profiles screen still loaded for `admin@test.lumentah.tel`.
+- 2026-06-06: RSP-003 remaining gaps recorded from the same pass: the create
+  form still marks adapters as unavailable when creating an active profile in
+  some states, delete confirmation is browser-dialog based and awkward for
+  automated live QA, and the current Profiles UX is still not accepted as
+  full Remnawave visual parity. The next Profiles slice must close these
+  gaps before moving to Hosts/Nodes.
