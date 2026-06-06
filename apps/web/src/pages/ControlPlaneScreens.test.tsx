@@ -1444,6 +1444,7 @@ describe('Control plane resource screens', () => {
     fireEvent.change(updateInterval, {
       target: { value: '8' },
     })
+    await user.click(screen.getByText(/^renderer json$/i))
     fireEvent.change(screen.getByLabelText(/response headers json/i), {
       target: { value: '{"X-Lumen-Test":"typed"}' },
     })
@@ -1576,6 +1577,9 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/subscription-page', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('table', { name: /subscription page configs/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/update interval, hours/i)).toHaveAttribute('name', 'subscription-update-interval')
+    await user.click(screen.getByText(/^config json$/i, { selector: 'summary' }))
+    expect(screen.getByLabelText(/^config json$/i, { selector: '#subpage-config-json' })).toHaveAttribute('name', 'subpage-config-json')
     await user.type(screen.getByLabelText(/^config name$/i, { selector: '#subpage-config-name' }), 'Mobile profile page')
     fireEvent.change(screen.getByLabelText(/^config json$/i, { selector: '#subpage-config-json' }), {
       target: { value: '{"title":"Mobile profile","theme":"mobile"}' },
@@ -1590,6 +1594,7 @@ describe('Control plane resource screens', () => {
     await user.click(screen.getAllByRole('button', { name: /^edit$/i })[0])
     await user.clear(screen.getByLabelText(/selected config name/i))
     await user.type(screen.getByLabelText(/selected config name/i), 'Default page edited')
+    await user.click(screen.getByText(/^selected config json$/i, { selector: 'summary' }))
     fireEvent.change(screen.getByLabelText(/selected config json/i), {
       target: { value: '{"title":"Edited page","theme":"edited"}' },
     })
@@ -1618,6 +1623,10 @@ describe('Control plane resource screens', () => {
       delivery_profile: { format: 'happ' },
     }))
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    expect(deleteSubscriptionPageConfig).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('alertdialog', { name: /delete subscription page config default page/i })
+    expect(dialog).toHaveTextContent(/live API/i)
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteSubscriptionPageConfig).toHaveBeenCalledWith('subpage_default'))
   })
 

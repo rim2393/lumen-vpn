@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import {
   useCloneSubscriptionPageConfig,
   useCreateSubscriptionPageConfig,
@@ -92,6 +92,7 @@ export function SubscriptionPublicPage() {
   const [editorJson, setEditorJson] = useState('{}')
   const [formError, setFormError] = useState<string | null>(null)
   const [configError, setConfigError] = useState<string | null>(null)
+  const [pendingDeleteConfig, setPendingDeleteConfig] = useState<SubscriptionPageConfigRecord | null>(null)
 
   const selectedConfig = configs.find((config) => config.id === selectedConfigId) ?? configs[0]
   const selectedSubscription =
@@ -168,7 +169,7 @@ export function SubscriptionPublicPage() {
         <button type="button" className="button button--secondary" onClick={() => void cloneConfig(config)}>
           Clone
         </button>
-        <button type="button" className="button button--danger" onClick={() => void deleteConfigMutation.mutateAsync(config.id)}>
+        <button type="button" className="button button--danger" onClick={() => setPendingDeleteConfig(config)}>
           Delete
         </button>
       </div>,
@@ -271,7 +272,7 @@ export function SubscriptionPublicPage() {
   }
 
   return (
-    <section className="page">
+    <section className="page subscription-public-page">
       <PageHeader
         eyebrow={pageSpec.eyebrow}
         title={pageSpec.title}
@@ -308,7 +309,7 @@ export function SubscriptionPublicPage() {
             </p>
           </div>
           <TextField id="subscription-title" label="Subscription title" required value={form.title} onChange={(title) => setForm((value) => ({ ...value, title }))} />
-          <TextField id="subscription-update-interval" label="Update interval, hours" min="1" required type="number" value={form.updateIntervalHours} onChange={(updateIntervalHours) => setForm((value) => ({ ...value, updateIntervalHours }))} />
+          <TextField id="subscription-update-interval" inputMode="numeric" label="Update interval, hours" min="1" required type="number" value={form.updateIntervalHours} onChange={(updateIntervalHours) => setForm((value) => ({ ...value, updateIntervalHours }))} />
           <TextField id="subscription-support-url" label="Support URL" type="url" value={form.supportUrl} onChange={(supportUrl) => setForm((value) => ({ ...value, supportUrl }))} />
           <TextField id="subscription-profile-page-url" label="Profile page URL" type="url" value={form.profilePageUrl} onChange={(profilePageUrl) => setForm((value) => ({ ...value, profilePageUrl }))} />
           <label htmlFor="subscription-happ-announce">
@@ -333,11 +334,14 @@ export function SubscriptionPublicPage() {
             />
             Random host order
           </label>
-          <JsonField id="subscription-response-headers" label="Response headers JSON" value={form.responseHeaders} onChange={(responseHeaders) => setForm((value) => ({ ...value, responseHeaders }))} />
-          <JsonField id="subscription-base-json" label="Base JSON" value={form.baseJson} onChange={(baseJson) => setForm((value) => ({ ...value, baseJson }))} />
-          <JsonField id="subscription-routing" label="Routing JSON" value={form.routing} onChange={(routing) => setForm((value) => ({ ...value, routing }))} />
-          <JsonField id="subscription-custom-remarks" label="Custom remarks JSON" value={form.customRemarks} onChange={(customRemarks) => setForm((value) => ({ ...value, customRemarks }))} />
-          <JsonField id="subscription-subpage" label="Subpage JSON" value={form.subpage} onChange={(subpage) => setForm((value) => ({ ...value, subpage }))} />
+          <details className="advanced-json-panel">
+            <summary>Renderer JSON</summary>
+            <JsonField id="subscription-response-headers" label="Response headers JSON" value={form.responseHeaders} onChange={(responseHeaders) => setForm((value) => ({ ...value, responseHeaders }))} />
+            <JsonField id="subscription-base-json" label="Base JSON" value={form.baseJson} onChange={(baseJson) => setForm((value) => ({ ...value, baseJson }))} />
+            <JsonField id="subscription-routing" label="Routing JSON" value={form.routing} onChange={(routing) => setForm((value) => ({ ...value, routing }))} />
+            <JsonField id="subscription-custom-remarks" label="Custom remarks JSON" value={form.customRemarks} onChange={(customRemarks) => setForm((value) => ({ ...value, customRemarks }))} />
+            <JsonField id="subscription-subpage" label="Subpage JSON" value={form.subpage} onChange={(subpage) => setForm((value) => ({ ...value, subpage }))} />
+          </details>
           <FormError message={formError} />
           {updateGroup.isSuccess ? (
             <p className="auth-card__note" aria-live="polite">
@@ -381,7 +385,10 @@ export function SubscriptionPublicPage() {
           </div>
           <TextField id="subpage-config-name" label="Config name" required value={configName} onChange={setConfigName} />
           <TextField id="subpage-config-status" label="Config status" required value={configStatus} onChange={setConfigStatus} />
-          <JsonField id="subpage-config-json" label="Config JSON" value={configJson} onChange={setConfigJson} />
+          <details className="advanced-json-panel">
+            <summary>Config JSON</summary>
+            <JsonField id="subpage-config-json" label="Config JSON" value={configJson} onChange={setConfigJson} />
+          </details>
           <FormError message={configError} />
           <SubmitButton pending={createConfig.isPending}>Create page config</SubmitButton>
         </ScreenForm>
@@ -403,7 +410,10 @@ export function SubscriptionPublicPage() {
             <form className="screen-form" onSubmit={saveSelectedConfig}>
               <TextField id="selected-subpage-config-name" label="Selected config name" required value={editorName} onChange={setEditorName} />
               <TextField id="selected-subpage-config-status" label="Selected config status" required value={editorStatus} onChange={setEditorStatus} />
-              <JsonField id="selected-subpage-config-json" label="Selected config JSON" value={editorJson} onChange={setEditorJson} />
+              <details className="advanced-json-panel">
+                <summary>Selected config JSON</summary>
+                <JsonField id="selected-subpage-config-json" label="Selected config JSON" value={editorJson} onChange={setEditorJson} />
+              </details>
               <SubmitButton pending={updateConfig.isPending}>Save selected page config</SubmitButton>
             </form>
           ) : (
@@ -446,6 +456,37 @@ export function SubscriptionPublicPage() {
           />
         ) : null}
       </article>
+      {pendingDeleteConfig ? (
+        <section
+          className="danger-confirm-inline subscription-config-confirm"
+          role="alertdialog"
+          aria-modal="false"
+          aria-label={`Delete subscription page config ${pendingDeleteConfig.name}`}
+        >
+          <div>
+            <p className="eyebrow">Production API confirmation</p>
+            <h3>Delete subscription page config {pendingDeleteConfig.name}</h3>
+            <p>This real subscription page config will be removed through the live API. Bound subscriptions keep their delivery profile until changed.</p>
+          </div>
+          <div className="inline-actions inline-actions--compact">
+            <button type="button" className="button button--secondary" disabled={deleteConfigMutation.isPending} onClick={() => setPendingDeleteConfig(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button button--danger"
+              disabled={deleteConfigMutation.isPending}
+              onClick={() => {
+                void deleteConfigMutation.mutateAsync(pendingDeleteConfig.id).then(() => {
+                  setPendingDeleteConfig(null)
+                })
+              }}
+            >
+              {deleteConfigMutation.isPending ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </section>
+      ) : null}
       <article className="panel panel--wide">
         <div className="panel__header">
           <div>
@@ -562,6 +603,7 @@ function buildPayload(form: SubscriptionDeliveryForm): Record<string, unknown> {
 
 function TextField({
   id,
+  inputMode,
   label,
   min,
   onChange,
@@ -570,6 +612,7 @@ function TextField({
   value,
 }: {
   id: string
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
   label: string
   min?: string
   onChange: (value: string) => void
@@ -582,7 +625,9 @@ function TextField({
       {label}
       <input
         id={id}
+        inputMode={inputMode}
         min={min}
+        name={id}
         required={required}
         type={type}
         value={value}
@@ -608,6 +653,7 @@ function JsonField({
       {label}
       <textarea
         id={id}
+        name={id}
         rows={5}
         spellCheck={false}
         value={value}

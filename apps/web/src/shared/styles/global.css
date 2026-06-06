@@ -1611,6 +1611,72 @@ h2 {
   top: calc(var(--space-4) + 76px);
 }
 
+.subscription-public-page {
+  max-width: 1480px;
+}
+
+.subscription-public-page .resource-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  align-items: start;
+  margin-top: var(--space-4);
+}
+
+.subscription-public-page .screen-form,
+.subscription-public-page .panel {
+  min-width: 0;
+}
+
+.subscription-public-page .advanced-json-panel {
+  max-height: min(520px, calc(100vh - 260px));
+  overflow: auto;
+}
+
+.subscription-public-page .advanced-json-panel:not([open]) {
+  max-height: none;
+  overflow: visible;
+}
+
+.subscription-public-page .advanced-json-panel textarea {
+  max-height: 240px;
+  font-family: var(--font-mono);
+  font-size: .84rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.subscription-public-page .code-block {
+  max-height: min(460px, calc(100vh - 260px));
+  white-space: pre;
+}
+
+.subscription-public-page .data-table-wrap {
+  max-height: min(470px, calc(100vh - 280px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.subscription-public-page .data-table {
+  min-width: 920px;
+  table-layout: fixed;
+}
+
+.subscription-public-page .data-table th,
+.subscription-public-page .data-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.subscription-public-page .data-table td:nth-child(3),
+.subscription-public-page .data-table td:last-child {
+  white-space: normal;
+}
+
+.subscription-config-confirm {
+  margin-top: var(--space-4);
+}
+
 .workflow-list {
   display: grid;
   gap: var(--space-3);
