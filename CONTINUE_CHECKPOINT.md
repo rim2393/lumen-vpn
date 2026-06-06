@@ -209,6 +209,17 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   `Открыть QA HApp Squad` opens
   `/users/f35df075-1d60-4983-8038-541e50a1b2a3`, and that real detail route
   shows the user editor, issued subscriptions and HWID/device sections.
+- Live prod evidence for release
+  `main-c16b7b749d2014ec7f4de1b9b5b3aca75acaa24d`: official signed
+  publish/deploy workflow `27057395329` completed successfully. User detail
+  layout now keeps the editor and side panels in a two-column desktop layout at
+  1080px instead of collapsing early. Live
+  `/users/f35df075-1d60-4983-8038-541e50a1b2a3` evidence: workspace grid
+  `689px 320px`, editor panel `left=20 top=928 width=689`, side panel
+  `left=725 top=928 width=320`, document height reduced from 2378 to 2092,
+  user editor form semantics are present (`email` autocomplete, `username`
+  name, Telegram numeric input mode, new-password autocomplete,
+  `metadata_json` name), and no API-key error is visible.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit

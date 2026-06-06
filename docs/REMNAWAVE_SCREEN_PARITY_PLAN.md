@@ -203,6 +203,24 @@ deployed before being marked done.
   clicking row `Открыть QA HApp Squad` opens
   `/users/f35df075-1d60-4983-8038-541e50a1b2a3` with the real detail editor,
   issued subscriptions and HWID/device sections visible.
+- 2026-06-06: RSP-002 UserDetail layout/form hardening released through the
+  official image build and installer deploy path at product commit `c16b7b7`.
+  The detail workspace no longer collapses to one column at 1080px desktop
+  width; the editor and side panels stay in the intended Remnawave-like
+  two-column operator layout until the mobile breakpoint. The user editor also
+  gained production form semantics (`name`, `autocomplete`, `inputMode`,
+  `enterKeyHint`) without changing API payload behavior. Local gates passed:
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`28 passed`), `npm run build`, release guard, production reality guard and
+  `git diff --check`. GitHub `Quality gates`, GitHub `Build release images`,
+  and installer deploy run `27057395329` succeeded. Live
+  `/users/f35df075-1d60-4983-8038-541e50a1b2a3` evidence at 1080x912:
+  `.user-detail-workspace` grid is `689px 320px`, editor panel is at
+  `left=20 top=928 width=689`, side panel is aligned at
+  `left=725 top=928 width=320`, document height dropped from 2378 to 2092,
+  form attrs are present (`email` autocomplete, `username` name,
+  `telegram` numeric input mode, `new-password` autocomplete,
+  `metadata_json` name), and no API-key error is visible.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
