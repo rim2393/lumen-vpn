@@ -647,23 +647,23 @@ def _subscription_browser_page(
   <style>
     :root {{
       color-scheme: dark;
-      --bg: #10110f;
-      --rail: #151813;
-      --surface: #1b201a;
-      --surface-strong: #202720;
-      --line: #31382f;
-      --line-strong: #485144;
-      --ink: #e8eee5;
-      --ink-strong: #f8fbf4;
-      --muted: #9aa691;
-      --accent: #53e0ad;
-      --accent-strong: #9af2ca;
-      --warning: #e7b95b;
-      --danger: #ff766d;
-      --info: #87c9e8;
-      --shadow: 0 24px 80px rgb(0 0 0 / 32%);
+      --bg: #111722;
+      --bg-soft: #151c29;
+      --surface: #1a2230;
+      --surface-strong: #202938;
+      --line: #2d394b;
+      --line-strong: #3d5068;
+      --ink: #eef5fb;
+      --muted: #98a7ba;
+      --muted-strong: #bdc8d6;
+      --accent: #22d3ee;
+      --accent-soft: rgb(34 211 238 / 12%);
+      --success: #2ed4a2;
+      --warning: #e5c05f;
+      --shadow: 0 24px 70px rgb(0 0 0 / 26%);
       --radius-sm: 8px;
       --radius-md: 12px;
+      --radius-lg: 16px;
       font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
     }}
     * {{ box-sizing: border-box; }}
@@ -674,11 +674,11 @@ def _subscription_browser_page(
       min-height: 100vh;
       color: var(--ink);
       background:
-        linear-gradient(90deg, rgb(255 255 255 / 3%) 1px, transparent 1px),
-        linear-gradient(180deg, rgb(255 255 255 / 3%) 1px, transparent 1px),
-        radial-gradient(circle at 18% 0%, rgb(83 224 173 / 12%), transparent 32%),
-        var(--bg);
-      background-size: 44px 44px, 44px 44px, auto, auto;
+        linear-gradient(90deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px),
+        linear-gradient(180deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px),
+        radial-gradient(circle at 50% -120px, rgb(34 211 238 / 14%), transparent 42%),
+        linear-gradient(180deg, #121925 0%, #111722 52%, #10151f 100%);
+      background-size: 64px 64px, 64px 64px, auto, auto;
       font-synthesis: none;
       -webkit-font-smoothing: antialiased;
     }}
@@ -686,20 +686,24 @@ def _subscription_browser_page(
     button {{ cursor: pointer; }}
     a {{ color: inherit; }}
     h1, h2, h3, p {{ margin: 0; }}
-    h1, h2, h3 {{ color: var(--ink-strong); line-height: 1.1; letter-spacing: 0; }}
+    h1, h2, h3 {{ color: var(--ink); line-height: 1.12; letter-spacing: 0; }}
     main {{
-      width: min(1180px, calc(100% - 32px));
+      width: min(760px, calc(100% - 28px));
       margin: 0 auto;
-      padding: 28px 0 56px;
+      padding: 26px 0 64px;
     }}
     .topbar {{
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      min-height: 64px;
-      padding: 0 0 24px;
-      border-bottom: 1px solid var(--line);
+      min-height: 70px;
+      padding: 14px 18px;
+      background: rgb(26 34 48 / 74%);
+      border: 1px solid var(--line);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
     }}
     .brand {{
       display: inline-flex;
@@ -712,13 +716,12 @@ def _subscription_browser_page(
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 42px;
-      height: 42px;
-      color: #08110c;
-      background: var(--accent);
-      border: 1px solid rgb(255 255 255 / 34%);
-      border-radius: var(--radius-md);
-      box-shadow: inset 0 -10px 22px rgb(0 0 0 / 12%);
+      width: 40px;
+      height: 40px;
+      color: var(--accent);
+      background: rgb(34 211 238 / 10%);
+      border: 1px solid rgb(34 211 238 / 30%);
+      border-radius: var(--radius-sm);
     }}
     .brand-text {{
       display: grid;
@@ -728,8 +731,9 @@ def _subscription_browser_page(
     }}
     .brand-text strong {{
       overflow: hidden;
-      color: var(--ink-strong);
-      font-size: 1rem;
+      color: var(--accent);
+      font-size: 1.06rem;
+      font-weight: 900;
       text-overflow: ellipsis;
       white-space: nowrap;
     }}
@@ -749,29 +753,29 @@ def _subscription_browser_page(
       align-items: center;
       justify-content: center;
       gap: 9px;
-      min-height: 40px;
-      padding: 0 16px;
+      min-height: 42px;
+      padding: 0 17px;
       color: var(--ink);
       font-weight: 800;
       text-decoration: none;
-      background: rgb(255 255 255 / 6%);
+      background: rgb(20 29 43 / 94%);
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
     }}
     .button:hover {{ transform: translateY(-1px); border-color: var(--line-strong); }}
     .button.primary {{
-      color: #08110c;
-      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-      border-color: transparent;
+      color: #dffaff;
+      background: linear-gradient(180deg, #146b7f, #125267);
+      border-color: #1d95b4;
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
     }}
     .button svg {{ width: 17px; height: 17px; flex: 0 0 auto; }}
     .page-head {{
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 18px;
-      align-items: end;
-      padding: 28px 0 22px;
+      gap: 8px;
+      padding: 34px 0 16px;
+      text-align: center;
     }}
     .page-head > * {{ min-width: 0; }}
     .eyebrow {{
@@ -781,86 +785,101 @@ def _subscription_browser_page(
       font-weight: 800;
       text-transform: uppercase;
     }}
-    h1 {{ margin-top: 8px; overflow-wrap: anywhere; font-size: 2.1rem; }}
-    .lead {{ max-width: 64ch; margin-top: 10px; color: var(--muted); font-weight: 650; }}
+    h1 {{
+      margin-top: 6px;
+      overflow-wrap: anywhere;
+      font-size: clamp(1.8rem, 4.4vw, 2.45rem);
+      font-weight: 900;
+    }}
+    .lead {{
+      max-width: 58ch;
+      margin: 9px auto 0;
+      color: var(--muted);
+      font-size: .95rem;
+      font-weight: 600;
+      line-height: 1.55;
+    }}
     .status-badge {{
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      width: fit-content;
       min-height: 32px;
+      margin: 14px auto 0;
       padding: 0 12px;
-      color: var(--accent);
+      color: var(--success);
       font-size: .82rem;
       font-weight: 800;
-      background: rgb(83 224 173 / 10%);
-      border: 1px solid rgb(83 224 173 / 38%);
+      background: rgb(46 212 162 / 10%);
+      border: 1px solid rgb(46 212 162 / 30%);
       border-radius: var(--radius-sm);
     }}
     .status-badge::before {{
       width: 8px;
       height: 8px;
       content: "";
-      background: var(--accent);
+      background: var(--success);
       border-radius: 999px;
-      box-shadow: 0 0 18px var(--accent);
+      box-shadow: 0 0 18px var(--success);
     }}
     .metrics {{
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 16px;
-    }}
-    .metric, .panel {{
-      background:
-        linear-gradient(180deg, rgb(255 255 255 / 7%), transparent 56%),
-        var(--surface);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 22px;
+      margin: 18px 0 32px;
+      background: rgb(26 34 48 / 88%);
       border: 1px solid var(--line);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
     }}
+    .metric, .panel {{ border: 1px solid var(--line); box-shadow: var(--shadow); }}
     .metric {{
       display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
       gap: 12px;
-      min-height: 142px;
-      padding: 18px;
+      align-items: start;
+      min-height: 78px;
+      padding: 13px;
+      background: linear-gradient(180deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 2%));
+      border-radius: var(--radius-sm);
     }}
     .metric-icon, .step-icon {{
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 42px;
-      height: 42px;
+      width: 34px;
+      height: 34px;
       color: var(--accent);
-      background: rgb(83 224 173 / 10%);
-      border: 1px solid rgb(83 224 173 / 28%);
+      background: var(--accent-soft);
+      border: 1px solid rgb(34 211 238 / 22%);
       border-radius: var(--radius-sm);
     }}
-    .metric-icon svg, .step-icon svg {{ width: 20px; height: 20px; }}
+    .metric-icon svg, .step-icon svg {{ width: 18px; height: 18px; }}
     .metric span {{
       color: var(--muted);
-      font-size: .82rem;
+      font-size: .78rem;
       font-weight: 800;
     }}
     .metric strong {{
       display: block;
+      margin-top: 5px;
       overflow-wrap: anywhere;
-      color: var(--ink-strong);
-      font-size: 1.35rem;
-      line-height: 1.05;
+      color: var(--ink);
+      font-size: 1.02rem;
+      line-height: 1.14;
     }}
     .panel {{
-      padding: 22px;
-      margin-top: 16px;
+      padding: 28px 32px 30px;
+      background: rgb(26 34 48 / 90%);
+      border-radius: var(--radius-lg);
     }}
     .panel-head {{
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: grid;
       gap: 14px;
       padding-bottom: 16px;
-      border-bottom: 1px solid var(--line);
     }}
-    h2 {{ font-size: 1.18rem; }}
+    h2 {{ font-size: 1.38rem; font-weight: 900; }}
     .tabs {{
       display: inline-flex;
       flex-wrap: wrap;
@@ -870,23 +889,22 @@ def _subscription_browser_page(
       display: inline-flex;
       align-items: center;
       min-height: 38px;
-      padding: 0 14px;
-      color: var(--muted);
+      padding: 0 16px;
+      color: var(--muted-strong);
       font-weight: 800;
       text-decoration: none;
-      background: rgb(255 255 255 / 5%);
-      border: 1px solid var(--line);
+      background: rgb(20 29 43 / 92%);
+      border: 1px solid #324358;
       border-radius: var(--radius-sm);
     }}
-    .tab:hover {{ color: var(--ink-strong); border-color: var(--line-strong); }}
+    .tab:hover {{ color: var(--ink); border-color: var(--line-strong); }}
     .tab.active {{
-      color: var(--ink-strong);
-      background: rgb(83 224 173 / 12%);
-      border-color: rgb(83 224 173 / 34%);
+      color: #dbfbff;
+      background: rgb(34 211 238 / 12%);
+      border-color: var(--accent);
     }}
     .install-grid {{
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
       gap: 16px;
       margin-top: 16px;
     }}
@@ -900,13 +918,13 @@ def _subscription_browser_page(
       grid-template-columns: 42px minmax(0, 1fr);
       gap: 14px;
       min-width: 0;
-      padding: 16px;
-      background: rgb(255 255 255 / 4%);
+      padding: 18px;
+      background: rgb(20 29 43 / 84%);
       border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
     }}
     .step h3 {{ font-size: 1rem; }}
-    .muted {{ margin-top: 7px; color: var(--muted); }}
+    .muted {{ margin-top: 7px; color: var(--muted); line-height: 1.5; }}
     .step-actions {{
       display: flex;
       flex-wrap: wrap;
@@ -918,9 +936,7 @@ def _subscription_browser_page(
       align-content: start;
       gap: 14px;
       padding: 18px;
-      background:
-        linear-gradient(180deg, rgb(83 224 173 / 8%), transparent 44%),
-        var(--surface-strong);
+      background: rgb(20 29 43 / 84%);
       border: 1px solid var(--line);
       border-radius: var(--radius-md);
     }}
@@ -942,11 +958,11 @@ def _subscription_browser_page(
       place-items: center;
       width: 100%;
       aspect-ratio: 1;
-      padding: 28px;
+      padding: 24px;
       overflow: hidden;
       background: #fff;
-      border: 1px solid #d8e0d4;
-      border-radius: var(--radius-sm);
+      border: 1px solid #dce6ee;
+      border-radius: 10px;
     }}
     .qr svg {{
       display: block;
@@ -973,7 +989,7 @@ def _subscription_browser_page(
       color: var(--ink);
       font-size: .82rem;
       font-weight: 800;
-      background: rgb(0 0 0 / 18%);
+      background: rgb(15 23 35 / 82%);
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
     }}
@@ -982,9 +998,9 @@ def _subscription_browser_page(
       width: 8px;
       height: 8px;
       content: "";
-      background: var(--accent);
+      background: var(--success);
       border-radius: 999px;
-      box-shadow: 0 0 16px rgb(83 224 173 / 62%);
+      box-shadow: 0 0 16px rgb(46 212 162 / 62%);
     }}
     .qr-status span {{
       overflow: hidden;
@@ -992,21 +1008,19 @@ def _subscription_browser_page(
       white-space: nowrap;
     }}
     @media (max-width: 920px) {{
-      .page-head, .install-grid {{ grid-template-columns: 1fr; }}
       .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
     }}
     @media (max-width: 620px) {{
-      main {{ width: min(100% - 20px, 1180px); padding-top: 16px; }}
-      .topbar, .panel-head {{ align-items: flex-start; flex-direction: column; }}
-      .page-head {{ display: flex; align-items: flex-start; flex-direction: column; }}
+      main {{ width: min(100% - 18px, 760px); padding-top: 10px; }}
+      .topbar {{ align-items: flex-start; flex-direction: column; border-radius: var(--radius-lg); }}
+      .panel-head {{ align-items: flex-start; }}
       .top-actions, .tabs, .step-actions {{ width: 100%; }}
       .button, .tab {{ width: 100%; }}
       .metrics {{ grid-template-columns: 1fr; }}
-      .panel {{ padding: 16px; }}
+      .panel, .metrics {{ padding: 16px; }}
       h1 {{ font-size: 1.7rem; }}
-      .install-grid {{ gap: 12px; }}
       .qr-panel {{ padding: 14px; }}
-      .qr {{ padding: 22px; }}
+      .qr {{ padding: 20px; }}
       .qr svg {{ width: min(100%, 280px); }}
       .qr-actions {{ grid-template-columns: 1fr; }}
     }}

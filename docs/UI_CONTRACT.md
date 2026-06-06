@@ -31,6 +31,10 @@ The Lumen look uses graphite surfaces, green safety accents, amber warning state
 
 ## Planned Integration Work
 
+- Active screen parity source of truth: `docs/REMNAWAVE_SCREEN_PARITY_PLAN.md`.
+  Backend/API parity rows are not enough to mark a screen complete. A screen is
+  production-ready only when the visual layout, user workflow, every visible
+  button and live API behavior are verified against the Remnawave-like target.
 - Set `VITE_LUMEN_API_BASE_URL` when the web bundle must call a different API origin. If it is unset, the runtime uses `window.location.origin`. There is no environment switch for fake/development API mode in runtime bundles.
 - Current HTTP paths include `GET/PATCH/DELETE /api/v1/users/{id}`, `POST /api/v1/users/bulk/{action}`, `GET/POST/PATCH/DELETE /api/v1/hosts`, `GET/POST/PATCH/DELETE /api/v1/profiles`, `GET/POST/PATCH/DELETE /api/v1/squads`, `GET /api/admin/license`, `GET /api/admin/api-keys`, `GET /api/v1/nodes`, `POST /api/v1/nodes/provisioning-jobs`, and Remna-compatible aliases under `/api/users`, `/api/hosts`, `/api/config-profiles`, `/api/internal-squads`, `/api/external-squads`, and `/api/tokens`.
 - Node provisioning UI must never collect or render SSH passwords, private keys, install tokens, heartbeat tokens, subscription URLs, or generated runtime configs. It may show safe install-token issue/exchange timestamps and the real heartbeat endpoint path.
