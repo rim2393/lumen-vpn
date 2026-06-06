@@ -718,6 +718,7 @@ const ru: Record<string, string> = {
   'Profile metadata JSON': 'JSON метаданных профиля',
   'Profile metadata JSON must be an object.': 'JSON метаданных профиля должен быть объектом.',
   'Profile metadata JSON must be valid JSON.': 'JSON метаданных профиля должен быть валидным JSON.',
+  'Advanced JSON': 'Расширенный JSON',
   'Profile reorder failed.': 'Не удалось изменить порядок профилей.',
   'Protocol builder writes real config_json': 'Билдер пишет реальный config_json',
   'Profile inventory': 'Инвентарь профилей',

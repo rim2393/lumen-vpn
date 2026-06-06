@@ -2326,6 +2326,24 @@ h2 {
   min-height: 148px;
 }
 
+.profile-editor-panel .profile-editor-advanced {
+  margin-top: 0;
+  padding: var(--space-3);
+}
+
+.profile-editor-panel .profile-editor-advanced[open] {
+  max-height: min(520px, calc(100vh - 180px));
+  overflow: auto;
+}
+
+.profile-editor-panel .profile-editor-advanced label {
+  margin-top: var(--space-3);
+}
+
+.profile-editor-panel .profile-editor-advanced .inline-actions {
+  margin-top: var(--space-3);
+}
+
 .profile-editor-panel .toggle-row {
   align-items: start;
   min-height: 42px;

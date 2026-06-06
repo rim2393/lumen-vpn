@@ -125,3 +125,8 @@ admin Users/Profile/Hosts.
   adapter capability cards, and sticky save/cancel actions. Submit, port
   validation, protocol JSON builder and API persistence are unchanged. Local
   web `npm run build` passed.
+- 2026-06-06: RSP-003 profile editor advanced JSON pass prepared. The real
+  JSON config, metadata and protocol builder remain in the submitted form but
+  move into a collapsed `Advanced JSON` section by default, matching the
+  operator expectation that common profile edits do not require scrolling
+  through raw JSON. RU label added. Local web `npm run build` passed.

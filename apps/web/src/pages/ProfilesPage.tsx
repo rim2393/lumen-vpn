@@ -2591,35 +2591,41 @@ function ProfileEditor({
             onChange={(event) => patch({ credentialsRef: event.target.value })}
           />
         </label>
-        <label htmlFor="profile-config-json" className="profile-form-grid__wide">
-          {t('Profile config JSON')}
-          <textarea
-            id="profile-config-json"
-            spellCheck={false}
-            value={form.configJson}
-            onChange={(event) => patch({ configJson: event.target.value })}
-          />
-        </label>
-        <div className="profile-form-grid__wide inline-actions">
-          <button
-            type="button"
-            className="button button--secondary"
-            onClick={() => patch({ configJson: JSON.stringify(builderConfig, null, 2) })}
-          >
+        <details className="details-card profile-form-grid__wide profile-editor-advanced">
+          <summary>
             <Code2 size={16} aria-hidden="true" />
-            {t('Build JSON from protocol fields')}
-          </button>
-          <StatusBadge tone="info">{t('Protocol builder writes real config_json')}</StatusBadge>
-        </div>
-        <label htmlFor="profile-metadata-json" className="profile-form-grid__wide">
-          {t('Profile metadata JSON')}
-          <textarea
-            id="profile-metadata-json"
-            spellCheck={false}
-            value={form.metadataJson}
-            onChange={(event) => patch({ metadataJson: event.target.value })}
-          />
-        </label>
+            {t('Advanced JSON')}
+          </summary>
+          <label htmlFor="profile-config-json">
+            {t('Profile config JSON')}
+            <textarea
+              id="profile-config-json"
+              spellCheck={false}
+              value={form.configJson}
+              onChange={(event) => patch({ configJson: event.target.value })}
+            />
+          </label>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => patch({ configJson: JSON.stringify(builderConfig, null, 2) })}
+            >
+              <Code2 size={16} aria-hidden="true" />
+              {t('Build JSON from protocol fields')}
+            </button>
+            <StatusBadge tone="info">{t('Protocol builder writes real config_json')}</StatusBadge>
+          </div>
+          <label htmlFor="profile-metadata-json">
+            {t('Profile metadata JSON')}
+            <textarea
+              id="profile-metadata-json"
+              spellCheck={false}
+              value={form.metadataJson}
+              onChange={(event) => patch({ metadataJson: event.target.value })}
+            />
+          </label>
+        </details>
         <label className="toggle-row profile-form-grid__wide" htmlFor="profile-allow-conflicts">
           <input
             id="profile-allow-conflicts"
