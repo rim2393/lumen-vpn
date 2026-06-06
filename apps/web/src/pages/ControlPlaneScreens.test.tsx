@@ -881,12 +881,12 @@ describe('Control plane resource screens', () => {
       updated_at: '2026-05-28T00:00:00.000Z',
       updated_by: 'owner',
     }))
-    const updateToolSnippet = vi.fn(async () => ({
-      content: 'systemctl status xray',
+    const updateToolSnippet = vi.fn(async (_id: string, request: { content?: string; language?: string; name?: string }) => ({
+      content: request.content ?? 'systemctl status xray',
       description: null,
       id: 'snippet-1',
-      language: 'shell',
-      name: 'Xray status',
+      language: request.language ?? 'shell',
+      name: request.name ?? 'Xray status',
       order: 0,
       updated_at: '2026-05-28T00:00:00.000Z',
       updated_by: 'owner',
@@ -924,11 +924,19 @@ describe('Control plane resource screens', () => {
         name: 'Xray status',
       }),
     )
-    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.clear(screen.getByLabelText(/^name$/i))
+    await user.type(screen.getByLabelText(/^name$/i), 'Xray journal')
+    await user.clear(screen.getByLabelText(/^language$/i))
+    await user.type(screen.getByLabelText(/^language$/i), 'bash')
+    await user.clear(screen.getByLabelText(/^content$/i))
+    await user.type(screen.getByLabelText(/^content$/i), 'journalctl -u xray -n 100')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
     await waitFor(() =>
       expect(updateToolSnippet).toHaveBeenCalledWith('snippet-1', {
-        content: 'systemctl status xray',
-        name: 'Xray status',
+        content: 'journalctl -u xray -n 100',
+        language: 'bash',
+        name: 'Xray journal',
       }),
     )
     await user.click(screen.getByRole('button', { name: /delete snippet xray status/i }))

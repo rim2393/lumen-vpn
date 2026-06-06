@@ -28,7 +28,7 @@ import { DataTable } from '../shared/components/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../shared/components/DataState'
 import { PageHeader } from '../shared/components/PageHeader'
 import { StatusBadge } from '../shared/components/StatusBadge'
-import type { NodeCommandRecord } from '../shared/api/types'
+import type { NodeCommandRecord, ToolSnippetRecord } from '../shared/api/types'
 import { formatDateTime, formatRecord, toneForStatus } from '../shared/utils/resourceFormat'
 
 type ToolId = 'hwid' | 'top-users' | 'user-ips' | 'srh' | 'sessions' | 'torrent' | 'happ' | 'utilities' | 'snippets'
@@ -120,6 +120,7 @@ export function ToolsPage() {
     language: 'shell',
     name: 'Xray status',
   })
+  const [editingSnippetId, setEditingSnippetId] = useState<string | null>(null)
   const [hwidFilter, setHwidFilter] = useState('')
   const [ipFilter, setIpFilter] = useState('')
   const [torrentFilter, setTorrentFilter] = useState('')
@@ -163,6 +164,8 @@ export function ToolsPage() {
   const createSnippet = useCreateToolSnippet()
   const updateSnippet = useUpdateToolSnippet()
   const deleteSnippet = useDeleteToolSnippet()
+  const snippetMutationPending =
+    createSnippet.isPending || updateSnippet.isPending || deleteSnippet.isPending
   const queries = [
     summaryQuery,
     hwidQuery,
@@ -216,6 +219,53 @@ export function ToolsPage() {
       mode: happBuildForm.mode as 'add' | 'onadd' | 'off',
       profile_json: profileJson,
       subscription_url: happBuildForm.subscriptionUrl.trim() || null,
+    })
+  }
+
+  function editSnippet(snippet: ToolSnippetRecord) {
+    setEditingSnippetId(snippet.id)
+    setSnippetForm({
+      content: snippet.content,
+      language: snippet.language,
+      name: snippet.name,
+    })
+  }
+
+  function resetSnippetEditor() {
+    setEditingSnippetId(null)
+    setSnippetForm({
+      content: '',
+      language: 'shell',
+      name: '',
+    })
+  }
+
+  async function createSnippetFromEditor() {
+    const created = await createSnippet.mutateAsync(snippetForm)
+    setEditingSnippetId(created.id)
+    setSnippetForm({
+      content: created.content,
+      language: created.language,
+      name: created.name,
+    })
+  }
+
+  async function saveSnippetFromEditor() {
+    if (!editingSnippetId) {
+      return
+    }
+    const updated = await updateSnippet.mutateAsync({
+      id: editingSnippetId,
+      request: {
+        content: snippetForm.content,
+        language: snippetForm.language,
+        name: snippetForm.name,
+      },
+    })
+    setSnippetForm({
+      content: updated.content,
+      language: updated.language,
+      name: updated.name,
     })
   }
 
@@ -492,21 +542,16 @@ export function ToolsPage() {
               <button
                 type="button"
                 className="button button--secondary"
-                disabled={updateSnippet.isPending}
-                onClick={() =>
-                  void updateSnippet.mutateAsync({
-                    id: item.id,
-                    request: { content: item.content, name: item.name },
-                  })
-                }
+                disabled={snippetMutationPending}
+                onClick={() => editSnippet(item)}
               >
-                Save
+                Edit
               </button>
               <button
                 type="button"
                 className="icon-button"
                 aria-label={`Delete snippet ${item.name}`}
-                disabled={deleteSnippet.isPending}
+                disabled={snippetMutationPending}
                 onClick={() =>
                   setPendingAction({
                     kind: 'delete-snippet',
@@ -581,6 +626,7 @@ export function ToolsPage() {
     generateNodeKey.data,
     revokeToolSession,
     sessionsQuery.data,
+    snippetMutationPending,
     snippetsQuery.data,
     srhQuery.data,
     truncateTorrentReports,
@@ -588,7 +634,6 @@ export function ToolsPage() {
     topUsersMetric,
     topUsersQuery.data,
     userIpsQuery.data,
-    updateSnippet,
   ])
 
   return (
@@ -655,8 +700,8 @@ export function ToolsPage() {
                 <button
                   type="button"
                   className="button button--secondary"
-                  disabled={createSnippet.isPending}
-                  onClick={() => void createSnippet.mutateAsync(snippetForm)}
+                  disabled={snippetMutationPending || !snippetForm.name.trim()}
+                  onClick={() => void createSnippetFromEditor()}
                 >
                   Create snippet
                 </button>
@@ -1045,20 +1090,33 @@ export function ToolsPage() {
             ) : null}
             {activeTool === 'snippets' ? (
               <div className="details-card tools-snippet-editor">
-                <h3>Snippet editor</h3>
+                <div className="panel__header">
+                  <div>
+                    <p className="eyebrow">Snippet editor</p>
+                    <h3>{editingSnippetId ? 'Edit saved snippet' : 'New snippet'}</h3>
+                  </div>
+                  <StatusBadge tone={editingSnippetId ? 'good' : 'neutral'}>
+                    {editingSnippetId ? 'selected' : 'draft'}
+                  </StatusBadge>
+                </div>
                 <div className="form-grid">
-                  <label>
+                  <label htmlFor="tool-snippet-name">
                     <span>Name</span>
                     <input
+                      id="tool-snippet-name"
+                      name="snippet_name"
+                      required
                       value={snippetForm.name}
                       onChange={(event) =>
                         setSnippetForm((current) => ({ ...current, name: event.target.value }))
                       }
                     />
                   </label>
-                  <label>
+                  <label htmlFor="tool-snippet-language">
                     <span>Language</span>
                     <input
+                      id="tool-snippet-language"
+                      name="snippet_language"
                       value={snippetForm.language}
                       onChange={(event) =>
                         setSnippetForm((current) => ({
@@ -1068,9 +1126,12 @@ export function ToolsPage() {
                       }
                     />
                   </label>
-                  <label className="form-grid__wide">
+                  <label className="form-grid__wide" htmlFor="tool-snippet-content">
                     <span>Content</span>
                     <textarea
+                      id="tool-snippet-content"
+                      name="snippet_content"
+                      rows={8}
                       value={snippetForm.content}
                       onChange={(event) =>
                         setSnippetForm((current) => ({
@@ -1080,6 +1141,24 @@ export function ToolsPage() {
                       }
                     />
                   </label>
+                </div>
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={!editingSnippetId || snippetMutationPending || !snippetForm.name.trim()}
+                    onClick={() => void saveSnippetFromEditor()}
+                  >
+                    Save changes
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    disabled={snippetMutationPending}
+                    onClick={resetSnippetEditor}
+                  >
+                    New snippet
+                  </button>
                 </div>
               </div>
             ) : null}

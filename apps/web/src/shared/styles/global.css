@@ -2556,8 +2556,14 @@ h2 {
 }
 
 .tools-page .toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+.tools-page .toolbar > * {
+  min-width: min(100%, 220px);
 }
 
 .tools-page .data-table-wrap {
