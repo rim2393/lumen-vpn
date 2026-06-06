@@ -298,13 +298,13 @@ export function ToolsPage() {
         empty: 'No user IP events recorded.',
         rows: (userIpsQuery.data?.items ?? []).map((item) => ({
           cells: [
-            item.username ? `${item.username} В· ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
+            item.username ? `${item.username} · ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
             item.ip,
             item.sources.join(', '),
             item.subscription_ids.length > 0 ? item.subscription_ids.join(', ') : '-',
             item.node_ids.length > 0 ? item.node_ids.join(', ') : '-',
-            `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
-            `${item.evidence_count}${item.last_decision ? ` В· ${item.last_decision}` : ''}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+            `${formatDateTime(item.first_seen_at)} · ${formatDateTime(item.last_seen_at)}`,
+            `${item.evidence_count}${item.last_decision ? ` · ${item.last_decision}` : ''}${item.last_target ? ` · ${item.last_target}` : ''}`,
             item.node_ids.length > 0 ? (
               <button
                 type="button"
@@ -797,11 +797,11 @@ export function ToolsPage() {
                     rows={(nodeUserIpsQuery.data?.items ?? []).map((item) => ({
                       cells: [
                         item.node_name ?? item.node_id,
-                        item.username ? `${item.username} В· ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
+                        item.username ? `${item.username} · ${item.email ?? item.user_id}` : (item.email ?? item.user_id),
                         item.ip,
                         item.subscription_ids.length > 0 ? item.subscription_ids.join(', ') : '-',
-                        `${formatDateTime(item.first_seen_at)} В· ${formatDateTime(item.last_seen_at)}`,
-                        `${item.evidence_count}${item.last_target ? ` В· ${item.last_target}` : ''}`,
+                        `${formatDateTime(item.first_seen_at)} · ${formatDateTime(item.last_seen_at)}`,
+                        `${item.evidence_count}${item.last_target ? ` · ${item.last_target}` : ''}`,
                         <button
                           type="button"
                           className="icon-button"
