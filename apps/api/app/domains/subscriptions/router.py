@@ -836,16 +836,19 @@ def _subscription_browser_page(
       place-items: center;
       width: 100%;
       aspect-ratio: 1;
-      padding: 16px;
+      padding: 28px;
+      overflow: hidden;
       background: #fff;
       border: 1px solid #d8e0d4;
       border-radius: var(--radius-sm);
     }}
     .qr svg {{
       display: block;
-      width: 100%;
-      max-width: 336px;
+      width: min(100%, 300px);
+      max-width: calc(100% - 8px);
+      max-height: calc(100% - 8px);
       height: auto;
+      overflow: visible;
     }}
     .qr-actions {{
       display: grid;
@@ -897,6 +900,8 @@ def _subscription_browser_page(
       h1 {{ font-size: 1.7rem; }}
       .install-grid {{ gap: 12px; }}
       .qr-panel {{ padding: 14px; }}
+      .qr {{ padding: 22px; }}
+      .qr svg {{ width: min(100%, 280px); }}
       .qr-actions {{ grid-template-columns: 1fr; }}
     }}
     @media (prefers-reduced-motion: reduce) {{
