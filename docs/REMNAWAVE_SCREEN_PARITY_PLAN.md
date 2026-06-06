@@ -428,3 +428,33 @@ deployed before being marked done.
   and `subscription-config-confirm`; and the live JS asset contains no
   `window.confirm`, `globalThis.confirm`, or `.confirm(` native browser
   confirmation calls.
+- 2026-06-06: RSP-008 Settings performance/security UX slice released
+  through the official image build and installer deploy path at product
+  commit `7514f32` and installer workflow `27060005431`. The `/settings`
+  surface now avoids loading MFA/passkey API calls on first paint; the real
+  security methods panel loads only after the operator opens it. MFA/passkey
+  deletion now uses an inline production API confirmation before calling the
+  real delete mutations. The subscription delivery group collapses advanced
+  JSON by default, settings fields have stable form names and numeric input
+  hints, the broken `api готов` badge key was replaced with a translated
+  `api ready`, provider cards and the registry table are bounded for
+  medium/mobile widths, and the heavy settings cards use `content-visibility`
+  to reduce rendering work. Local gates passed:
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`30 passed`), `npx tsc -b --pretty false`, `npm run build`,
+  `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, and `git diff --check`.
+  Product GitHub runs succeeded: `Quality gates` `27059485000` and
+  `Build release images` `27059484986`. Live evidence after deploy:
+  `https://panel.lumentech.tel/api/v1/health/ready` returned `ok`; panel
+  `/settings` returned assets `/assets/index-CeAghXrO.js` and
+  `/assets/index-DeoIYgi8.css`; the JS asset contains
+  `Open security methods`, `Load on demand`, `Delete security method`,
+  `settings-security-loader`, `settings-security-confirm`, and
+  `settings-advanced-json`; the CSS asset contains
+  `settings-security-loader`, `settings-security-confirm`,
+  `settings-advanced-json`, and `content-visibility`; and the live JS asset
+  contains no `window.confirm`, `globalThis.confirm`, or `.confirm(` native
+  browser confirmation calls. Remaining Settings parity work: full Remnawave
+  visual polish and any missing settings groups/actions still need a later
+  page-complete pass.

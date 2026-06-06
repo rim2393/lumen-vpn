@@ -282,6 +282,30 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   `subscription-public-page` and `subscription-config-confirm`; JS contains
   no `window.confirm`, `globalThis.confirm`, or `.confirm(` native browser
   confirmation calls.
+- Live prod evidence for release
+  `main-7514f32c75f080d5e36e1ecc73aa83beded7d701`: official signed
+  publish/deploy workflow `27060005431` completed successfully. Settings now
+  avoids loading MFA/passkey APIs on first paint; the real security methods
+  panel loads on operator action. MFA/passkey deletion uses inline production
+  API confirmation before calling the real delete mutations. Subscription
+  delivery JSON is collapsed by default, settings fields have stable form
+  names and numeric input hints, the broken `api готов` badge key is replaced
+  by translated `api ready`, and settings cards/registry/provider cards are
+  bounded for medium/mobile widths with `content-visibility` on heavy cards.
+  Local gates passed: focused `ControlPlaneScreens.test.tsx` Vitest
+  (`30 passed`), TypeScript build, web production build, release guard,
+  production reality guard, and `git diff --check`. Product GitHub runs
+  succeeded: `Quality gates` `27059485000` and `Build release images`
+  `27059484986`. Live evidence: `/api/v1/health/ready` returned `ok`;
+  `/settings` returned assets `/assets/index-CeAghXrO.js` and
+  `/assets/index-DeoIYgi8.css`; JS contains `Open security methods`,
+  `Load on demand`, `Delete security method`, `settings-security-loader`,
+  `settings-security-confirm`, and `settings-advanced-json`; CSS contains
+  `settings-security-loader`, `settings-security-confirm`,
+  `settings-advanced-json`, and `content-visibility`; JS contains no
+  `window.confirm`, `globalThis.confirm`, or `.confirm(` native browser
+  confirmation calls. This is not full Remnawave Settings completion; it is
+  the first production hardening slice for Settings.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
@@ -299,9 +323,10 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
 ## Next Suggested Work
 
 1. Continue Remnawave parity UI pages only against live API state; no fake
-   counters or static placeholder rows. The next practical page slices are
-   Settings and Tools, then the remaining dense admin surfaces that still
-   have slow loading, weak responsive behavior, or incomplete inline actions.
+   counters or static placeholder rows. The next practical page slice is
+   Tools, then the remaining Settings full-parity pass and other dense admin
+   surfaces that still have slow loading, weak responsive behavior, or
+   incomplete inline actions.
 2. For each admin page slice, replace remaining native/browser-only UX with
    real inline controls, add focused tests, run build/guards, push, wait
    product workflows, deploy by official installer workflow, and record live
