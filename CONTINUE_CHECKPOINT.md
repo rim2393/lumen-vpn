@@ -199,6 +199,16 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   href, QR SVG is present with a viewBox, copy URL is `/sub/.../happ?...&raw=1`,
   the raw endpoint returns real `text/plain` protocol output, and no internal
   `/api/v1/subscriptions/public/` URL leaks into the public HTML.
+- Live prod evidence for release
+  `main-c0abd0be724cc3bc9cc972de707a79b9920c039d`: official signed
+  publish/deploy workflow `27057177883` completed successfully. Users directory
+  rows now open real `/users/{id}` detail routes by mouse and keyboard while
+  ignoring checkbox/button/link clicks inside the row. Live
+  `https://panel.lumentech.tel/users` evidence: 15 real checkbox controls, no
+  API-key error, selecting the first checkbox stays on `/users`, clicking row
+  `Открыть QA HApp Squad` opens
+  `/users/f35df075-1d60-4983-8038-541e50a1b2a3`, and that real detail route
+  shows the user editor, issued subscriptions and HWID/device sections.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit

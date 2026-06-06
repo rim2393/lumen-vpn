@@ -189,6 +189,20 @@ deployed before being marked done.
   QR SVG has `viewBox="0 0 399 399"`, copy URL is the same raw endpoint, the
   raw endpoint returns real `text/plain` proxy output, and no
   `/api/v1/subscriptions/public/` leak is present in public HTML.
+- 2026-06-06: RSP-002 Users click-through regression fixed and released
+  through the official image build and installer deploy path at product commit
+  `c0abd0b`. The Users directory now treats each real user row as a keyboard
+  and mouse-openable route to `/users/{id}` while preserving checkbox and
+  inline action behavior. Local gates passed:
+  `npx vitest run src/pages/UsersPage.test.tsx --reporter=dot` (`3 passed`),
+  `npm run build`, release guard, production reality guard and
+  `git diff --check`. GitHub `Quality gates`, GitHub `Build release images`,
+  and installer deploy run `27057177883` succeeded. Live
+  `https://panel.lumentech.tel/users` evidence: 15 real checkbox controls,
+  no `A valid API key is required`, checkbox selection stays on `/users`, and
+  clicking row `Открыть QA HApp Squad` opens
+  `/users/f35df075-1d60-4983-8038-541e50a1b2a3` with the real detail editor,
+  issued subscriptions and HWID/device sections visible.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
