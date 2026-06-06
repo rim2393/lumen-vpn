@@ -666,6 +666,8 @@ const ru: Record<string, string> = {
   'Create the first profile after registering a node.': 'Создайте первый профиль после регистрации ноды.',
   'Credentials ref': 'Ссылка на секреты',
   'Delete profile confirmation': 'Удалить профиль {name}? Это реальное удаление через API.',
+  'Show inbounds': 'Показать inbound',
+  'Open node for {name}': 'Открыть ноду для {name}',
   'Download JSON': 'Скачать JSON',
   Disabled: 'Отключены',
   Edit: 'Править',

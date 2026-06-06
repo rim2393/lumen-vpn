@@ -782,6 +782,10 @@ h2 {
   gap: var(--space-4);
 }
 
+.profiles-layout {
+  grid-template-columns: minmax(0, 1.38fr) minmax(360px, 0.62fr);
+}
+
 .resource-layout > *,
 .resource-grid > *,
 .section-layout > *,
@@ -1632,7 +1636,71 @@ h2 {
 }
 
 .profile-inventory-view {
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.profile-inventory .data-table-wrap {
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.profile-inventory .data-table {
+  min-width: 1280px;
+}
+
+.profile-inventory .data-table caption {
+  padding: var(--space-3);
+  margin: 0;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: rgb(255 255 255 / 3%);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.profile-inventory .data-table th,
+.profile-inventory .data-table td {
+  padding: 9px var(--space-2);
+}
+
+.profile-inventory .data-table tbody tr {
+  transition:
+    background 140ms var(--ease-out),
+    box-shadow 140ms var(--ease-out);
+}
+
+.profile-inventory .data-table tbody tr:hover,
+.profile-inventory .data-table__row--selected {
+  background: rgb(83 224 173 / 8%);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.profile-inventory .data-table td:last-child .inline-actions--compact {
+  flex-wrap: nowrap;
+  min-width: max-content;
+}
+
+.profile-inventory .data-table td:last-child .button {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0;
+}
+
+.profile-inventory .data-table td:last-child .button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.profiles-side {
+  position: sticky;
+  top: calc(var(--space-5) + 76px);
+  align-self: start;
 }
 
 .profile-toolbar {
@@ -2044,6 +2112,10 @@ h2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .profiles-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .settings-summary-grid,
   .settings-group-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2071,6 +2143,10 @@ h2 {
   }
 
   .users-side {
+    position: static;
+  }
+
+  .profiles-side {
     position: static;
   }
 }

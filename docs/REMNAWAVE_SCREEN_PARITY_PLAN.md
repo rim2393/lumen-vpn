@@ -81,3 +81,9 @@ admin Users/Profile/Hosts.
   карточку`, `Сортировка`, `превысили лимит`), no old `Open detail` /
   `Policy edits` / standalone `Sort` text remains, and no internal
   `http://api:8000` URL leaks.
+- 2026-06-06: RSP-003 Profiles first pass started after live audit showed
+  46 real profiles and a 7000px-tall screen with a cramped inventory table.
+  Changes keep all existing real API actions, widen the inventory column,
+  make the side workflow/detail column sticky, highlight the selected profile
+  row, and compress per-row actions into titled icon buttons. Local web
+  `npm run build` passed.

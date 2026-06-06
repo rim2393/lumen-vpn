@@ -735,7 +735,7 @@ export function ProfilesPage() {
             </div>
           </section>
 
-          <section className="resource-layout">
+          <section className="resource-layout profiles-layout">
             <article className="panel profile-inventory">
               <div className="panel__header">
                 <div>
@@ -999,7 +999,7 @@ export function ProfilesPage() {
               ) : null}
             </article>
 
-            <div className="side-stack">
+            <div className="side-stack profiles-side">
               {showEditor ? (
                 <ProfileEditor
                   adapters={adapters}
@@ -1150,6 +1150,7 @@ function ProfileInventoryTable({
         t('Actions'),
       ]}
       rows={profiles.map((profile) => ({
+        className: profile.id === selectedProfileId ? 'data-table__row--selected' : undefined,
         id: profile.id,
         cells: [
           <input
@@ -1186,6 +1187,7 @@ function ProfileInventoryTable({
               type="button"
               className="icon-button"
               aria-label={t('Show inbounds for {name}', { name: profile.name })}
+              title={t('Show inbounds')}
               onClick={() => onFocusInbounds(profile.id)}
               disabled={selectionBusy}
             >
@@ -1206,6 +1208,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Move {name} up', { name: profile.name })}
+              title={t('Up')}
               onClick={() => onMove(profile, -1)}
               disabled={selectionBusy || !canMoveUp(profile)}
             >
@@ -1216,6 +1219,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Move {name} down', { name: profile.name })}
+              title={t('Down')}
               onClick={() => onMove(profile, 1)}
               disabled={selectionBusy || !canMoveDown(profile)}
             >
@@ -1226,6 +1230,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Edit {name}', { name: profile.name })}
+              title={t('Edit')}
               onClick={() => onEdit(profile)}
               disabled={selectionBusy}
             >
@@ -1236,6 +1241,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Apply {name} to node', { name: profile.name })}
+              title={t('Apply')}
               onClick={() => onApply(profile)}
               disabled={
                 selectionBusy ||
@@ -1250,6 +1256,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Export {name}', { name: profile.name })}
+              title={t('Export')}
               onClick={() => onExport(profile)}
               disabled={selectionBusy}
             >
@@ -1260,6 +1267,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Duplicate {name}', { name: profile.name })}
+              title={t('Copy')}
               onClick={() => onDuplicate(profile)}
               disabled={selectionBusy}
             >
@@ -1270,6 +1278,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={profile.status === 'active' ? t('Disable {name}', { name: profile.name }) : t('Enable {name}', { name: profile.name })}
+              title={profile.status === 'active' ? t('Disable') : t('Enable')}
               onClick={() => onToggle(profile)}
               disabled={selectionBusy}
             >
@@ -1287,6 +1296,7 @@ function ProfileInventoryTable({
               type="button"
               className="button button--secondary"
               aria-label={t('Delete {name}', { name: profile.name })}
+              title={t('Delete')}
               onClick={() => onDelete(profile)}
               disabled={selectionBusy}
             >
@@ -1296,6 +1306,8 @@ function ProfileInventoryTable({
             <button
               type="button"
               className="button button--secondary"
+              aria-label={t('Open node for {name}', { name: profile.name })}
+              title={t('Node')}
               onClick={() => onGoToNode(profile.node_id)}
               disabled={selectionBusy}
             >
