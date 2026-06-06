@@ -15,6 +15,7 @@ function createTestQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        gcTime: Infinity,
         retry: false,
       },
     },
@@ -22,9 +23,11 @@ function createTestQueryClient() {
 }
 
 export function renderWithRouter(initialPath: string, options: RenderOptions = {}) {
+  window.localStorage.setItem('lumen-ui-language', 'en')
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
+        gcTime: Infinity,
         retry: false,
       },
     },
@@ -34,6 +37,7 @@ export function renderWithRouter(initialPath: string, options: RenderOptions = {
   return render(
     <AppProviders
       apiClient={options.apiClient}
+      enableResourceCacheWarmer={false}
       initialSession={options.initialSession}
       queryClientOverride={queryClient}
     >
@@ -45,5 +49,9 @@ export function renderWithRouter(initialPath: string, options: RenderOptions = {
 export function renderWithProviders(ui: ReactElement) {
   const queryClient = createTestQueryClient()
 
-  return render(<AppProviders queryClientOverride={queryClient}>{ui}</AppProviders>)
+  return render(
+    <AppProviders enableResourceCacheWarmer={false} queryClientOverride={queryClient}>
+      {ui}
+    </AppProviders>,
+  )
 }

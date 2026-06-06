@@ -47,12 +47,12 @@ describe('Lumen admin routing', () => {
 
     renderWithRouter('/dashboard', { apiClient, initialSession: developmentSession })
 
-    expect(await screen.findByRole('heading', { name: /Командная панель/i })).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: /Основная/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Пользователи/i })).toHaveAttribute('href', '/users')
-    expect(screen.getByRole('combobox', { name: /Язык интерфейса/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /command dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /users/i })).toHaveAttribute('href', '/users')
+    expect(screen.getByRole('combobox', { name: /interface language/i })).toBeInTheDocument()
     expect(await screen.findByText('1 / 1')).toBeInTheDocument()
-    expect(screen.getByText('Живой API')).toBeInTheDocument()
+    expect(screen.getByText('Live API')).toBeInTheDocument()
   })
 
   it('wires shell controls to real UI state and routes', async () => {

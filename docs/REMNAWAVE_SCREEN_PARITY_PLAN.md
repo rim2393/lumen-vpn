@@ -159,3 +159,15 @@ deployed before being marked done.
   automated live QA, and the current Profiles UX is still not accepted as
   full Remnawave visual parity. The next Profiles slice must close these
   gaps before moving to Hosts/Nodes.
+- 2026-06-06: RSP-003 Profiles functional hardening prepared. The profile
+  editor now keeps non-legacy catalog/live adapters selectable instead of
+  hiding valid production protocols behind the active-status check. Dangerous
+  profile deletion no longer depends on a native browser confirm; it renders
+  an inline production API confirmation panel for single and bulk deletes.
+  The profile selection cleanup effects were stabilized to avoid redundant
+  Set state writes that made the Profiles tests and page feel slow. Added
+  focused `ProfilesPage` tests for real update JSON, reorder API contract,
+  adapter selectability and inline delete confirmation, then repaired the
+  wider web contract tests so they stay deterministic under the EN/RU i18n
+  shell. Local gates: `npx vitest run --no-file-parallelism --reporter=dot`
+  (`54 passed`) and `npm run build` passed.

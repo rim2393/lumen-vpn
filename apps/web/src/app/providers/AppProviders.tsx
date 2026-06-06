@@ -8,6 +8,7 @@ import { queryClient } from '../queryClient'
 
 type AppProvidersProps = PropsWithChildren<{
   apiClient?: LumenApiClient
+  enableResourceCacheWarmer?: boolean
   initialSession?: AuthSession | null
   queryClientOverride?: QueryClient
 }>
@@ -15,6 +16,7 @@ type AppProvidersProps = PropsWithChildren<{
 export function AppProviders({
   apiClient,
   children,
+  enableResourceCacheWarmer = true,
   initialSession,
   queryClientOverride = queryClient,
 }: AppProvidersProps) {
@@ -22,7 +24,7 @@ export function AppProviders({
     <QueryClientProvider client={queryClientOverride}>
       <AuthSessionProvider initialSession={initialSession}>
         <ApiClientProvider client={apiClient}>
-          <ResourceCacheWarmer />
+          {enableResourceCacheWarmer ? <ResourceCacheWarmer /> : null}
           {children}
         </ApiClientProvider>
       </AuthSessionProvider>

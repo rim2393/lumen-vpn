@@ -1955,6 +1955,33 @@ h2 {
   color: var(--color-muted);
 }
 
+.danger-confirm-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  color: var(--color-ink-strong);
+  background:
+    linear-gradient(90deg, rgb(255 118 109 / 14%), transparent 70%),
+    rgb(16 20 17 / 88%);
+  border: 1px solid rgb(255 118 109 / 42%);
+  border-radius: var(--radius-sm);
+}
+
+.danger-confirm-inline h3 {
+  margin: 2px 0 0;
+  font-size: 1rem;
+}
+
+.danger-confirm-inline p:not(.eyebrow) {
+  max-width: 68ch;
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
 .profile-card {
   display: grid;
   gap: var(--space-4);
@@ -2580,6 +2607,12 @@ h2 {
 
   .settings-provider-card__actions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar__actions {
+    display: flex;
   }
 }
 

@@ -163,6 +163,11 @@ export function ProfilesPage() {
   const [portCheckMessage, setPortCheckMessage] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [focusedInboundProfileId, setFocusedInboundProfileId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: 'bulk'; count: number; ids: string[] }
+    | { kind: 'single'; profile: ProtocolProfileRecord }
+    | null
+  >(null)
   const navigate = useNavigate()
   const isMutating =
     createProfile.isPending ||
@@ -174,7 +179,6 @@ export function ProfilesPage() {
     cleanupStaleProfiles.isPending ||
     reorderProfiles.isPending
   const selectionBusy = isMutating
-  const confirmDanger = (message: string) => window.confirm(message)
   const profileHosts = useMemo(() => groupHostsByProfile(hosts), [hosts])
   const readinessByProfile = useMemo(
     () => new Map((readinessQuery.data?.items ?? []).map((item) => [item.profile_id, item])),
@@ -311,12 +315,15 @@ export function ProfilesPage() {
     setSelectedProfileIds((current) => {
       const available = new Set(profiles.map((profile) => profile.id))
       const next = new Set<string>()
+      let changed = false
       for (const id of current) {
         if (available.has(id)) {
           next.add(id)
+        } else {
+          changed = true
         }
       }
-      return next
+      return changed || next.size !== current.size ? next : current
     })
   }, [profiles])
 
@@ -478,7 +485,12 @@ export function ProfilesPage() {
       setFormError(t('Select at least one profile first.'))
       return
     }
-    if (action === 'delete' && !confirmDanger(t('Delete selected profiles confirmation', { count: selectedProfileIds.size }))) {
+    if (action === 'delete') {
+      setPendingDelete({
+        kind: 'bulk',
+        count: selectedProfileIds.size,
+        ids: Array.from(selectedProfileIds),
+      })
       return
     }
     setFormError(null)
@@ -596,8 +608,37 @@ export function ProfilesPage() {
   }
 
   function handleDelete(profile: ProtocolProfileRecord) {
-    if (window.confirm(t('Delete profile confirmation', { name: profile.name }))) {
-      void deleteProfile.mutateAsync(profile.id)
+    setPendingDelete({ kind: 'single', profile })
+  }
+
+  async function confirmPendingDelete() {
+    if (!pendingDelete) {
+      return
+    }
+    setFormError(null)
+    setActionMessage(null)
+    try {
+      if (pendingDelete.kind === 'single') {
+        await deleteProfile.mutateAsync(pendingDelete.profile.id)
+        setSelectedProfileId((current) => (current === pendingDelete.profile.id ? '' : current))
+        setSelectedProfileIds((current) => {
+          const next = new Set(current)
+          next.delete(pendingDelete.profile.id)
+          return next
+        })
+      } else {
+        await bulkProfiles.mutateAsync({
+          action: 'delete',
+          request: {
+            ids: pendingDelete.ids,
+          },
+        })
+        clearSelectedProfiles()
+      }
+      setPendingDelete(null)
+      await profilesQuery.refetch()
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('Profile delete failed.'))
     }
   }
 
@@ -911,6 +952,16 @@ export function ProfilesPage() {
               </div>
               {actionMessage ? <p className="auth-card__note">{actionMessage}</p> : null}
               {formError && !showEditor ? <FormError message={formError} /> : null}
+              {pendingDelete ? (
+                <ProfileDeleteConfirm
+                  count={pendingDelete.kind === 'bulk' ? pendingDelete.count : 1}
+                  name={pendingDelete.kind === 'single' ? pendingDelete.profile.name : null}
+                  onCancel={() => setPendingDelete(null)}
+                  onConfirm={() => void confirmPendingDelete()}
+                  pending={deleteProfile.isPending || bulkProfiles.isPending}
+                  t={t}
+                />
+              ) : null}
               {profiles.length === 0 ? (
                 <EmptyState
                   title={t('No profiles created')}
@@ -1531,6 +1582,46 @@ function RuntimeSyncBadge({ status }: { status: { label: string; tone: 'danger' 
   return <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
 }
 
+function ProfileDeleteConfirm({
+  count,
+  name,
+  onCancel,
+  onConfirm,
+  pending,
+  t,
+}: {
+  count: number
+  name: string | null
+  onCancel: () => void
+  onConfirm: () => void
+  pending: boolean
+  t: (value: string, params?: Record<string, string | number>) => string
+}) {
+  return (
+    <section className="danger-confirm-inline" role="alertdialog" aria-modal="false">
+      <div>
+        <p className="eyebrow">{t('Danger action')}</p>
+        <h3>{name ? t('Delete profile {name}', { name }) : t('Delete selected profiles')}</h3>
+        <p>
+          {name
+            ? t('This will remove the real profile through the production API.')
+            : t('This will remove {count} real profiles through the production API.', { count })}
+        </p>
+      </div>
+      <div className="inline-actions inline-actions--compact">
+        <button type="button" className="button button--secondary" onClick={onCancel} disabled={pending}>
+          <X size={16} aria-hidden="true" />
+          {t('Cancel')}
+        </button>
+        <button type="button" className="button button--danger" onClick={onConfirm} disabled={pending}>
+          <Trash2 size={16} aria-hidden="true" />
+          {pending ? t('Deleting...') : t('Delete')}
+        </button>
+      </div>
+    </section>
+  )
+}
+
 const profileSubscriptionTargets = [
   'happ',
   'hiddify',
@@ -1808,12 +1899,15 @@ function StaleProfileCleanupPanel({
     setSelectedIds((current) => {
       const available = new Set(candidates.map((candidate) => candidate.profile_id))
       const next = new Set<string>()
+      let changed = false
       for (const id of current) {
         if (available.has(id)) {
           next.add(id)
+        } else {
+          changed = true
         }
       }
-      return next
+      return changed || next.size !== current.size ? next : current
     })
   }, [candidates])
 
@@ -2408,9 +2502,9 @@ function ProfileEditor({
               <option
                 key={adapter.protocol}
                 value={adapter.protocol}
-                disabled={adapter.status !== 'active' && form.status === 'active'}
+                disabled={!isProtocolAdapterUsable(adapter.status)}
               >
-                {adapter.display_name} {adapter.status === 'active' ? '' : `(${t('Unavailable')})`}
+                {adapter.display_name} {adapter.status === 'legacy' ? `(${t('Legacy')})` : ''}
               </option>
             ))}
           </select>
@@ -2715,6 +2809,10 @@ function getSecurityOptions(capabilities: string[], selected: string): string[] 
   const securitySet = new Set<string>(getAllowedSecurityOptions(capabilities))
   securitySet.add(selected)
   return Array.from(securitySet).sort((a, b) => a.localeCompare(b))
+}
+
+function isProtocolAdapterUsable(status: string): boolean {
+  return status !== 'legacy'
 }
 
 function getAllowedTransportOptions(capabilities: string[]): string[] {
