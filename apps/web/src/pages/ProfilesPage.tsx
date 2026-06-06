@@ -2062,7 +2062,7 @@ function ProfileDetailPanel({
   const portRows = formatPortReservations(profile.port_reservations, t)
 
   return (
-    <article className="panel">
+    <article className="panel profile-detail-panel">
       <div className="panel__header">
         <div>
           <p className="eyebrow">{t('Selected profile')}</p>
@@ -2071,11 +2071,16 @@ function ProfileDetailPanel({
         <StatusBadge tone={toneForStatus(profile.status)}>{t(profile.status)}</StatusBadge>
       </div>
       <div className="inline-actions">
-        <button type="button" className="button button--secondary" onClick={() => onEdit(profile)}>
+        <button type="button" className="button button--secondary" onClick={() => onEdit(profile)} title={t('Edit')}>
           <Edit3 size={16} aria-hidden="true" />
           {t('Edit')}
         </button>
-        <button type="button" className="button button--secondary" onClick={() => onToggle(profile)}>
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={() => onToggle(profile)}
+          title={profile.status === 'active' ? t('Disable') : t('Enable')}
+        >
           <Ban size={16} aria-hidden="true" />
           {profile.status === 'active' ? t('Disable') : t('Enable')}
         </button>
@@ -2084,11 +2089,17 @@ function ProfileDetailPanel({
           className="button button--secondary"
           disabled={profile.status !== 'active'}
           onClick={() => onApply(profile)}
+          title={t('Apply')}
         >
           <Send size={16} aria-hidden="true" />
           {t('Apply')}
         </button>
-        <button type="button" className="button button--secondary" onClick={() => void copyJson(rawProfileExport)}>
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={() => void copyJson(rawProfileExport)}
+          title={t('Copy profile')}
+        >
           <FileJson size={16} aria-hidden="true" />
           {t('Copy profile')}
         </button>
@@ -2097,6 +2108,7 @@ function ProfileDetailPanel({
           className="button button--secondary"
           disabled={!computedConfig || isComputedLoading}
           onClick={() => computedConfig && downloadJson(`${profile.name}-computed.json`, computedConfig)}
+          title={t('Export computed')}
         >
           <Download size={16} aria-hidden="true" />
           {t('Export computed')}
@@ -2106,11 +2118,12 @@ function ProfileDetailPanel({
           className="button button--secondary"
           aria-label={t('Delete {name}', { name: profile.name })}
           onClick={() => onDelete(profile)}
+          title={t('Delete')}
         >
           <Trash2 size={16} aria-hidden="true" />
           {t('Delete')}
         </button>
-        <button type="button" className="button button--secondary" onClick={onGoToNode}>
+        <button type="button" className="button button--secondary" onClick={onGoToNode} title={t('Open node')}>
           <Server size={16} aria-hidden="true" />
           {t('Open node')}
         </button>

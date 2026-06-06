@@ -103,3 +103,10 @@ admin Users/Profile/Hosts.
   real rows in a bounded scroll region, selected profile row remains present,
   per-row actions remain real icon buttons with titles, and no internal
   `http://api:8000` URL leaks.
+- 2026-06-06: RSP-003 selected-profile detail compact pass prepared. Live
+  audit showed the selected profile panel still consumed about 1251px because
+  action buttons wrapped to 232px and fact cards wrapped long IDs/vault refs.
+  Fix scopes compact styling only to `.profile-detail-panel`: real action
+  handlers stay in place, action buttons become titled icons, facts become
+  compact key/value rows with ellipsis, and opened tables/JSON blocks get
+  bounded scroll. Local web `npm run build` passed.
