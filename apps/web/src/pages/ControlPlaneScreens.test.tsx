@@ -276,7 +276,6 @@ describe('Control plane resource screens', () => {
 
   it('wires user detail HWID device deletion controls to backend requests', async () => {
     const user = userEvent.setup()
-    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const owner: UserRecord = {
       created_at: '2026-05-27T00:00:00Z',
       device_limit: 2,
@@ -338,11 +337,15 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/users/usr_devices', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('table', { name: /(registered devices|зарегистрированные устройства)/i })).toBeInTheDocument()
-    expect(screen.getByText(/metadata_json/i)).toBeInTheDocument()
+    expect(screen.getByText(/user metadata json|json метаданных пользователя/i)).toBeInTheDocument()
     expect(screen.getByText(/numeric_id/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /(delete|удалить) device phone|(delete|удалить) устройство phone/i }))
+    expect(deleteUserDevice).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('alertdialog', { name: /delete device phone/i })).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteUserDevice).toHaveBeenCalledWith('usr_devices', 'phone'))
     await user.click(screen.getByRole('button', { name: /(clear all devices|очистить все устройства)/i }))
+    expect(clearUserDevices).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('alertdialog', { name: /clear devices for device owner/i })).getByRole('button', { name: /^clear all devices$/i }))
     await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_devices'))
   })
 

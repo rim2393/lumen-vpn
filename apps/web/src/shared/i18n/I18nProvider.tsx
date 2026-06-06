@@ -571,6 +571,7 @@ const ru: Record<string, string> = {
   'User could not be updated.': 'Не удалось обновить пользователя.',
   'User action failed.': 'Не удалось выполнить действие с пользователем.',
   'User directory': 'Каталог пользователей',
+  'User metadata JSON': 'JSON метаданных пользователя',
   'Search users': 'Поиск пользователей',
   Revoked: 'Отозванные',
   Expired: 'Истекшие',
@@ -612,6 +613,17 @@ const ru: Record<string, string> = {
     'Реальные счетчики трафика будут сброшены через боевой API.',
   'This will reset traffic counters for {count} real users through the production API.':
     'Реальные счетчики трафика выбранных пользователей будут сброшены через боевой API: {count}.',
+  'Clear devices for {name}': 'Очистить устройства для {name}',
+  'The real user and linked access will be removed through the live API.':
+    'Реальный пользователь и связанный доступ будут удалены через боевой API.',
+  'The real user access will be revoked through the live API.':
+    'Доступ реального пользователя будет отозван через боевой API.',
+  'The real traffic counters will be reset through the live API.':
+    'Реальные счетчики трафика будут сброшены через боевой API.',
+  'All real device bindings for this user will be removed through the live API.':
+    'Все реальные привязки устройств этого пользователя будут удалены через боевой API.',
+  'This real device binding will be removed through the live API.':
+    'Эта реальная привязка устройства будет удалена через боевой API.',
   'Toggle status {name}': 'Переключить статус {name}',
   Access: 'Доступ',
   Action: 'Действие',

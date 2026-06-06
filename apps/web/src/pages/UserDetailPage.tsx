@@ -48,6 +48,10 @@ type UserEditorState = {
   username: string
 }
 
+type UserDetailDangerTarget =
+  | { action: 'revoke' | 'reset-traffic' | 'delete-user' | 'clear-devices'; name: string }
+  | { action: 'delete-device'; deviceId: string; name: string }
+
 function displayName(user: UserRecord): string {
   return user.display_name || user.username || user.email
 }
@@ -189,6 +193,7 @@ export function UserDetailPage() {
   const [editor, setEditor] = useState<UserEditorState | null>(null)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [pendingDanger, setPendingDanger] = useState<UserDetailDangerTarget | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -208,7 +213,8 @@ export function UserDetailPage() {
     if (!user) {
       return
     }
-    if (status === 'revoked' && !globalThis.confirm(t('Revoke user confirmation', { name: displayName(user) }))) {
+    if (status === 'revoked') {
+      setPendingDanger({ action: 'revoke', name: displayName(user) })
       return
     }
     if (status === 'active') {
@@ -222,11 +228,10 @@ export function UserDetailPage() {
   }
 
   async function resetTraffic() {
-    if (!user || !globalThis.confirm(t('Reset user traffic confirmation', { name: displayName(user) }))) {
+    if (!user) {
       return
     }
-    await resetUserTraffic.mutateAsync(user.id)
-    await query.refetch()
+    setPendingDanger({ action: 'reset-traffic', name: displayName(user) })
   }
 
   async function saveUser(event: FormEvent<HTMLFormElement>) {
@@ -253,27 +258,50 @@ export function UserDetailPage() {
   }
 
   async function deleteUserDevice(deviceId: string) {
-    if (!user || !globalThis.confirm(t('Delete user device confirmation', { id: deviceId }))) {
+    if (!user) {
       return
     }
-    await deleteDevice.mutateAsync({ deviceId, userId: user.id })
-    await query.refetch()
+    setPendingDanger({ action: 'delete-device', deviceId, name: deviceId })
   }
 
   async function clearUserDevices() {
-    if (!user || !globalThis.confirm(t('Clear user devices confirmation', { name: displayName(user) }))) {
+    if (!user) {
       return
     }
-    await clearDevices.mutateAsync(user.id)
-    await query.refetch()
+    setPendingDanger({ action: 'clear-devices', name: displayName(user) })
   }
 
   async function removeUser() {
-    if (!user || !globalThis.confirm(t('Delete user confirmation', { name: displayName(user) }))) {
+    if (!user) {
       return
     }
-    await deleteUser.mutateAsync(user.id)
-    navigate('/users')
+    setPendingDanger({ action: 'delete-user', name: displayName(user) })
+  }
+
+  async function confirmDangerAction() {
+    if (!user || !pendingDanger) {
+      return
+    }
+    setEditorError(null)
+    try {
+      if (pendingDanger.action === 'revoke') {
+        await revokeUser.mutateAsync(user.id)
+      } else if (pendingDanger.action === 'reset-traffic') {
+        await resetUserTraffic.mutateAsync(user.id)
+      } else if (pendingDanger.action === 'delete-device') {
+        await deleteDevice.mutateAsync({ deviceId: pendingDanger.deviceId, userId: user.id })
+      } else if (pendingDanger.action === 'clear-devices') {
+        await clearDevices.mutateAsync(user.id)
+      } else {
+        await deleteUser.mutateAsync(user.id)
+        navigate('/users')
+        return
+      }
+      setPendingDanger(null)
+      await query.refetch()
+    } catch (error) {
+      setEditorError(mutationError(error, t('User action failed.')))
+    }
   }
 
   if (query.isLoading) {
@@ -341,7 +369,7 @@ export function UserDetailPage() {
       </section>
 
       <section className="user-detail-workspace">
-        <article className="panel panel--wide user-editor-panel">
+        <article className="panel user-editor-panel">
           <div className="panel__header">
             <div>
               <p className="eyebrow">{t('Editable profile')}</p>
@@ -470,7 +498,7 @@ export function UserDetailPage() {
               />
             </label>
             <label htmlFor="detail-user-metadata" className="user-editor-grid__wide">
-              metadata_json
+              {t('User metadata JSON')}
               <textarea
                 id="detail-user-metadata"
                 rows={10}
@@ -500,6 +528,12 @@ export function UserDetailPage() {
         </article>
 
         <aside className="side-stack user-detail-side">
+          <UserDetailDangerConfirm
+            pending={deleteUser.isPending || revokeUser.isPending || resetUserTraffic.isPending || deleteDevice.isPending || clearDevices.isPending}
+            target={pendingDanger}
+            onCancel={() => setPendingDanger(null)}
+            onConfirm={() => void confirmDangerAction()}
+          />
           <article className="panel">
             <div className="panel__header">
               <div>
@@ -685,6 +719,71 @@ function UserFact({
       </div>
       {typeof detail === 'string' ? <StatusBadge>{detail}</StatusBadge> : detail}
     </article>
+  )
+}
+
+function UserDetailDangerConfirm({
+  onCancel,
+  onConfirm,
+  pending,
+  target,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  pending: boolean
+  target: UserDetailDangerTarget | null
+}) {
+  const { t } = useI18n()
+  if (!target) {
+    return null
+  }
+
+  const titleKey =
+    target.action === 'delete-user'
+      ? 'Delete user {name}'
+      : target.action === 'revoke'
+        ? 'Revoke user {name}'
+        : target.action === 'reset-traffic'
+          ? 'Reset traffic for {name}'
+          : target.action === 'clear-devices'
+            ? 'Clear devices for {name}'
+            : 'Delete device {id}'
+  const descriptionKey =
+    target.action === 'delete-user'
+      ? 'The real user and linked access will be removed through the live API.'
+      : target.action === 'revoke'
+        ? 'The real user access will be revoked through the live API.'
+        : target.action === 'reset-traffic'
+          ? 'The real traffic counters will be reset through the live API.'
+          : target.action === 'clear-devices'
+            ? 'All real device bindings for this user will be removed through the live API.'
+            : 'This real device binding will be removed through the live API.'
+  const confirmLabel =
+    target.action === 'delete-user' || target.action === 'delete-device'
+      ? t('Delete')
+      : target.action === 'revoke'
+        ? t('Revoke')
+        : target.action === 'reset-traffic'
+          ? t('Reset traffic')
+          : t('Clear all devices')
+  const params = { id: target.name, name: target.name }
+
+  return (
+    <section className="danger-confirm-inline" role="alertdialog" aria-modal="false" aria-label={t(titleKey, params)}>
+      <div>
+        <p className="eyebrow">{t('Danger action')}</p>
+        <h3>{t(titleKey, params)}</h3>
+        <p>{t(descriptionKey, params)}</p>
+      </div>
+      <div className="inline-actions inline-actions--compact">
+        <button type="button" className="button button--secondary" disabled={pending} onClick={onCancel}>
+          {t('Cancel')}
+        </button>
+        <button type="button" className="button button--danger" disabled={pending} onClick={onConfirm}>
+          {confirmLabel}
+        </button>
+      </div>
+    </section>
   )
 }
 

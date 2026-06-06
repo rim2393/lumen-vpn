@@ -101,6 +101,17 @@ deployed before being marked done.
   delete opens inline Russian confirmation (`Удалить выбранных пользователей`,
   `Реальные пользователи будут удалены через боевой API`) before any API call.
   Cancel closes the dialog and leaves all 15 rows intact.
+- 2026-06-06: RSP-002 UserDetail continuation prepared after live audit showed
+  a 15589px-tall detail page, side panels below the editor, raw `metadata_json`
+  label, and native browser confirms for revoke/reset/delete device/clear
+  devices/delete user. Changes keep the detail surface API-backed, move editor
+  and side panels into the intended two-column layout, bound lower detail
+  tables with internal scroll, rename the raw metadata label, and require
+  inline confirmation before all destructive detail API calls. Local gates
+  passed: targeted UserDetail/productionReality vitest, full web vitest
+  (`59 passed`), production build, release guard, production reality guard,
+  and `git diff --check`. Live deploy/evidence is required before this
+  continuation is marked released.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
