@@ -74,3 +74,10 @@ admin Users/Profile/Hosts.
   revoke/delete flows. Local web `npm run build` passed. Full `npm run lint`
   still fails on pre-existing repository-wide web lint debt outside this
   Users pass; keep this as a separate quality closure item instead of hiding it.
+- 2026-06-06: RSP-002 Users first pass was released via official image build
+  and installer deploy. Live `https://panel.lumentech.tel/users` evidence:
+  15 real API rows, selected row class present, focused-user side panel is
+  sticky without an internal hidden scroll, key labels are Russian (`Открыть
+  карточку`, `Сортировка`, `превысили лимит`), no old `Open detail` /
+  `Policy edits` / standalone `Sort` text remains, and no internal
+  `http://api:8000` URL leaks.
