@@ -2404,6 +2404,7 @@ h2 {
 }
 
 .hosts-inventory-panel {
+  grid-column: auto;
   overflow: hidden;
 }
 
