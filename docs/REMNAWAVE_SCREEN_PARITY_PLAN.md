@@ -458,3 +458,32 @@ deployed before being marked done.
   browser confirmation calls. Remaining Settings parity work: full Remnawave
   visual polish and any missing settings groups/actions still need a later
   page-complete pass.
+- 2026-06-06: RSP-009 Tools destructive-action and layout hardening slice
+  released through the official image build and installer deploy path at
+  product commit `5f9cf06` and installer workflow `27060633507`. The
+  `/tools` surface now requires an inline production API confirmation before
+  real destructive operations: deleting an HWID device, clearing all devices
+  for a user, dropping node/user IP connections, revoking a session,
+  truncating torrent reports, and deleting a saved tool snippet. The tools
+  page is now scoped as `tools-page`, keeps the main and summary columns
+  bounded, collapses to one column on medium widths, bounds dense tool
+  tables, and gives the snippet editor a full-width content textarea instead
+  of a cramped three-column row. Local gates passed:
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`30 passed`), `npx tsc -b --pretty false`, `npm run build`,
+  `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, `git diff --check`, and
+  source grep found no native browser confirmation calls in page/shared code.
+  Product GitHub runs: `Quality gates` `27060175065` succeeded; first
+  `Build release images` `27060175064` failed only while pulling BuildKit
+  from Docker Hub (`registry-1.docker.io` timeout), then the failed workflow
+  was rerun for the same SHA and succeeded. Live evidence after deploy:
+  `https://panel.lumentech.tel/api/v1/health/ready` returned `ok`; panel
+  `/tools` returned assets `/assets/index-CeeYHXEs.js` and
+  `/assets/index-CDLGnNzj.css`; the JS asset contains `tools-page`,
+  `tools-confirm-panel`, and `Production API confirmation`; the CSS asset
+  contains `tools-page` and `tools-confirm-panel`; and the live JS asset
+  contains no `window.confirm`, `globalThis.confirm`, or `.confirm(` native
+  browser confirmation calls. Remaining Tools parity work: full Remnawave
+  visual polish, deeper live interaction QA per tab, and any missing tool
+  surfaces still need page-complete passes.

@@ -306,6 +306,30 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   `window.confirm`, `globalThis.confirm`, or `.confirm(` native browser
   confirmation calls. This is not full Remnawave Settings completion; it is
   the first production hardening slice for Settings.
+- Live prod evidence for release
+  `main-5f9cf0657204d3cc047e33d67790299dd3b08a33`: official signed
+  publish/deploy workflow `27060633507` completed successfully. Tools now
+  requires inline production API confirmation before real destructive
+  operations: HWID device delete, clear all devices, user/node IP connection
+  drop, session revoke, torrent report truncate, and tool snippet delete.
+  The Tools page is scoped as `tools-page`, the main/summary columns and dense
+  tables are bounded, the layout collapses to one column on medium widths, and
+  the snippet editor uses a full-width content textarea instead of a cramped
+  three-column row. Local gates passed: focused
+  `ControlPlaneScreens.test.tsx` Vitest (`30 passed`), TypeScript build, web
+  production build, release guard, production reality guard, `git
+  diff --check`, and source grep found no native browser confirmation calls
+  in page/shared code. Product GitHub runs: `Quality gates` `27060175065`
+  succeeded; first `Build release images` `27060175064` failed while pulling
+  BuildKit from Docker Hub (`registry-1.docker.io` timeout), then rerun for
+  the same SHA succeeded. Live evidence: `/api/v1/health/ready` returned
+  `ok`; `/tools` returned assets `/assets/index-CeeYHXEs.js` and
+  `/assets/index-CDLGnNzj.css`; JS contains `tools-page`,
+  `tools-confirm-panel`, and `Production API confirmation`; CSS contains
+  `tools-page` and `tools-confirm-panel`; JS contains no `window.confirm`,
+  `globalThis.confirm`, or `.confirm(` native browser confirmation calls.
+  This is not full Remnawave Tools completion; it is the destructive-action
+  and layout hardening slice.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
@@ -323,10 +347,10 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
 ## Next Suggested Work
 
 1. Continue Remnawave parity UI pages only against live API state; no fake
-   counters or static placeholder rows. The next practical page slice is
-   Tools, then the remaining Settings full-parity pass and other dense admin
-   surfaces that still have slow loading, weak responsive behavior, or
-   incomplete inline actions.
+   counters or static placeholder rows. The next practical slices are the
+   remaining page-complete passes for Tools and Settings, then Nodes/Plugins
+   and the other dense admin surfaces that still have weak responsive
+   behavior, incomplete inline actions, or incomplete Remnawave parity.
 2. For each admin page slice, replace remaining native/browser-only UX with
    real inline controls, add focused tests, run build/guards, push, wait
    product workflows, deploy by official installer workflow, and record live
