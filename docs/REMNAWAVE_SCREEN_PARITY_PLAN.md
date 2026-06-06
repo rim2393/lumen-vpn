@@ -112,6 +112,16 @@ deployed before being marked done.
   (`59 passed`), production build, release guard, production reality guard,
   and `git diff --check`. Live deploy/evidence is required before this
   continuation is marked released.
+- 2026-06-06: RSP-002 UserDetail continuation released through official image
+  build and installer deploy at product commit `cded5a4`. Live
+  `https://panel.lumentech.tel/users/f35df075-...` evidence: document height
+  reduced from `15589px` to `2933px`, editor panel is `878px` wide with
+  side stack aligned at the same top (`left=914`, `width=320`), raw
+  `metadata_json` label is gone, `JSON метаданных пользователя` is visible,
+  no internal `http://api:8000` or API-key error leaks, request history is
+  bounded to a `560px` internal scroll area, and real device delete / clear
+  all devices open Russian inline confirmations before API calls. Cancel closes
+  both dialogs and leaves all 103 visible table rows intact.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
