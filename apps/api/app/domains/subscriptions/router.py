@@ -487,6 +487,27 @@ def _public_subscription_target_url(request: Request, target: str) -> str:
     )
 
 
+def _public_subscription_short_target_url(
+    request: Request,
+    *,
+    public_id: str,
+    target: str,
+    raw: bool = False,
+) -> str:
+    query_items = [
+        (key, value)
+        for key, value in request.query_params.multi_items()
+        if key in {"device_id", "hwid"}
+    ]
+    if raw:
+        query_items.append(("raw", "1"))
+    url = request.url.replace(
+        path=f"/sub/{quote(public_id, safe='')}/{quote(target, safe='')}",
+        query=urlencode(query_items),
+    )
+    return _public_url_from_request_url(request, url)
+
+
 def _subscription_qr_svg(value: str) -> str:
     return segno.make(value, error="q").svg_inline(scale=7, border=4)
 
@@ -581,7 +602,7 @@ def _subscription_device_binding_page(
     )
 
 
-def _subscription_target_tabs(request: Request, current_target: str) -> str:
+def _subscription_target_tabs(request: Request, public_id: str, current_target: str) -> str:
     targets = (
         ("happ", "Happ"),
         ("hiddify", "Hiddify"),
@@ -591,7 +612,10 @@ def _subscription_target_tabs(request: Request, current_target: str) -> str:
     tabs: list[str] = []
     for target, label in targets:
         class_name = "tab active" if target == current_target else "tab"
-        href = html_escape(_public_subscription_target_url(request, target), quote=True)
+        href = html_escape(
+            _public_subscription_short_target_url(request, public_id=public_id, target=target),
+            quote=True,
+        )
         aria_current = ' aria-current="page"' if target == current_target else ""
         tabs.append(f'<a class="{class_name}" href="{href}"{aria_current}>{html_escape(label)}</a>')
     return "".join(tabs)
@@ -629,11 +653,16 @@ def _subscription_browser_page(
         else "\u041d\u0435 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043e"
     )
     escaped_raw = html_escape(subscription_url, quote=True)
-    raw_subscription_url = _public_request_url_with_query(request, raw="1")
+    raw_subscription_url = _public_subscription_short_target_url(
+        request,
+        public_id=username,
+        target=render_target,
+        raw=True,
+    )
     escaped_raw_subscription_url = html_escape(raw_subscription_url, quote=True)
     add_link = _subscription_import_url(subscription_url, render_target)
     escaped_add_link = html_escape(add_link, quote=True)
-    tabs_html = _subscription_target_tabs(request, render_target)
+    tabs_html = _subscription_target_tabs(request, username, render_target)
     qr_svg = _subscription_qr_svg(subscription_url)
     client_label = {
         "happ": "Happ",

@@ -261,12 +261,13 @@ async def test_subscription_routes_create_list_and_get(
         in browser_page_response.text
     )
     assert (
-        'href="https://panel.example.test/api/v1/subscriptions/public/'
+        f'href="https://panel.example.test/sub/{created["public_id"]}/happ?'
         in browser_page_response.text
     )
-    assert "target=hiddify" in browser_page_response.text
-    assert "target=sing-box" in browser_page_response.text
-    assert "target=amnezia" in browser_page_response.text
+    assert f"/sub/{created['public_id']}/hiddify?" in browser_page_response.text
+    assert f"/sub/{created['public_id']}/sing-box?" in browser_page_response.text
+    assert f"/sub/{created['public_id']}/amnezia?" in browser_page_response.text
+    assert "/api/v1/subscriptions/public/" not in browser_page_response.text
     assert "hwid=route-browser-device" in browser_page_response.text
     assert (
         '<div class="qr" role="img" aria-label="QR subscription"><svg'
@@ -282,6 +283,10 @@ async def test_subscription_routes_create_list_and_get(
     assert "data-import-status" in browser_page_response.text
     assert "data-copy-url" in browser_page_response.text
     assert "raw=1" in browser_page_response.text
+    assert (
+        f"/sub/{created['public_id']}/happ?hwid=route-browser-device&amp;raw=1"
+        in browser_page_response.text
+    )
     assert "Если клиент не открылся" in browser_page_response.text
     assert qr_payloads == [
         f"https://panel.example.test/sub/{created['public_id']}?hwid=route-browser-device"
