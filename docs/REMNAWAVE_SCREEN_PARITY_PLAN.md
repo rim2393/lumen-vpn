@@ -521,3 +521,32 @@ deployed before being marked done.
   control, and clicking `Перезапустить все` opened the inline production API
   confirmation instead of calling the backend immediately. Scoped cancel
   closed that confirmation.
+- 2026-06-06: RSP-009 Tools snippet edit-flow fix released through the
+  official image build and installer deploy path at final product commit
+  `6bfa41b` and installer workflow `27061583696`. Root cause: the Snippets
+  table row `Save` action patched the stale fetched row values instead of
+  the operator-edited form values, so visible edits were not what the live
+  API received. The flow now uses explicit `Edit` row selection, a real
+  editor state with stable `snippet_name`, `snippet_language`, and
+  `snippet_content` fields, `Create snippet` for drafts, `Save changes` for
+  the selected saved snippet, `New snippet` to reset the editor, and editor
+  cleanup when a selected snippet is deleted. The Tools toolbar now uses a
+  wrapping flex layout on the same surface. Local gates passed:
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`30 passed`), `npx tsc -b --pretty false`, `npm run build`,
+  `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, `git diff --check`, and
+  source grep found no native browser confirmation calls in page/shared code.
+  Product GitHub runs succeeded for the final SHA: `Quality gates`
+  `27061550067` and `Build release images` `27061550070`. Live evidence
+  after deploy: `https://panel.lumentech.tel/api/v1/health/ready` returned
+  `ok`; panel root returned assets `/assets/index-DlNoyRCT.js` and
+  `/assets/index-BM7Cg-is.css`; the JS asset contains `Save changes`,
+  `Edit saved snippet`, `New snippet`, and `snippet_name`; the CSS asset
+  contains `.tools-page .toolbar` and `flex-wrap`; live browser
+  `/tools` Snippets tab showed no `A valid API key is required` and no
+  `Tools unavailable`. A temporary QA snippet was created through the live UI,
+  edited from the form, saved through `Save changes`, verified in the live
+  table with the new name/content, then deleted through the existing inline
+  production API confirmation; final live check showed `No snippets stored.`,
+  no QA snippet residue, and the editor fields still present for a new draft.

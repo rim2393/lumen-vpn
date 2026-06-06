@@ -358,6 +358,30 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   46 real rows, `Update protocols`, and `Перезапустить все` opened inline
   production API confirmation instead of firing immediately. Scoped cancel
   closed the confirmation.
+- Live prod evidence for release
+  `main-6bfa41b3e566c9fcdb09c57f0baeae16ca1572ed`: official signed
+  publish/deploy workflow `27061583696` completed successfully. Tools
+  snippets edit flow is no longer a stale-row save. The Snippets surface now
+  uses explicit row `Edit`, real editor state with stable `snippet_name`,
+  `snippet_language`, and `snippet_content` fields, `Create snippet` for
+  drafts, `Save changes` for the selected saved snippet, `New snippet` for
+  reset, and editor cleanup after deleting the selected snippet. The Tools
+  toolbar uses wrapping flex layout. Local gates passed: focused
+  `ControlPlaneScreens.test.tsx` Vitest (`30 passed`), TypeScript build, web
+  production build, release guard, production reality guard, `git
+  diff --check`, and source grep found no native browser confirmation calls
+  in page/shared code. Product GitHub runs succeeded: `Quality gates`
+  `27061550067` and `Build release images` `27061550070`. Live evidence:
+  `/api/v1/health/ready` returned `ok`; panel root returned assets
+  `/assets/index-DlNoyRCT.js` and `/assets/index-BM7Cg-is.css`; JS contains
+  `Save changes`, `Edit saved snippet`, `New snippet`, and `snippet_name`;
+  CSS contains `.tools-page .toolbar` and `flex-wrap`; live browser `/tools`
+  Snippets tab showed no API-key error and no `Tools unavailable`. A temporary
+  QA snippet was created through the live UI, edited from the form, saved
+  through `Save changes`, verified in the live table with the new name/content,
+  then deleted through inline production API confirmation. Final live check
+  showed `No snippets stored.`, no QA snippet residue, and draft editor fields
+  present.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
