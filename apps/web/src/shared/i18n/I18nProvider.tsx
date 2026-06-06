@@ -592,8 +592,26 @@ const ru: Record<string, string> = {
   'VPN account': 'VPN-аккаунт',
   'users.count': '{count} реальных пользователей',
   'Delete {name}': 'Удалить {name}',
+  'Delete user {name}': 'Удалить пользователя {name}',
+  'Delete selected users': 'Удалить выбранных пользователей',
   'Reset traffic {name}': 'Сбросить трафик {name}',
+  'Reset traffic for {name}': 'Сбросить трафик для {name}',
+  'Reset traffic for selected users': 'Сбросить трафик выбранных пользователей',
   'Revoke {name}': 'Отозвать {name}',
+  'Revoke user {name}': 'Отозвать пользователя {name}',
+  'Revoke selected users': 'Отозвать выбранных пользователей',
+  'This will remove the real user through the production API.':
+    'Реальный пользователь будет удален через production API.',
+  'This will remove {count} real users through the production API.':
+    'Реальные пользователи будут удалены через production API: {count}.',
+  'This will revoke the real user through the production API.':
+    'Доступ реального пользователя будет отозван через production API.',
+  'This will revoke {count} real users through the production API.':
+    'Доступ реальных пользователей будет отозван через production API: {count}.',
+  'This will reset real traffic counters through the production API.':
+    'Реальные счетчики трафика будут сброшены через production API.',
+  'This will reset traffic counters for {count} real users through the production API.':
+    'Реальные счетчики трафика выбранных пользователей будут сброшены через production API: {count}.',
   'Toggle status {name}': 'Переключить статус {name}',
   Access: 'Доступ',
   Action: 'Действие',
