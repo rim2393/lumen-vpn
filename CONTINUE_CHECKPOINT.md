@@ -382,6 +382,28 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   then deleted through inline production API confirmation. Final live check
   showed `No snippets stored.`, no QA snippet residue, and draft editor fields
   present.
+- Live prod evidence for release
+  `main-9c076fd51fddced2407e6e832e7591e5de573575`: official signed
+  publish/deploy workflow `27062044071` completed successfully. Settings
+  auth/provider cards are still backed by the real `/settings/auth/providers`
+  API; no fake auth actions were added. Provider status/actions are
+  localized, backend `needs_configuration` is mapped to a human label,
+  catalog-only providers stay disabled with a callback-missing explanation,
+  provider metadata/action rows no longer collapse into unreadable columns,
+  and the auth/provider stack moves above long typed settings forms on medium
+  desktop/mobile widths. Local gates passed: focused
+  `ControlPlaneScreens.test.tsx` Vitest (`30 passed`), TypeScript build, web
+  production build, release guard, production reality guard, and `git
+  diff --check`. Product GitHub runs succeeded: `Quality gates`
+  `27062012853` and `Build release images` `27062012860`. Live evidence:
+  `/api/v1/health/ready` returned `ok`; panel root returned assets
+  `/assets/index-BkBci48P.js` and `/assets/index-Dq34ZIU7.css`; JS contains
+  `needs_configuration` mapping plus `needs configuration`; CSS contains
+  `settings-provider-card__hint` and `order:-1`; live browser `/settings` at
+  1080x912 showed `html lang=ru`, no API-key error, no `Settings unavailable`,
+  8 real provider cards, no raw `needs_configuration` text, readable
+  `needs configuration`/Russian status label, `sideOrder=-1`, and provider
+  cards near the top of the page instead of below the long typed forms.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit

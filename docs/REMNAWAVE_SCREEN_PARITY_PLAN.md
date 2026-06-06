@@ -550,3 +550,30 @@ deployed before being marked done.
   table with the new name/content, then deleted through the existing inline
   production API confirmation; final live check showed `No snippets stored.`,
   no QA snippet residue, and the editor fields still present for a new draft.
+- 2026-06-06: RSP-007 Settings/auth/tokens first responsive provider pass
+  released through the official image build and installer deploy path at final
+  product commit `9c076fd` and installer workflow `27062044071`. Scope: no
+  fake auth actions were added; the existing real `/settings/auth/providers`
+  API-backed provider cards were made readable and responsive. The pass
+  localizes the provider status/actions, maps backend `needs_configuration`
+  into a human label, keeps catalog-only providers disabled with a real
+  callback-missing explanation, reshapes provider metadata and action rows so
+  they do not collapse into unreadable columns, and moves the auth/provider
+  stack above the long typed settings forms on medium desktop/mobile widths.
+  Local gates passed: `npx vitest run src/pages/ControlPlaneScreens.test.tsx
+  --reporter=dot` (`30 passed`), `npx tsc -b --pretty false`,
+  `npm run build`, `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, and `git diff --check`.
+  Product GitHub runs succeeded for the final SHA: `Quality gates`
+  `27062012853` and `Build release images` `27062012860`. Live evidence after
+  deploy: `https://panel.lumentech.tel/api/v1/health/ready` returned `ok`;
+  panel root returned assets `/assets/index-BkBci48P.js` and
+  `/assets/index-Dq34ZIU7.css`; the JS asset contains the
+  `needs_configuration` mapping plus `needs configuration`; CSS contains
+  `settings-provider-card__hint` and the medium-width `order:-1` rule; live
+  browser `/settings` at 1080x912 showed `html lang=ru`, no
+  `A valid API key is required`, no `Settings unavailable`, 8 real provider
+  cards, no raw `needs_configuration` text, the readable
+  `needs configuration`/Russian status label, auth/provider stack ordered
+  before typed setting forms (`sideOrder=-1`), and provider cards near the top
+  of the page instead of below the long typed forms.
