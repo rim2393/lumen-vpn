@@ -94,3 +94,12 @@ admin Users/Profile/Hosts.
   Fix keeps real actions, uses fixed table layouts with ellipsis, scopes the
   side column to one track, bounds the inbound registry table, and corrects the
   registry actions into one actions cell. Local web `npm run build` passed.
+- 2026-06-06: RSP-003 compact-layout correction released through the official
+  image build and installer deploy path at commit `d1191af`. Live
+  `https://panel.lumentech.tel/profiles` evidence: 46 real profile rows,
+  first 10 row heights are 59px, document height dropped from about 10343px to
+  4837px, profile inventory table is fixed layout at 1640px with horizontal
+  scroll, `.profiles-side` is one grid column, inbound registry contains 46
+  real rows in a bounded scroll region, selected profile row remains present,
+  per-row actions remain real icon buttons with titles, and no internal
+  `http://api:8000` URL leaks.
