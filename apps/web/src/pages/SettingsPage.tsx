@@ -1018,7 +1018,7 @@ function authProviderStatusLabel(status: string) {
   if (status === 'disabled') {
     return 'disabled'
   }
-  if (status === 'unimplemented') {
+  if (status === 'unimplemented' || status === 'needs_configuration') {
     return 'needs configuration'
   }
   return status

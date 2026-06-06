@@ -3151,6 +3151,10 @@ h2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .settings-workbench__side {
+    order: -1;
+  }
+
   .settings-provider-card__actions {
     grid-template-columns: repeat(2, max-content) minmax(0, 1fr) max-content;
   }
@@ -3215,6 +3219,10 @@ h2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .settings-workbench__side {
+    order: -1;
+  }
+
   .tools-page .resource-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3272,6 +3280,10 @@ h2 {
 
   .settings-workbench {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-workbench__side {
+    order: -1;
   }
 
   .settings-provider-card {
