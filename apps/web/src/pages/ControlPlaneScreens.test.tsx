@@ -429,6 +429,100 @@ describe('Control plane resource screens', () => {
     expect(screen.getByLabelText(/user metadata json/i)).toHaveAttribute('name', 'metadata_json')
   })
 
+  it('wires user detail subscription actions to real subscription APIs', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const owner: UserRecord = {
+      created_at: '2026-05-27T00:00:00Z',
+      device_limit: 2,
+      display_name: 'Subscription Owner',
+      email: 'subscription-owner@lumen.local',
+      expires_at: null,
+      id: 'usr_subscription_detail',
+      metadata_json: { numeric_id: 79 },
+      role: 'user',
+      status: 'active',
+      tags: ['qa'],
+      telegram_id: null,
+      traffic_limit_gb: 100,
+      traffic_used_gb: 1,
+      updated_at: '2026-05-27T00:00:00Z',
+      username: 'subscription-owner',
+    }
+    const subscription: SubscriptionRecord = {
+      config_hash: 'hash-live',
+      created_at: '2026-05-27T00:00:00Z',
+      delivery_profile: { client: 'happ', format: 'happ', profile_title: 'HApp live' },
+      expires_at: null,
+      id: 'sub-user-detail',
+      license_id: 'lic-live',
+      node_id: 'node-live',
+      public_id: 'lumen_sub_user_detail',
+      public_manifest_url: '/api/v1/subscriptions/public/lumen_sub_user_detail/manifest',
+      public_page_url: '/sub/lumen_sub_user_detail',
+      public_render_url: '/api/v1/subscriptions/public/lumen_sub_user_detail/render',
+      public_render_urls: { happ: '/api/v1/subscriptions/public/lumen_sub_user_detail/render?target=happ' },
+      render_formats: ['happ'],
+      revoked_at: null,
+      status: 'active',
+      updated_at: '2026-05-27T00:00:00Z',
+      user_id: owner.id,
+    }
+    const detail = {
+      accessible_nodes: [],
+      devices: [],
+      request_history: [],
+      subscriptions: [subscription],
+      user: owner,
+    }
+    const cloneSubscription = vi.fn(async (subscriptionId: string) => ({
+      ...subscription,
+      id: `${subscriptionId}-clone`,
+      public_id: 'lumen_sub_user_detail_clone',
+    }))
+    const revokeSubscription = vi.fn(async (subscriptionId: string) => {
+      detail.subscriptions = detail.subscriptions.map((item) =>
+        item.id === subscriptionId ? { ...item, revoked_at: '2026-05-28T00:00:00Z', status: 'revoked' } : item,
+      )
+      return detail.subscriptions[0]
+    })
+    const deleteSubscription = vi.fn(async (subscriptionId: string) => {
+      detail.subscriptions = detail.subscriptions.filter((item) => item.id !== subscriptionId)
+    })
+    const apiClient: LumenApiClient = {
+      ...createDevelopmentLumenApiClient(),
+      cloneSubscription,
+      deleteSubscription,
+      getUserDetail: async () => detail,
+      revokeSubscription,
+    }
+
+    renderWithRouter('/users/usr_subscription_detail', { apiClient, initialSession: developmentSession })
+
+    expect(await screen.findByRole('table', { name: /(issued subscriptions|выданные подписки)/i })).toBeInTheDocument()
+    expect(screen.getByText('HApp live')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /copy happ raw subscription lumen_sub_user_detail/i }))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/sub/lumen_sub_user_detail/happ?raw=1'))
+
+    await user.click(screen.getByRole('button', { name: /clone subscription lumen_sub_user_detail/i }))
+    await waitFor(() => expect(cloneSubscription).toHaveBeenCalledWith('sub-user-detail'))
+
+    await user.click(screen.getByRole('button', { name: /revoke subscription lumen_sub_user_detail/i }))
+    expect(revokeSubscription).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('alertdialog', { name: /revoke subscription lumen_sub_user_detail/i })).getByRole('button', { name: /^revoke$/i }))
+    await waitFor(() => expect(revokeSubscription).toHaveBeenCalledWith('sub-user-detail'))
+
+    await user.click(screen.getByRole('button', { name: /delete subscription lumen_sub_user_detail/i }))
+    expect(deleteSubscription).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('alertdialog', { name: /delete subscription lumen_sub_user_detail/i })).getByRole('button', { name: /^delete$/i }))
+    await waitFor(() => expect(deleteSubscription).toHaveBeenCalledWith('sub-user-detail'))
+  })
+
   it('wires HWID inspector device actions to backend requests', async () => {
     const user = userEvent.setup()
     const owner: UserRecord = {

@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   Ban,
   CheckCircle2,
+  Clipboard,
+  Copy,
   ExternalLink,
   RefreshCw,
   RotateCcw,
@@ -14,11 +16,14 @@ import {
 } from 'lucide-react'
 import {
   useClearUserDevices,
+  useCloneSubscription,
+  useDeleteSubscription,
   useDeleteUser,
   useDeleteUserDevice,
   useDisableUser,
   useEnableUser,
   useResetUserTraffic,
+  useRevokeSubscription,
   useRevokeUser,
   useUpdateUser,
   useUserDetailData,
@@ -51,6 +56,7 @@ type UserEditorState = {
 type UserDetailDangerTarget =
   | { action: 'revoke' | 'reset-traffic' | 'delete-user' | 'clear-devices'; name: string }
   | { action: 'delete-device'; deviceId: string; name: string }
+  | { action: 'revoke-subscription' | 'delete-subscription'; name: string; subscriptionId: string }
 
 function displayName(user: UserRecord): string {
   return user.display_name || user.username || user.email
@@ -188,10 +194,14 @@ export function UserDetailPage() {
   const updateUser = useUpdateUser()
   const deleteDevice = useDeleteUserDevice()
   const clearDevices = useClearUserDevices()
+  const cloneSubscription = useCloneSubscription()
+  const revokeSubscription = useRevokeSubscription()
+  const deleteSubscription = useDeleteSubscription()
   const detail = query.data
   const user = detail?.user
   const [editor, setEditor] = useState<UserEditorState | null>(null)
   const [editorError, setEditorError] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
   const [pendingDanger, setPendingDanger] = useState<UserDetailDangerTarget | null>(null)
 
@@ -292,6 +302,10 @@ export function UserDetailPage() {
         await deleteDevice.mutateAsync({ deviceId: pendingDanger.deviceId, userId: user.id })
       } else if (pendingDanger.action === 'clear-devices') {
         await clearDevices.mutateAsync(user.id)
+      } else if (pendingDanger.action === 'revoke-subscription') {
+        await revokeSubscription.mutateAsync(pendingDanger.subscriptionId)
+      } else if (pendingDanger.action === 'delete-subscription') {
+        await deleteSubscription.mutateAsync(pendingDanger.subscriptionId)
       } else {
         await deleteUser.mutateAsync(user.id)
         navigate('/users')
@@ -301,6 +315,29 @@ export function UserDetailPage() {
       await query.refetch()
     } catch (error) {
       setEditorError(mutationError(error, t('User action failed.')))
+    }
+  }
+
+  async function cloneUserSubscription(subscription: SubscriptionRecord) {
+    setEditorError(null)
+    setActionMessage(null)
+    try {
+      await cloneSubscription.mutateAsync(subscription.id)
+      await query.refetch()
+      setActionMessage(t('Subscription cloned.'))
+    } catch (error) {
+      setEditorError(mutationError(error, t('Subscription action failed.')))
+    }
+  }
+
+  async function copySubscriptionUrl(subscription: SubscriptionRecord, target: 'page' | 'happ') {
+    const baseUrl = buildSubscriptionUrl(subscription.public_id)
+    const url = target === 'happ' ? `${baseUrl}/happ?raw=1` : baseUrl
+    try {
+      await navigator.clipboard.writeText(url)
+      setActionMessage(t('Subscription URL copied.'))
+    } catch (error) {
+      setEditorError(mutationError(error, t('Subscription URL could not be copied.')))
     }
   }
 
@@ -524,18 +561,21 @@ export function UserDetailPage() {
                 placeholder="vip, trial"
               />
             </label>
-            <label htmlFor="detail-user-metadata" className="user-editor-grid__wide">
-              {t('User metadata JSON')}
-              <textarea
-                enterKeyHint="done"
-                id="detail-user-metadata"
-                name="metadata_json"
-                rows={10}
-                spellCheck={false}
-                value={editor.metadataJson}
-                onChange={(event) => setEditor({ ...editor, metadataJson: event.target.value })}
-              />
-            </label>
+            <details className="advanced-json-panel user-editor-grid__wide">
+              <summary>{t('Advanced metadata JSON')}</summary>
+              <label htmlFor="detail-user-metadata">
+                {t('User metadata JSON')}
+                <textarea
+                  enterKeyHint="done"
+                  id="detail-user-metadata"
+                  name="metadata_json"
+                  rows={10}
+                  spellCheck={false}
+                  value={editor.metadataJson}
+                  onChange={(event) => setEditor({ ...editor, metadataJson: event.target.value })}
+                />
+              </label>
+            </details>
             <div className="user-editor-grid__actions">
               <button type="submit" className="button button--primary" disabled={updateUser.isPending}>
                 <Save size={16} aria-hidden="true" />
@@ -553,12 +593,21 @@ export function UserDetailPage() {
             <FormError message={editorError} />
             <FormError message={updateUser.isError ? mutationError(updateUser.error, t('User could not be saved.')) : null} />
             {savedMessage ? <StatusBadge tone="good">{savedMessage}</StatusBadge> : null}
+            {actionMessage ? <StatusBadge tone="good">{actionMessage}</StatusBadge> : null}
           </form>
         </article>
 
         <aside className="side-stack user-detail-side">
           <UserDetailDangerConfirm
-            pending={deleteUser.isPending || revokeUser.isPending || resetUserTraffic.isPending || deleteDevice.isPending || clearDevices.isPending}
+            pending={
+              deleteUser.isPending ||
+              revokeUser.isPending ||
+              resetUserTraffic.isPending ||
+              deleteDevice.isPending ||
+              clearDevices.isPending ||
+              revokeSubscription.isPending ||
+              deleteSubscription.isPending
+            }
             target={pendingDanger}
             onCancel={() => setPendingDanger(null)}
             onConfirm={() => void confirmDangerAction()}
@@ -632,16 +681,25 @@ export function UserDetailPage() {
           ) : (
             <DataTable
               caption={t('Issued subscriptions')}
-              columns={['Public ID', 'Node', 'Delivery profile', 'Expires', 'Status', 'Actions']}
+              columns={['Public ID', 'Node', 'Delivery profile', 'Expires', 'Status', 'Links', 'Actions']}
               rows={detail.subscriptions.map((subscription) => ({
                 id: subscription.id,
                 cells: [
                   subscription.public_id,
                   subscription.node_id ?? t('All nodes'),
-                  formatRecord(subscription.delivery_profile),
+                  <SubscriptionDeliveryProfile subscription={subscription} />,
                   subscription.expires_at ? formatDateTime(subscription.expires_at) : t('Not set'),
                   <StatusBadge tone={toneForStatus(subscription.status)}>{subscription.status}</StatusBadge>,
-                  <SubscriptionLinks subscription={subscription} />,
+                  <SubscriptionLinks onCopy={copySubscriptionUrl} subscription={subscription} />,
+                  <SubscriptionRowActions
+                    clonePending={cloneSubscription.isPending}
+                    deletePending={deleteSubscription.isPending}
+                    revokePending={revokeSubscription.isPending}
+                    subscription={subscription}
+                    onClone={cloneUserSubscription}
+                    onDelete={(item) => setPendingDanger({ action: 'delete-subscription', name: item.public_id, subscriptionId: item.id })}
+                    onRevoke={(item) => setPendingDanger({ action: 'revoke-subscription', name: item.public_id, subscriptionId: item.id })}
+                  />,
                 ],
               }))}
             />
@@ -776,7 +834,11 @@ function UserDetailDangerConfirm({
           ? 'Reset traffic for {name}'
           : target.action === 'clear-devices'
             ? 'Clear devices for {name}'
-            : 'Delete device {id}'
+            : target.action === 'revoke-subscription'
+              ? 'Revoke subscription {name}'
+              : target.action === 'delete-subscription'
+                ? 'Delete subscription {name}'
+                : 'Delete device {id}'
   const descriptionKey =
     target.action === 'delete-user'
       ? 'The real user and linked access will be removed through the live API.'
@@ -786,11 +848,15 @@ function UserDetailDangerConfirm({
           ? 'The real traffic counters will be reset through the live API.'
           : target.action === 'clear-devices'
             ? 'All real device bindings for this user will be removed through the live API.'
-            : 'This real device binding will be removed through the live API.'
+            : target.action === 'revoke-subscription'
+              ? 'This real subscription will be revoked through the live API and public access will stop.'
+              : target.action === 'delete-subscription'
+                ? 'This real subscription record will be deleted through the live API.'
+                : 'This real device binding will be removed through the live API.'
   const confirmLabel =
-    target.action === 'delete-user' || target.action === 'delete-device'
+    target.action === 'delete-user' || target.action === 'delete-device' || target.action === 'delete-subscription'
       ? t('Delete')
-      : target.action === 'revoke'
+      : target.action === 'revoke' || target.action === 'revoke-subscription'
         ? t('Revoke')
         : target.action === 'reset-traffic'
           ? t('Reset traffic')
@@ -816,7 +882,28 @@ function UserDetailDangerConfirm({
   )
 }
 
-function SubscriptionLinks({ subscription }: { subscription: SubscriptionRecord }) {
+function SubscriptionDeliveryProfile({ subscription }: { subscription: SubscriptionRecord }) {
+  const summary =
+    subscription.delivery_profile.title ||
+    subscription.delivery_profile.profile_title ||
+    subscription.delivery_profile.format ||
+    subscription.delivery_profile.client ||
+    subscription.delivery_profile.adapter ||
+    'delivery_profile'
+  return (
+    <code className="compact-json" title={formatRecord(subscription.delivery_profile)}>
+      {summary}
+    </code>
+  )
+}
+
+function SubscriptionLinks({
+  onCopy,
+  subscription,
+}: {
+  onCopy: (subscription: SubscriptionRecord, target: 'page' | 'happ') => Promise<void>
+  subscription: SubscriptionRecord
+}) {
   const { t } = useI18n()
   const baseUrl = buildSubscriptionUrl(subscription.public_id)
   const renderability = getSubscriptionRenderability(subscription)
@@ -837,14 +924,74 @@ function SubscriptionLinks({ subscription }: { subscription: SubscriptionRecord 
       <a className="text-link" href={baseUrl} target="_blank" rel="noreferrer">
         {t('Page')} <ExternalLink size={14} aria-hidden="true" />
       </a>
+      <button type="button" className="icon-button" aria-label={t('Copy subscription page {id}', { id: subscription.public_id })} onClick={() => void onCopy(subscription, 'page')}>
+        <Copy size={14} aria-hidden="true" />
+      </button>
       {renderability.formats.includes('happ') ? (
         <a className="text-link" href={`${baseUrl}/happ`} target="_blank" rel="noreferrer">
           Happ
         </a>
       ) : null}
+      {renderability.formats.includes('happ') ? (
+        <button type="button" className="icon-button" aria-label={t('Copy HApp raw subscription {id}', { id: subscription.public_id })} onClick={() => void onCopy(subscription, 'happ')}>
+          <Clipboard size={14} aria-hidden="true" />
+        </button>
+      ) : null}
       <Link className="text-link" to="/subscription">
         {t('Manage')}
       </Link>
+    </div>
+  )
+}
+
+function SubscriptionRowActions({
+  clonePending,
+  deletePending,
+  onClone,
+  onDelete,
+  onRevoke,
+  revokePending,
+  subscription,
+}: {
+  clonePending: boolean
+  deletePending: boolean
+  onClone: (subscription: SubscriptionRecord) => Promise<void>
+  onDelete: (subscription: SubscriptionRecord) => void
+  onRevoke: (subscription: SubscriptionRecord) => void
+  revokePending: boolean
+  subscription: SubscriptionRecord
+}) {
+  const { t } = useI18n()
+  const inactive = subscription.status !== 'active' || Boolean(subscription.revoked_at)
+  return (
+    <div className="inline-actions inline-actions--compact subscription-row-actions">
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t('Clone subscription {id}', { id: subscription.public_id })}
+        disabled={clonePending}
+        onClick={() => void onClone(subscription)}
+      >
+        <Copy size={14} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t('Revoke subscription {id}', { id: subscription.public_id })}
+        disabled={inactive || revokePending}
+        onClick={() => onRevoke(subscription)}
+      >
+        <ShieldX size={14} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t('Delete subscription {id}', { id: subscription.public_id })}
+        disabled={deletePending}
+        onClick={() => onDelete(subscription)}
+      >
+        <Trash2 size={14} aria-hidden="true" />
+      </button>
     </div>
   )
 }

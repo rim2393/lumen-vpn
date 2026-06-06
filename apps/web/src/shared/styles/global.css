@@ -1459,6 +1459,19 @@ h2 {
   max-width: 1480px;
 }
 
+.user-detail-page .page-header .action-cluster {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  width: min(560px, 100%);
+}
+
+.user-detail-page .page-header .action-cluster .button {
+  min-width: 0;
+  justify-content: center;
+  padding-inline: var(--space-3);
+}
+
 .user-detail-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.34fr);
@@ -1506,9 +1519,29 @@ h2 {
 }
 
 .user-editor-grid textarea {
+  max-height: 320px;
   resize: vertical;
   font-family: var(--font-mono);
   line-height: 1.5;
+}
+
+.advanced-json-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.advanced-json-panel summary {
+  cursor: pointer;
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.advanced-json-panel label {
+  margin-top: var(--space-3);
 }
 
 .user-editor-grid__actions {
@@ -1529,12 +1562,13 @@ h2 {
 }
 
 .user-detail-lists .data-table-wrap {
-  max-height: min(560px, calc(100vh - 260px));
+  max-height: min(460px, calc(100vh - 260px));
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .user-detail-lists .data-table {
-  min-width: 1080px;
+  min-width: 1180px;
   table-layout: fixed;
 }
 
@@ -1543,6 +1577,38 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-detail-lists .data-table td:nth-child(1),
+.user-detail-lists .data-table td:nth-child(3),
+.user-detail-lists .data-table td:nth-child(6),
+.user-detail-lists .data-table td:nth-child(7) {
+  white-space: normal;
+}
+
+.compact-json {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 4px 7px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgb(0 0 0 / 20%);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+}
+
+.subscription-row-actions {
+  flex-wrap: nowrap;
+}
+
+.user-detail-side {
+  position: sticky;
+  top: calc(var(--space-4) + 76px);
 }
 
 .workflow-list {
@@ -2739,6 +2805,14 @@ h2 {
 
   .hosts-side {
     position: static;
+  }
+
+  .user-detail-side {
+    position: static;
+  }
+
+  .user-detail-page .page-header .action-cluster {
+    width: 100%;
   }
 
   .settings-summary-grid,
