@@ -601,17 +601,17 @@ const ru: Record<string, string> = {
   'Revoke user {name}': 'Отозвать пользователя {name}',
   'Revoke selected users': 'Отозвать выбранных пользователей',
   'This will remove the real user through the production API.':
-    'Реальный пользователь будет удален через production API.',
+    'Реальный пользователь будет удален через боевой API.',
   'This will remove {count} real users through the production API.':
-    'Реальные пользователи будут удалены через production API: {count}.',
+    'Реальные пользователи будут удалены через боевой API: {count}.',
   'This will revoke the real user through the production API.':
-    'Доступ реального пользователя будет отозван через production API.',
+    'Доступ реального пользователя будет отозван через боевой API.',
   'This will revoke {count} real users through the production API.':
-    'Доступ реальных пользователей будет отозван через production API: {count}.',
+    'Доступ реальных пользователей будет отозван через боевой API: {count}.',
   'This will reset real traffic counters through the production API.':
-    'Реальные счетчики трафика будут сброшены через production API.',
+    'Реальные счетчики трафика будут сброшены через боевой API.',
   'This will reset traffic counters for {count} real users through the production API.':
-    'Реальные счетчики трафика выбранных пользователей будут сброшены через production API: {count}.',
+    'Реальные счетчики трафика выбранных пользователей будут сброшены через боевой API: {count}.',
   'Toggle status {name}': 'Переключить статус {name}',
   Access: 'Доступ',
   Action: 'Действие',
