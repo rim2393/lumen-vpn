@@ -330,6 +330,34 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
   `globalThis.confirm`, or `.confirm(` native browser confirmation calls.
   This is not full Remnawave Tools completion; it is the destructive-action
   and layout hardening slice.
+- Live prod evidence for release
+  `main-61a3db85e08ec4b5adee5c10066b47e35514ee90`: official signed
+  publish/deploy workflow `27061065560` completed successfully. Nodes now
+  requires inline production API confirmation before dangerous operations:
+  disable, pause, quarantine, node restart, node traffic reset, restart all,
+  reset all traffic, and pause all. Selected-node protocol management is a
+  real checkbox assignment matrix backed by
+  `/api/v1/nodes/{id}/protocol-selection`; it displays adapter, profile
+  status, runtime sync, pending enable/disable counts, discard changes, and
+  queues real runtime apply/remove commands only through `Update protocols`.
+  The Nodes page is scoped as `nodes-page` with bounded tables and responsive
+  one-column medium/mobile layout. Local gates passed: focused
+  `NodesPage.test.tsx` + `NodePluginsPage.test.tsx` Vitest (`9 passed`),
+  `ControlPlaneScreens.test.tsx` Vitest (`30 passed`), TypeScript build, web
+  production build, release guard, production reality guard, `git
+  diff --check`, and source grep found no native browser confirmation calls
+  in page/shared code. Product GitHub runs succeeded: `Quality gates`
+  `27061031177` and `Build release images` `27061031173`. Live evidence:
+  `/api/v1/health/ready` returned `ok`; panel root returned assets
+  `/assets/index-fsknoW3J.js` and `/assets/index-4KJyZif3.css`; JS contains
+  `node-protocol-matrix`, `Toggle protocol`, `pending changes`, and
+  `node-action-confirm`; CSS contains `nodes-page`, `node-protocol-matrix`,
+  and `node-action-confirm`; live browser `/nodes` showed no API-key error,
+  real node inventory, selected live node
+  `/nodes?focus=d40a27ae-29fa-4cd1-88ee-269957de1e30`, protocol matrix with
+  46 real rows, `Update protocols`, and `Перезапустить все` opened inline
+  production API confirmation instead of firing immediately. Scoped cancel
+  closed the confirmation.
 - Alembic heads: single head `0009_node_management_parity` after this slice.
 
 ## Fixes Applied During Audit
@@ -348,7 +376,7 @@ Last audited: 2026-06-01 21:28 Europe/Moscow.
 
 1. Continue Remnawave parity UI pages only against live API state; no fake
    counters or static placeholder rows. The next practical slices are the
-   remaining page-complete passes for Tools and Settings, then Nodes/Plugins
+   remaining page-complete passes for Tools and Settings, then NodePlugins
    and the other dense admin surfaces that still have weak responsive
    behavior, incomplete inline actions, or incomplete Remnawave parity.
 2. For each admin page slice, replace remaining native/browser-only UX with

@@ -487,3 +487,37 @@ deployed before being marked done.
   browser confirmation calls. Remaining Tools parity work: full Remnawave
   visual polish, deeper live interaction QA per tab, and any missing tool
   surfaces still need page-complete passes.
+- 2026-06-06: RSP-005 Nodes protocol/action parity slice released through
+  the official image build and installer deploy path at product commit
+  `61a3db8` and installer workflow `27061065560`. The `/nodes` surface now
+  keeps dangerous node operations behind inline production API confirmations:
+  disable, pause, quarantine, node restart, node traffic reset, restart all,
+  reset all traffic, and pause all. The selected-node protocol control is now
+  a Remnawave-like assignment matrix backed by the real
+  `/api/v1/nodes/{id}/protocol-selection` contract: operators can check or
+  uncheck protocol profiles, see adapter/profile status/runtime sync, see
+  pending enable/disable counts, discard local edits, and queue real runtime
+  apply/remove commands only through `Update protocols`. The page is scoped
+  as `nodes-page` with bounded tables and a one-column medium/mobile layout.
+  Local gates passed: `npx vitest run src/pages/NodesPage.test.tsx
+  src/pages/NodePluginsPage.test.tsx --reporter=dot` (`9 passed`),
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx --reporter=dot`
+  (`30 passed`), `npx tsc -b --pretty false`, `npm run build`,
+  `python scripts/validate_release_guard.py`,
+  `python scripts/validate_production_reality.py`, `git diff --check`, and
+  source grep found no native browser confirmation calls in page/shared code.
+  Product GitHub runs succeeded: `Quality gates` `27061031177` and
+  `Build release images` `27061031173`. Live evidence after deploy:
+  `https://panel.lumentech.tel/api/v1/health/ready` returned `ok`; panel
+  root returned assets `/assets/index-fsknoW3J.js` and
+  `/assets/index-4KJyZif3.css`; the JS asset contains
+  `node-protocol-matrix`, `Toggle protocol`, `pending changes`, and
+  `node-action-confirm`; the CSS asset contains `nodes-page`,
+  `node-protocol-matrix`, and `node-action-confirm`; live browser
+  `https://panel.lumentech.tel/nodes` showed no
+  `A valid API key is required`, rendered the real node inventory, selecting
+  the live node opened `/nodes?focus=d40a27ae-29fa-4cd1-88ee-269957de1e30`,
+  rendered the protocol matrix with 46 real rows and the `Update protocols`
+  control, and clicking `Перезапустить все` opened the inline production API
+  confirmation instead of calling the backend immediately. Scoped cancel
+  closed that confirmation.
