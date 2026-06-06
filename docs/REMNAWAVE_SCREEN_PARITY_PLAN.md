@@ -158,6 +158,22 @@ deployed before being marked done.
   `/sub/.../happ?...&raw=1`, Hiddify/Sing-box/Amnezia tabs point to
   `/sub/.../{target}`, and the short raw endpoint returns real `text/plain`
   proxy subscription output instead of fallback HTML.
+- 2026-06-06: RSP-005/RSP-009 admin routing and Tools stability pass released
+  through the official image build and installer deploy path at product commit
+  `aa7ef57`. Changes keep all tool tabs API-backed but lazy-load only the
+  active tab so a failing inactive endpoint no longer renders the whole page as
+  `Tools unavailable`. Added the Remnawave-style `/nodes/plugins` compatibility
+  route to the existing real node plugins screen and tightened the snippets
+  editor layout. Local gates passed:
+  `npx vitest run src/pages/ControlPlaneScreens.test.tsx src/pages/NodePluginsPage.test.tsx --reporter=dot`
+  (`29 passed`), `npm run build`, release guard, production reality guard, and
+  `git diff --check`. Live evidence after official deploy:
+  `https://panel.lumentech.tel/tools` renders the real HWID inspector table
+  without `Tools unavailable` or `A valid API key is required`,
+  `https://panel.lumentech.tel/nodes/plugins` is not a 404 and renders the real
+  node plugin registry/action surface, and
+  `https://sub.lumentech.tel/sub/.../happ` still has QR SVG/path with Raw on the
+  short public `/sub/.../happ?...&raw=1` endpoint and no public API URL leak.
 - 2026-06-06: RSP-003 Profiles first pass started after live audit showed
   46 real profiles and a 7000px-tall screen with a cramped inventory table.
   Changes keep all existing real API actions, widen the inventory column,
