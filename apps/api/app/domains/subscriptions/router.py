@@ -462,6 +462,12 @@ def _subscription_import_url(subscription_url: str, render_target: str) -> str:
     return subscription_url
 
 
+def _subscription_ios_import_url(subscription_url: str, render_target: str) -> str:
+    if render_target == "happ":
+        return f"happ://import/{quote(subscription_url, safe='')}"
+    return subscription_url
+
+
 def _public_url_from_request_url(request: Request, url: object) -> str:
     scheme = (request.headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip()
     host = (
@@ -658,18 +664,21 @@ def _subscription_browser_page(
         if expires_at
         else "\u041d\u0435 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043e"
     )
-    escaped_raw = html_escape(subscription_url, quote=True)
     raw_subscription_url = _public_subscription_short_target_url(
         request,
         public_id=username,
         target=render_target,
         raw=True,
     )
+    import_subscription_url = raw_subscription_url if render_target == "happ" else subscription_url
+    escaped_raw = html_escape(import_subscription_url, quote=True)
     escaped_raw_subscription_url = html_escape(raw_subscription_url, quote=True)
-    add_link = _subscription_import_url(subscription_url, render_target)
+    add_link = _subscription_import_url(import_subscription_url, render_target)
+    ios_add_link = _subscription_ios_import_url(import_subscription_url, render_target)
     escaped_add_link = html_escape(add_link, quote=True)
+    escaped_ios_add_link = html_escape(ios_add_link, quote=True)
     tabs_html = _subscription_target_tabs(request, username, render_target)
-    qr_svg = _subscription_qr_svg(subscription_url)
+    qr_svg = _subscription_qr_svg(import_subscription_url)
     client_label = {
         "happ": "Happ",
         "hiddify": "Hiddify",
@@ -1166,6 +1175,10 @@ def _subscription_browser_page(
                 <a class="button" href="{escaped_raw_subscription_url}">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
                   Raw
+                </a>
+                <a class="button" href="{escaped_ios_add_link}" data-client-link data-client="{html_escape(client_label, quote=True)} iOS">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                  iOS
                 </a>
                 <button class="button" type="button" data-url="{escaped_raw}" data-copy-url>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><rect x="3" y="3" width="13" height="13" rx="2"/></svg>
