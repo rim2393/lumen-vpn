@@ -1,5 +1,7 @@
 import java.util.Properties
-import org.gradle.api.tasks.bundling.Zip
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 plugins {
     id("com.android.application")
@@ -102,32 +104,42 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-val writeHiddifyCoreManifest by tasks.registering {
-    val output = layout.buildDirectory.file("generated/hiddify-core/AndroidManifest.xml")
-    outputs.file(output)
-    doLast {
-        val manifest = output.get().asFile
-        manifest.parentFile.mkdirs()
-        manifest.writeText("""<manifest xmlns:android="http://schemas.android.com/apk/res/android"/>""")
-    }
-}
+val hiddifyCoreAarFile = layout.buildDirectory.file("generated/hiddify-core/hiddify-core-sanitized.aar")
 
-val prepareHiddifyCoreAar by tasks.registering(Zip::class) {
+val prepareHiddifyCoreAar by tasks.registering {
     val upstreamAar = layout.projectDirectory.file("libs/hiddify-core.aar")
-    val sanitizedManifest = layout.buildDirectory.file("generated/hiddify-core/AndroidManifest.xml")
 
-    dependsOn(writeHiddifyCoreManifest)
-    from(zipTree(upstreamAar)) {
-        exclude("AndroidManifest.xml")
+    inputs.file(upstreamAar)
+    outputs.file(hiddifyCoreAarFile)
+
+    doLast {
+        val output = hiddifyCoreAarFile.get().asFile
+        val seen = mutableSetOf<String>()
+        output.parentFile.mkdirs()
+        ZipInputStream(upstreamAar.asFile.inputStream().buffered()).use { input ->
+            ZipOutputStream(output.outputStream().buffered()).use { zip ->
+                var entry = input.nextEntry
+                while (entry != null) {
+                    val name = entry.name
+                    if (name != "AndroidManifest.xml" && seen.add(name)) {
+                        zip.putNextEntry(ZipEntry(name))
+                        if (!entry.isDirectory) {
+                            input.copyTo(zip)
+                        }
+                        zip.closeEntry()
+                    }
+                    input.closeEntry()
+                    entry = input.nextEntry
+                }
+                zip.putNextEntry(ZipEntry("AndroidManifest.xml"))
+                zip.write("""<manifest xmlns:android="http://schemas.android.com/apk/res/android"/>""".toByteArray())
+                zip.closeEntry()
+            }
+        }
     }
-    from(sanitizedManifest) {
-        rename { "AndroidManifest.xml" }
-    }
-    archiveFileName.set("hiddify-core-sanitized.aar")
-    destinationDirectory.set(layout.buildDirectory.dir("generated/hiddify-core"))
 }
 
-val hiddifyCoreAar = files(prepareHiddifyCoreAar.flatMap { it.archiveFile }).builtBy(prepareHiddifyCoreAar)
+val hiddifyCoreAar = files(hiddifyCoreAarFile).builtBy(prepareHiddifyCoreAar)
 
 dependencies {
     implementation(hiddifyCoreAar)
