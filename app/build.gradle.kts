@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.bundling.Zip
 
 plugins {
     id("com.android.application")
@@ -101,8 +102,35 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+val writeHiddifyCoreManifest by tasks.registering {
+    val output = layout.buildDirectory.file("generated/hiddify-core/AndroidManifest.xml")
+    outputs.file(output)
+    doLast {
+        val manifest = output.get().asFile
+        manifest.parentFile.mkdirs()
+        manifest.writeText("""<manifest xmlns:android="http://schemas.android.com/apk/res/android"/>""")
+    }
+}
+
+val prepareHiddifyCoreAar by tasks.registering(Zip::class) {
+    val upstreamAar = layout.projectDirectory.file("libs/hiddify-core.aar")
+    val sanitizedManifest = layout.buildDirectory.file("generated/hiddify-core/AndroidManifest.xml")
+
+    dependsOn(writeHiddifyCoreManifest)
+    from(zipTree(upstreamAar)) {
+        exclude("AndroidManifest.xml")
+    }
+    from(sanitizedManifest) {
+        rename { "AndroidManifest.xml" }
+    }
+    archiveFileName.set("hiddify-core-sanitized.aar")
+    destinationDirectory.set(layout.buildDirectory.dir("generated/hiddify-core"))
+}
+
+val hiddifyCoreAar = files(prepareHiddifyCoreAar.flatMap { it.archiveFile }).builtBy(prepareHiddifyCoreAar)
+
 dependencies {
-    implementation(files("libs/hiddify-core.aar"))
+    implementation(hiddifyCoreAar)
     implementation(project(":amnezia-openvpn"))
     implementation("com.zaneschepke:amneziawg-android:2.3.7")
 
