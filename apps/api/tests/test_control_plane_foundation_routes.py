@@ -672,7 +672,7 @@ async def test_protocol_profile_port_conflict_and_host_flow(
     assert diagnostic_profile_response.json()["adapter"] == "vless-tcp-tls"
 
 
-async def test_remna_parity_crud_and_bulk_actions(foundation_app: FoundationRouteApp) -> None:
+async def test_Lumen_parity_crud_and_bulk_actions(foundation_app: FoundationRouteApp) -> None:
     user_response = await foundation_app.client.post(
         "/api/v1/users",
         json={
@@ -867,7 +867,7 @@ async def test_user_bulk_actions_cover_tags_expiry_squads_and_delete(
     assert not set(user_ids) & remaining_ids
 
 
-async def test_remna_parity_profile_host_subscription_flow(
+async def test_Lumen_parity_profile_host_subscription_flow(
     foundation_app: FoundationRouteApp,
 ) -> None:
     node_id = await seeded_node_id(foundation_app)

@@ -243,7 +243,7 @@ def test_principal_accepts_existing_reserved_domain_email() -> None:
     assert principal.email == "owner@example.test"
 
 
-def test_remna_tokens_compat_requires_web_session_and_uses_remna_shape(tmp_path) -> None:
+def test_Lumen_tokens_compat_requires_web_session_and_uses_Lumen_shape(tmp_path) -> None:
     with app_client(tmp_path) as client:
         created = client.post(
             "/api/v1/users",
@@ -273,7 +273,7 @@ def test_remna_tokens_compat_requires_web_session_and_uses_remna_shape(tmp_path)
         issued = client.post(
             "/api/tokens",
             headers=auth_headers,
-            json={"tokenName": "Remna automation"},
+            json={"tokenName": "Lumen automation"},
         )
         assert issued.status_code == 201
         issued_body = issued.json()
@@ -284,7 +284,7 @@ def test_remna_tokens_compat_requires_web_session_and_uses_remna_shape(tmp_path)
         assert listed.status_code == 200
         listed_body = listed.json()
         assert listed_body["apiKeys"][0]["uuid"] == issued_body["uuid"]
-        assert listed_body["apiKeys"][0]["tokenName"] == "Remna automation"
+        assert listed_body["apiKeys"][0]["tokenName"] == "Lumen automation"
         assert listed_body["apiKeys"][0]["token"] == issued_body["token"][:18]
         assert listed_body["docs"]["isDocsEnabled"] is True
 

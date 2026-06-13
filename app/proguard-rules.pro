@@ -1,0 +1,11 @@
+-keep class com.hiddify.core.** { *; }
+-keep class go.** { *; }
+-keep class net.openvpn.ovpn3.** { *; }
+-keep class org.amnezia.vpn.protocol.openvpn.** { *; }
+-keep class org.amnezia.vpn.protocol.** { *; }
+-keep class org.amnezia.awg.** { *; }
+-keep class com.getkeepsafe.relinker.** { *; }
+-keep class kotlinx.serialization.** { *; }
+-dontwarn com.hiddify.core.**
+-dontwarn go.**
+-dontwarn net.openvpn.ovpn3.**

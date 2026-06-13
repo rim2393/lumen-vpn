@@ -65,7 +65,6 @@ export function SettingsPage() {
   const [value, setValue] = useState('title=LUMEN, auto_update_hours=2')
   const [formError, setFormError] = useState<string | null>(null)
   const [providerError, setProviderError] = useState<string | null>(null)
-  const [showSecurityPanel, setShowSecurityPanel] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -130,7 +129,7 @@ export function SettingsPage() {
               <p className="eyebrow">{t('Typed settings')}</p>
               <h2>{t('Settings groups')}</h2>
             </div>
-            <StatusBadge tone="good">{t('typed API')}</StatusBadge>
+            <StatusBadge tone="good">typed API</StatusBadge>
           </div>
           {groupsQuery.isLoading ? <LoadingState label="Loading settings groups..." /> : null}
           {groupsQuery.isError ? (
@@ -169,7 +168,7 @@ export function SettingsPage() {
                 <p className="eyebrow">{t('Authentication')}</p>
                 <h2>{t('Provider toggles')}</h2>
               </div>
-              <StatusBadge tone="good">{t('api-backed')}</StatusBadge>
+              <StatusBadge tone="good">api-backed</StatusBadge>
             </div>
             {providersQuery.isLoading ? <LoadingState label="Loading providers..." /> : null}
             {providersQuery.isError ? (
@@ -194,29 +193,7 @@ export function SettingsPage() {
               ))}
             </div>
           </article>
-          {showSecurityPanel ? (
-            <SecurityMethodsPanel />
-          ) : (
-            <article className="panel settings-security-loader">
-              <div className="panel__header">
-                <div>
-                  <p className="eyebrow">{t('Account security')}</p>
-                  <h2>{t('MFA and passkeys')}</h2>
-                </div>
-                <StatusBadge tone="watch">{t('Load on demand')}</StatusBadge>
-              </div>
-              <p>
-                {t('Open this panel to load real MFA methods and passkeys for the current operator account.')}
-              </p>
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setShowSecurityPanel(true)}
-              >
-                {t('Open security methods')}
-              </button>
-            </article>
-          )}
+          <SecurityMethodsPanel />
           <ScreenForm onSubmit={handleSubmit}>
             <div>
               <p className="eyebrow">{t('Upsert setting')}</p>
@@ -225,11 +202,11 @@ export function SettingsPage() {
             </div>
             <label htmlFor="setting-key">
               {t('Key')}
-              <input id="setting-key" name="setting-key" required value={key} onChange={(event) => setKey(event.target.value)} />
+              <input id="setting-key" required value={key} onChange={(event) => setKey(event.target.value)} />
             </label>
             <label htmlFor="setting-value">
               {t('Value')}
-              <textarea id="setting-value" name="setting-value" required value={value} onChange={(event) => setValue(event.target.value)} />
+              <textarea id="setting-value" required value={value} onChange={(event) => setValue(event.target.value)} />
             </label>
             <FormError message={formError} />
             {updateSetting.isSuccess ? (
@@ -248,7 +225,7 @@ export function SettingsPage() {
             <p className="eyebrow">{t('Instance settings')}</p>
             <h2>{t('Settings registry')}</h2>
           </div>
-          <StatusBadge>{t('api ready')}</StatusBadge>
+          <StatusBadge>{t('api готов')}</StatusBadge>
         </div>
         {query.isLoading ? <LoadingState label="Loading settings..." /> : null}
         {query.isError ? (
@@ -300,10 +277,9 @@ function SettingsSummaryCard({
 }
 
 function SettingValuePreview({ value }: { value: Record<string, unknown> | null | undefined }) {
-  const { t } = useI18n()
   const entries = Object.entries(value ?? {})
   if (entries.length === 0) {
-    return <span className="settings-value-empty">{t('None')}</span>
+    return <span className="settings-value-empty">None</span>
   }
 
   return (
@@ -350,11 +326,6 @@ function SecurityMethodsPanel() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [passkeyPending, setPasskeyPending] = useState(false)
-  const [pendingDelete, setPendingDelete] = useState<
-    | { id: string; kind: 'mfa'; label: string }
-    | { id: string; kind: 'passkey'; label: string }
-    | null
-  >(null)
 
   async function beginTotpSetup() {
     setError(null)
@@ -393,7 +364,6 @@ function SecurityMethodsPanel() {
     setMessage(null)
     try {
       await deleteMfa.mutateAsync(method.id)
-      setPendingDelete(null)
       setMessage(t('MFA method deleted.'))
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'MFA method could not be deleted.')
@@ -430,7 +400,6 @@ function SecurityMethodsPanel() {
     setMessage(null)
     try {
       await deletePasskey.mutateAsync(credential.id)
-      setPendingDelete(null)
       setMessage(t('Passkey deleted.'))
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'Passkey could not be deleted.')
@@ -444,7 +413,7 @@ function SecurityMethodsPanel() {
           <p className="eyebrow">{t('Account security')}</p>
           <h2>{t('MFA and passkeys')}</h2>
         </div>
-        <StatusBadge tone="good">{t('real auth')}</StatusBadge>
+        <StatusBadge tone="good">real auth</StatusBadge>
       </div>
       <div className="resource-list">
         <div className="resource-list__item">
@@ -513,13 +482,7 @@ function SecurityMethodsPanel() {
                 type="button"
                 className="button button--secondary"
                 disabled={deleteMfa.isPending}
-                onClick={() =>
-                  setPendingDelete({
-                    id: method.id,
-                    kind: 'mfa',
-                    label: method.label || method.kind,
-                  })
-                }
+                onClick={() => void removeMfaMethod(method)}
               >
                 {t('Delete')}
               </button>
@@ -571,13 +534,7 @@ function SecurityMethodsPanel() {
                 type="button"
                 className="button button--secondary"
                 disabled={deletePasskey.isPending}
-                onClick={() =>
-                  setPendingDelete({
-                    id: credential.id,
-                    kind: 'passkey',
-                    label: credential.label || credential.id,
-                  })
-                }
+                onClick={() => void removePasskey(credential)}
               >
                 {t('Delete')}
               </button>
@@ -589,50 +546,6 @@ function SecurityMethodsPanel() {
           <p className="auth-card__note">{t('No passkeys are registered for this account.')}</p>
         ) : null}
       </div>
-      {pendingDelete ? (
-        <section
-          className="danger-confirm-inline settings-security-confirm"
-          role="alertdialog"
-          aria-modal="false"
-          aria-label={t('Delete security method {label}', { label: pendingDelete.label })}
-        >
-          <div>
-            <p className="eyebrow">{t('Production API confirmation')}</p>
-            <h3>{t('Delete security method {label}', { label: pendingDelete.label })}</h3>
-            <p>{t('This removes a real MFA or passkey method from the current operator account.')}</p>
-          </div>
-          <div className="inline-actions inline-actions--compact">
-            <button
-              type="button"
-              className="button button--secondary"
-              disabled={deleteMfa.isPending || deletePasskey.isPending}
-              onClick={() => setPendingDelete(null)}
-            >
-              {t('Cancel')}
-            </button>
-            <button
-              type="button"
-              className="button button--danger"
-              disabled={deleteMfa.isPending || deletePasskey.isPending}
-              onClick={() => {
-                if (pendingDelete.kind === 'mfa') {
-                  const method = (mfaQuery.data?.items ?? []).find((item) => item.id === pendingDelete.id)
-                  if (method) {
-                    void removeMfaMethod(method)
-                  }
-                  return
-                }
-                const credential = (passkeysQuery.data?.items ?? []).find((item) => item.id === pendingDelete.id)
-                if (credential) {
-                  void removePasskey(credential)
-                }
-              }}
-            >
-              {deleteMfa.isPending || deletePasskey.isPending ? t('Deleting...') : t('Delete')}
-            </button>
-          </div>
-        </section>
-      ) : null}
       {message ? <p className="auth-card__note" aria-live="polite">{message}</p> : null}
       {error ? <p className="auth-card__note" role="alert">{error}</p> : null}
     </article>
@@ -843,14 +756,11 @@ function renderGroupFields(
         <TextField id="subscription-update-hours" label="Update interval hours" type="number" value={values.update_interval_hours} onChange={(value) => setValue('update_interval_hours', value)} />
         <TextField id="subscription-happ-announce" label="HApp announce" value={values.happ_announce} onChange={(value) => setValue('happ_announce', value)} />
         <CheckboxField id="subscription-random-host-order" label="Random host order" checked={values.random_host_order === true} onChange={(value) => setValue('random_host_order', value)} />
-        <details className="advanced-json-panel settings-advanced-json">
-          <summary>Advanced JSON</summary>
-          <TextareaField id="subscription-response-headers" label="Response headers JSON" value={values.response_headers} onChange={(value) => setValue('response_headers', value)} />
-          <TextareaField id="subscription-base-json" label="Base JSON" value={values.base_json} onChange={(value) => setValue('base_json', value)} />
-          <TextareaField id="subscription-routing" label="Routing JSON" value={values.routing} onChange={(value) => setValue('routing', value)} />
-          <TextareaField id="subscription-custom-remarks" label="Custom remarks JSON" value={values.custom_remarks} onChange={(value) => setValue('custom_remarks', value)} />
-          <TextareaField id="subscription-subpage" label="Subpage JSON" value={values.subpage} onChange={(value) => setValue('subpage', value)} />
-        </details>
+        <TextareaField id="subscription-response-headers" label="Response headers JSON" value={values.response_headers} onChange={(value) => setValue('response_headers', value)} />
+        <TextareaField id="subscription-base-json" label="Base JSON" value={values.base_json} onChange={(value) => setValue('base_json', value)} />
+        <TextareaField id="subscription-routing" label="Routing JSON" value={values.routing} onChange={(value) => setValue('routing', value)} />
+        <TextareaField id="subscription-custom-remarks" label="Custom remarks JSON" value={values.custom_remarks} onChange={(value) => setValue('custom_remarks', value)} />
+        <TextareaField id="subscription-subpage" label="Subpage JSON" value={values.subpage} onChange={(value) => setValue('subpage', value)} />
       </>
     )
   }
@@ -892,8 +802,6 @@ function TextField({
       {t(label)}
       <input
         id={id}
-        inputMode={type === 'number' ? 'numeric' : undefined}
-        name={id}
         type={type}
         value={String(value ?? '')}
         onChange={(event) => onChange(event.target.value)}
@@ -919,7 +827,6 @@ function TextareaField({
       {t(label)}
       <textarea
         id={id}
-        name={id}
         rows={5}
         spellCheck={false}
         value={String(value ?? '')}
@@ -963,14 +870,8 @@ function AuthProviderRow({
   pending: boolean
   provider: AuthProviderRecord
 }) {
-  const { t } = useI18n()
   const canToggle = provider.status === 'active' || provider.status === 'disabled'
   const actionLabel = provider.enabled ? 'Disable' : canToggle ? 'Enable' : 'Unavailable'
-  const statusTone = provider.enabled ? 'good' : canToggle ? 'neutral' : 'watch'
-  const providerStatusTone = provider.status === 'active' ? 'good' : provider.status === 'disabled' ? 'neutral' : 'watch'
-  const providerHint = canToggle
-    ? 'This login method is backed by a real provider configuration.'
-    : 'Provider has no live login callback and cannot be enabled yet.'
 
   const metadata = Object.entries(provider.metadata_json)
 
@@ -979,47 +880,32 @@ function AuthProviderRow({
       <div className="settings-provider-card__body">
         <strong>{provider.display_name}</strong>
         <span>{provider.provider}</span>
-        <small>{provider.scopes.join(', ') || t('no scopes')}</small>
+        <small>{provider.scopes.join(', ') || 'no scopes'}</small>
         {metadata.length > 0 ? (
           <div className="settings-provider-card__meta">
             {metadata.slice(0, 4).map(([key, value]) => (
-              <span key={key} title={`${key}: ${formatSettingValue(value)}`}>
-                <strong>{key}</strong>
-                <small>{formatSettingValue(value)}</small>
+              <span key={key}>
+                {key}: {formatSettingValue(value)}
               </span>
             ))}
           </div>
         ) : null}
       </div>
       <div className="settings-provider-card__actions">
-        <StatusBadge tone={statusTone}>
-          {provider.enabled ? t('enabled') : t('disabled')}
+        <StatusBadge tone={provider.enabled ? 'good' : 'neutral'}>
+          {provider.enabled ? 'enabled' : 'disabled'}
         </StatusBadge>
-        <StatusBadge tone={providerStatusTone}>{t(authProviderStatusLabel(provider.status))}</StatusBadge>
-        <small className="settings-provider-card__hint">{t(providerHint)}</small>
+        <StatusBadge tone={canToggle ? 'good' : 'watch'}>{provider.status}</StatusBadge>
         <button
           type="button"
           className="button button--secondary"
           disabled={pending || !canToggle}
-          title={t(providerHint)}
+          title={canToggle ? undefined : 'Provider has no live login callback and cannot be enabled yet.'}
           onClick={() => void onToggle(provider.provider, !provider.enabled)}
         >
-          {t(actionLabel)}
+          {actionLabel}
         </button>
       </div>
     </div>
   )
-}
-
-function authProviderStatusLabel(status: string) {
-  if (status === 'active') {
-    return 'active'
-  }
-  if (status === 'disabled') {
-    return 'disabled'
-  }
-  if (status === 'unimplemented' || status === 'needs_configuration') {
-    return 'needs configuration'
-  }
-  return status
 }

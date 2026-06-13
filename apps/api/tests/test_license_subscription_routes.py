@@ -278,18 +278,8 @@ async def test_subscription_routes_create_list_and_get(
     assert "Ссылка готова для QR" in browser_page_response.text
     assert "width: min(760px, calc(100% - 28px))" in browser_page_response.text
     assert ".qr { padding: 20px; }" in browser_page_response.text
-    assert (
-        "happ://add/https%3A%2F%2Fpanel.example.test%2Fsub%2F"
-        in browser_page_response.text
-    )
-    assert (
-        "happ://add/https%3A%2F%2Fpanel.example.test%2Fsub%2F"
-        f"{created['public_id']}%2Fhapp%3Fhwid%3Droute-browser-device%26raw%3D1"
-        in browser_page_response.text
-    )
+    assert "happ://add/https%3A%2F%2Fpanel.example.test%2Fsub%2F" in browser_page_response.text
     assert "data-client-link" in browser_page_response.text
-    assert "data-raw-url" in browser_page_response.text
-    assert "window.location.href = link.href" in browser_page_response.text
     assert "data-import-status" in browser_page_response.text
     assert "data-copy-url" in browser_page_response.text
     assert "raw=1" in browser_page_response.text
@@ -299,8 +289,7 @@ async def test_subscription_routes_create_list_and_get(
     )
     assert "Если клиент не открылся" in browser_page_response.text
     assert qr_payloads == [
-        f"https://panel.example.test/sub/{created['public_id']}/happ"
-        "?hwid=route-browser-device&raw=1"
+        f"https://panel.example.test/sub/{created['public_id']}?hwid=route-browser-device"
     ]
     assert 'src="data:image/svg+xml,' not in browser_page_response.text
     assert "QR subscription" in browser_page_response.text

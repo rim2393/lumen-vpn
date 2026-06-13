@@ -11045,7 +11045,7 @@
         },
         "summary": "Read Profiles",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       },
       "post": {
@@ -11134,7 +11134,7 @@
         },
         "summary": "Post Profile",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11225,7 +11225,7 @@
         },
         "summary": "Reorder Profile Route",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11316,7 +11316,7 @@
         },
         "summary": "Bulk Profile Delete",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11407,7 +11407,7 @@
         },
         "summary": "Bulk Profile Status",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11488,7 +11488,7 @@
         },
         "summary": "Read All Profile Inbounds",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11569,7 +11569,7 @@
         },
         "summary": "Read Profile Runtime Readiness",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11660,7 +11660,7 @@
         },
         "summary": "Stale Profile Cleanup",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11741,7 +11741,7 @@
         },
         "summary": "Read Stale Profile Cleanup Candidates",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -11825,7 +11825,7 @@
         },
         "summary": "Delete Profile Route",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       },
       "get": {
@@ -11914,7 +11914,7 @@
         },
         "summary": "Read Profile",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       },
       "patch": {
@@ -12013,7 +12013,7 @@
         },
         "summary": "Patch Profile",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -12102,7 +12102,7 @@
         },
         "summary": "Apply Profile To Node Route",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -12193,7 +12193,7 @@
         },
         "summary": "Read Profile Computed Config",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -12284,7 +12284,7 @@
         },
         "summary": "Read Profile Inbounds",
         "tags": [
-          "remna-config-profiles-compat"
+          "legacy-config-profiles-compat"
         ]
       }
     },
@@ -12365,7 +12365,7 @@
         },
         "summary": "Read Squads",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       },
       "post": {
@@ -12454,7 +12454,7 @@
         },
         "summary": "Post Squad",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -12545,7 +12545,7 @@
         },
         "summary": "Reorder Squad Route",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -12636,7 +12636,7 @@
         },
         "summary": "Bulk Squad Status",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -12720,7 +12720,7 @@
         },
         "summary": "Delete Squad Route",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       },
       "get": {
@@ -12809,7 +12809,7 @@
         },
         "summary": "Read Squad",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       },
       "patch": {
@@ -12908,7 +12908,7 @@
         },
         "summary": "Patch Squad",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -12999,7 +12999,7 @@
         },
         "summary": "Read Squad Detail",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -13100,7 +13100,7 @@
         },
         "summary": "Post Squad Users",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -13201,7 +13201,7 @@
         },
         "summary": "Remove Squad Users Route",
         "tags": [
-          "remna-external-squads-compat"
+          "legacy-external-squads-compat"
         ]
       }
     },
@@ -13282,7 +13282,7 @@
         },
         "summary": "Read Hosts",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       },
       "post": {
@@ -13371,7 +13371,7 @@
         },
         "summary": "Post Host",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       }
     },
@@ -13462,7 +13462,7 @@
         },
         "summary": "Reorder Host Route",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       }
     },
@@ -13553,7 +13553,7 @@
         },
         "summary": "Bulk Host Status",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       }
     },
@@ -13653,7 +13653,7 @@
         },
         "summary": "Bulk Host Action",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       }
     },
@@ -13737,7 +13737,7 @@
         },
         "summary": "Delete Host Route",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       },
       "get": {
@@ -13826,7 +13826,7 @@
         },
         "summary": "Read Host",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       },
       "patch": {
@@ -13925,7 +13925,7 @@
         },
         "summary": "Patch Host",
         "tags": [
-          "remna-hosts-compat"
+          "legacy-hosts-compat"
         ]
       }
     },
@@ -14006,7 +14006,7 @@
         },
         "summary": "Read Squads",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       },
       "post": {
@@ -14095,7 +14095,7 @@
         },
         "summary": "Post Squad",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14186,7 +14186,7 @@
         },
         "summary": "Reorder Squad Route",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14277,7 +14277,7 @@
         },
         "summary": "Bulk Squad Status",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14361,7 +14361,7 @@
         },
         "summary": "Delete Squad Route",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       },
       "get": {
@@ -14450,7 +14450,7 @@
         },
         "summary": "Read Squad",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       },
       "patch": {
@@ -14549,7 +14549,7 @@
         },
         "summary": "Patch Squad",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14640,7 +14640,7 @@
         },
         "summary": "Read Squad Detail",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14741,7 +14741,7 @@
         },
         "summary": "Post Squad Users",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14842,7 +14842,7 @@
         },
         "summary": "Remove Squad Users Route",
         "tags": [
-          "remna-internal-squads-compat"
+          "legacy-internal-squads-compat"
         ]
       }
     },
@@ -14923,7 +14923,7 @@
         },
         "summary": "Read Response Rules",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       },
       "post": {
@@ -15012,7 +15012,7 @@
         },
         "summary": "Post Response Rule",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       }
     },
@@ -15103,7 +15103,7 @@
         },
         "summary": "Reorder Response Rule Route",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       }
     },
@@ -15194,7 +15194,7 @@
         },
         "summary": "Test Response Rule Route",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       }
     },
@@ -15277,7 +15277,7 @@
         },
         "summary": "Delete Response Rule Route",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       },
       "patch": {
@@ -15375,7 +15375,7 @@
         },
         "summary": "Patch Response Rule",
         "tags": [
-          "remna-response-rules-compat"
+          "legacy-response-rules-compat"
         ]
       }
     },
@@ -15456,7 +15456,7 @@
         },
         "summary": "Read Templates",
         "tags": [
-          "remna-subscription-templates-compat"
+          "legacy-subscription-templates-compat"
         ]
       },
       "post": {
@@ -15545,7 +15545,7 @@
         },
         "summary": "Post Template",
         "tags": [
-          "remna-subscription-templates-compat"
+          "legacy-subscription-templates-compat"
         ]
       }
     },
@@ -15636,7 +15636,7 @@
         },
         "summary": "Reorder Template Route",
         "tags": [
-          "remna-subscription-templates-compat"
+          "legacy-subscription-templates-compat"
         ]
       }
     },
@@ -15719,7 +15719,7 @@
         },
         "summary": "Delete Template Route",
         "tags": [
-          "remna-subscription-templates-compat"
+          "legacy-subscription-templates-compat"
         ]
       },
       "patch": {
@@ -15817,7 +15817,7 @@
         },
         "summary": "Patch Template",
         "tags": [
-          "remna-subscription-templates-compat"
+          "legacy-subscription-templates-compat"
         ]
       }
     },
@@ -15898,7 +15898,7 @@
         },
         "summary": "Find All Api Tokens",
         "tags": [
-          "remna-tokens-compat"
+          "legacy-tokens-compat"
         ]
       },
       "post": {
@@ -15987,7 +15987,7 @@
         },
         "summary": "Create Api Token",
         "tags": [
-          "remna-tokens-compat"
+          "legacy-tokens-compat"
         ]
       }
     },
@@ -16078,7 +16078,7 @@
         },
         "summary": "Delete Api Token",
         "tags": [
-          "remna-tokens-compat"
+          "legacy-tokens-compat"
         ]
       }
     },
@@ -16169,7 +16169,7 @@
         },
         "summary": "Drop Connections From Tools",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16250,7 +16250,7 @@
         },
         "summary": "Read Happ Routing",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16341,7 +16341,7 @@
         },
         "summary": "Build Happ Routing",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16440,7 +16440,7 @@
         },
         "summary": "Read Hwid Inspector",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16521,7 +16521,7 @@
         },
         "summary": "Create Node Key",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16632,7 +16632,7 @@
         },
         "summary": "Read Node User Ips",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16713,7 +16713,7 @@
         },
         "summary": "Read Session Inspector",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16804,7 +16804,7 @@
         },
         "summary": "Revoke Session From Inspector",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -16885,7 +16885,7 @@
         },
         "summary": "Read Tool Snippets",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       },
       "post": {
@@ -16974,7 +16974,7 @@
         },
         "summary": "Create Snippet",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17065,7 +17065,7 @@
         },
         "summary": "Delete Snippet",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       },
       "patch": {
@@ -17164,7 +17164,7 @@
         },
         "summary": "Update Snippet",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17245,7 +17245,7 @@
         },
         "summary": "Read Srh Inspector",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17326,7 +17326,7 @@
         },
         "summary": "Read Tools Summary",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17430,7 +17430,7 @@
         },
         "summary": "Read Top Users",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17511,7 +17511,7 @@
         },
         "summary": "Truncate Torrent Blocker Reports",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       },
       "get": {
@@ -17620,7 +17620,7 @@
         },
         "summary": "Read Torrent Reports",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17731,7 +17731,7 @@
         },
         "summary": "Read User Ips",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17812,7 +17812,7 @@
         },
         "summary": "Create X25519 Keypair",
         "tags": [
-          "remna-tools-compat"
+          "legacy-tools-compat"
         ]
       }
     },
@@ -17893,7 +17893,7 @@
         },
         "summary": "List Users",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       },
       "post": {
@@ -17982,7 +17982,7 @@
         },
         "summary": "Create User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18082,7 +18082,7 @@
         },
         "summary": "Bulk User Action",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18172,7 +18172,7 @@
         },
         "summary": "Get User By Email",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18262,7 +18262,7 @@
         },
         "summary": "Get User By Numeric Id",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18352,7 +18352,7 @@
         },
         "summary": "Get User By Short Uuid",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18442,7 +18442,7 @@
         },
         "summary": "Get Users By Tag",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18532,7 +18532,7 @@
         },
         "summary": "Get User By Telegram Id",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18622,7 +18622,7 @@
         },
         "summary": "Get User By Username",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18712,7 +18712,7 @@
         },
         "summary": "Lookup Users",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18802,7 +18802,7 @@
         },
         "summary": "Resolve User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18883,7 +18883,7 @@
         },
         "summary": "List Tags",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -18967,7 +18967,7 @@
         },
         "summary": "Delete User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       },
       "get": {
@@ -19056,7 +19056,7 @@
         },
         "summary": "Get User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       },
       "patch": {
@@ -19155,7 +19155,7 @@
         },
         "summary": "Update User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19246,7 +19246,7 @@
         },
         "summary": "Get User Detail",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19337,7 +19337,7 @@
         },
         "summary": "Clear User Devices",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19437,7 +19437,7 @@
         },
         "summary": "Delete User Device",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19528,7 +19528,7 @@
         },
         "summary": "Disable User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19619,7 +19619,7 @@
         },
         "summary": "Enable User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19710,7 +19710,7 @@
         },
         "summary": "Reset User Traffic",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },
@@ -19801,7 +19801,7 @@
         },
         "summary": "Revoke User",
         "tags": [
-          "remna-users-compat"
+          "legacy-users-compat"
         ]
       }
     },

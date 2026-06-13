@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
@@ -66,19 +66,6 @@ function command(overrides: Partial<NodeCommandRecord>): NodeCommandRecord {
 }
 
 describe('NodePluginsPage', () => {
-  it('renders through the Remnawave-style /nodes/plugins compatibility route', async () => {
-    const apiClient = createTestClient({
-      listNodePlugins: async () => ({
-        items: [plugin({ id: 'plugin-route', name: 'Route alias plugin', sort_order: 0 })],
-      }),
-      listNodes: async () => ({ items: [] }),
-    })
-
-    renderWithRouter('/nodes/plugins', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByText('Route alias plugin')).toBeInTheDocument()
-  })
-
   it('wires clone, reorder and apply controls to the real API contract', async () => {
     const cloneNodePlugin = vi.fn(async () =>
       plugin({ id: 'plugin-copy', name: 'Torrent filter copy', sort_order: 20 }),
@@ -152,31 +139,5 @@ describe('NodePluginsPage', () => {
       }),
     )
     expect(await screen.findByText(/firewall\.plan\.apply cmd-policy-1/i)).toBeInTheDocument()
-  })
-
-  it('requires inline confirmation before deleting a real node plugin', async () => {
-    const deleteNodePlugin = vi.fn(async () => undefined)
-    const apiClient = createTestClient({
-      deleteNodePlugin,
-      listNodePlugins: async () => ({
-        items: [plugin({ id: 'plugin-delete', name: 'Delete candidate', sort_order: 0 })],
-      }),
-      listNodes: async () => ({ items: [] }),
-    })
-    const user = userEvent.setup()
-
-    renderWithRouter('/node-plugins', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByText('Delete candidate')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /^delete$/i }))
-    expect(deleteNodePlugin).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog', { name: /delete node plugin delete candidate/i })
-    expect(dialog).toHaveTextContent(/live API/i)
-    await user.click(within(dialog).getByRole('button', { name: /^cancel$/i }))
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /^delete$/i }))
-    await user.click(within(await screen.findByRole('alertdialog', { name: /delete node plugin delete candidate/i })).getByRole('button', { name: /^delete$/i }))
-    await waitFor(() => expect(deleteNodePlugin).toHaveBeenCalledWith('plugin-delete'))
   })
 })

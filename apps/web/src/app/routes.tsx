@@ -58,7 +58,6 @@ export const appRoutes: RouteObject[] = [
       { path: 'users/:userId', element: <UserDetailPage /> },
       { path: 'nodes', element: <NodesPage /> },
       { path: 'node-plugins', element: <NodePluginsPage /> },
-      { path: 'nodes/plugins', element: <NodePluginsPage /> },
       { path: 'hosts', element: <HostsPage /> },
       { path: 'profiles', element: <ProfilesPage /> },
       { path: 'squads', element: <SquadsPage /> },

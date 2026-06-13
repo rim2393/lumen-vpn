@@ -45,7 +45,6 @@ export function SubscriptionPage() {
   const [lookupQuery, setLookupQuery] = useState('')
   const [lookupResults, setLookupResults] = useState<SubscriptionRecord[] | null>(null)
   const [selectedDeviceSubscriptionId, setSelectedDeviceSubscriptionId] = useState<string | null>(null)
-  const [pendingDeleteSubscription, setPendingDeleteSubscription] = useState<SubscriptionRecord | null>(null)
   const deviceQuery = useSubscriptionDevices(selectedDeviceSubscriptionId)
   const subscriptions = query.data?.items ?? []
   const users = usersQuery.data?.items ?? []
@@ -145,7 +144,11 @@ export function SubscriptionPage() {
           <SubscriptionActions
             subscription={subscription}
             onClone={() => void cloneSubscription.mutateAsync(subscription.id)}
-            onDelete={() => setPendingDeleteSubscription(subscription)}
+            onDelete={() => {
+              if (window.confirm(t('Delete this subscription record?'))) {
+                void deleteSubscription.mutateAsync(subscription.id)
+              }
+            }}
             onDevices={() => setSelectedDeviceSubscriptionId(subscription.id)}
             onRevoke={() => void revokeSubscription.mutateAsync(subscription.id)}
             onToggle={() =>
@@ -164,18 +167,7 @@ export function SubscriptionPage() {
           devices={deviceQuery.data?.items ?? []}
           devicesError={deviceQuery.error}
           devicesLoading={deviceQuery.isLoading}
-          deletePending={deleteSubscription.isPending}
           lookupResults={lookupResults}
-          onCancelDelete={() => setPendingDeleteSubscription(null)}
-          onConfirmDelete={() => {
-            if (!pendingDeleteSubscription) {
-              return
-            }
-            void deleteSubscription.mutateAsync(pendingDeleteSubscription.id).then(() => {
-              setPendingDeleteSubscription(null)
-            })
-          }}
-          pendingDelete={pendingDeleteSubscription}
           subscription={activeSubscription}
         />
       }
@@ -505,18 +497,13 @@ function formatLicenseOption(license: LicenseRecord) {
 }
 
 function SubscriptionSidePanel({
-  deletePending,
   deviceSubscription,
   devices,
   devicesError,
   devicesLoading,
   lookupResults,
-  onCancelDelete,
-  onConfirmDelete,
-  pendingDelete,
   subscription,
 }: {
-  deletePending: boolean
   deviceSubscription: SubscriptionRecord | undefined
   devices: Array<{
     hwid: string | null
@@ -529,38 +516,12 @@ function SubscriptionSidePanel({
   devicesError: unknown
   devicesLoading: boolean
   lookupResults: SubscriptionRecord[] | null
-  onCancelDelete: () => void
-  onConfirmDelete: () => void
-  pendingDelete: SubscriptionRecord | null
   subscription: SubscriptionRecord | undefined
 }) {
   const { t } = useI18n()
 
   return (
     <div className="side-stack">
-      {pendingDelete ? (
-        <section
-          className="danger-confirm-inline"
-          role="alertdialog"
-          aria-modal="false"
-          aria-label={t('Delete subscription {id}', { id: pendingDelete.public_id })}
-        >
-          <div>
-            <p className="eyebrow">{t('Production API confirmation')}</p>
-            <h3>{t('Delete subscription {id}', { id: pendingDelete.public_id })}</h3>
-            <p>{t('This real subscription record will be removed through the live API and its public links will stop resolving.')}</p>
-          </div>
-          <div className="inline-actions inline-actions--compact">
-            <button type="button" className="button button--secondary" disabled={deletePending} onClick={onCancelDelete}>
-              {t('Cancel')}
-            </button>
-            <button type="button" className="button button--danger" disabled={deletePending} onClick={onConfirmDelete}>
-              <Trash2 size={16} aria-hidden="true" />
-              {deletePending ? t('Deleting...') : t('Delete')}
-            </button>
-          </div>
-        </section>
-      ) : null}
       {lookupResults ? (
         <article className="panel">
           <div className="panel__header">

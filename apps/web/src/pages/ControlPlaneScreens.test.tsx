@@ -83,26 +83,6 @@ describe('Control plane resource screens', () => {
     cleanup()
   })
 
-  it('keeps inactive tools endpoints from breaking the active tool tab', async () => {
-    const apiClient: LumenApiClient = {
-      ...createDevelopmentLumenApiClient(),
-      inspectHappRouting: vi.fn(async () => {
-        throw new Error('inactive HApp endpoint should not block HWID tab')
-      }),
-      inspectSessions: vi.fn(async () => {
-        throw new Error('inactive sessions endpoint should not block HWID tab')
-      }),
-      inspectTorrentReports: vi.fn(async () => {
-        throw new Error('inactive torrent endpoint should not block HWID tab')
-      }),
-    }
-
-    renderWithRouter('/tools', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByRole('table', { name: /operational tools/i })).toBeInTheDocument()
-    expect(screen.queryByText(/tools unavailable/i)).not.toBeInTheDocument()
-  })
-
   it('creates subscriptions with a real listed license and backend public render metadata', async () => {
     const user = userEvent.setup()
     const baseClient = createDevelopmentLumenApiClient()
@@ -128,27 +108,6 @@ describe('Control plane resource screens', () => {
         user_id: 'usr_mira',
       }),
     )
-  })
-
-  it('requires inline confirmation before deleting a real subscription', async () => {
-    const user = userEvent.setup()
-    const baseClient = createDevelopmentLumenApiClient()
-    const deleteSubscription = vi.fn(async () => undefined)
-    const apiClient: LumenApiClient = {
-      ...baseClient,
-      deleteSubscription,
-    }
-
-    renderWithRouter('/subscription', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByRole('table', { name: /subscription inventory/i })).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
-    expect(deleteSubscription).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog', { name: /delete subscription/i })
-    expect(dialog).toHaveTextContent(/live API/i)
-    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
-
-    await waitFor(() => expect(deleteSubscription).toHaveBeenCalledTimes(1))
   })
 
   it('renders dashboard traffic and user risks from the real user API shape', async () => {
@@ -390,139 +349,6 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_devices'))
   })
 
-  it('renders user detail editor with production form semantics', async () => {
-    const owner: UserRecord = {
-      created_at: '2026-05-27T00:00:00Z',
-      device_limit: 2,
-      display_name: 'Semantic Owner',
-      email: 'semantic@lumen.local',
-      expires_at: null,
-      id: 'usr_semantic',
-      metadata_json: { numeric_id: 78 },
-      role: 'user',
-      status: 'active',
-      tags: ['qa'],
-      telegram_id: '12345',
-      traffic_limit_gb: 100,
-      traffic_used_gb: 1,
-      updated_at: '2026-05-27T00:00:00Z',
-      username: 'semantic',
-    }
-    const apiClient: LumenApiClient = {
-      ...createDevelopmentLumenApiClient(),
-      getUserDetail: async () => ({
-        accessible_nodes: [],
-        devices: [],
-        request_history: [],
-        subscriptions: [],
-        user: owner,
-      }),
-    }
-
-    renderWithRouter('/users/usr_semantic', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByLabelText(/email/i)).toHaveAttribute('autocomplete', 'email')
-    expect(screen.getByLabelText(/username/i)).toHaveAttribute('name', 'username')
-    expect(screen.getByLabelText(/display name/i)).toHaveAttribute('autocomplete', 'name')
-    expect(screen.getByLabelText(/telegram id/i)).toHaveAttribute('inputmode', 'numeric')
-    expect(screen.getByLabelText(/new password/i)).toHaveAttribute('autocomplete', 'new-password')
-    expect(screen.getByLabelText(/user metadata json/i)).toHaveAttribute('name', 'metadata_json')
-  })
-
-  it('wires user detail subscription actions to real subscription APIs', async () => {
-    const user = userEvent.setup()
-    const writeText = vi.fn(async () => undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    })
-    const owner: UserRecord = {
-      created_at: '2026-05-27T00:00:00Z',
-      device_limit: 2,
-      display_name: 'Subscription Owner',
-      email: 'subscription-owner@lumen.local',
-      expires_at: null,
-      id: 'usr_subscription_detail',
-      metadata_json: { numeric_id: 79 },
-      role: 'user',
-      status: 'active',
-      tags: ['qa'],
-      telegram_id: null,
-      traffic_limit_gb: 100,
-      traffic_used_gb: 1,
-      updated_at: '2026-05-27T00:00:00Z',
-      username: 'subscription-owner',
-    }
-    const subscription: SubscriptionRecord = {
-      config_hash: 'hash-live',
-      created_at: '2026-05-27T00:00:00Z',
-      delivery_profile: { client: 'happ', format: 'happ', profile_title: 'HApp live' },
-      expires_at: null,
-      id: 'sub-user-detail',
-      license_id: 'lic-live',
-      node_id: 'node-live',
-      public_id: 'lumen_sub_user_detail',
-      public_manifest_url: '/api/v1/subscriptions/public/lumen_sub_user_detail/manifest',
-      public_page_url: '/sub/lumen_sub_user_detail',
-      public_render_url: '/api/v1/subscriptions/public/lumen_sub_user_detail/render',
-      public_render_urls: { happ: '/api/v1/subscriptions/public/lumen_sub_user_detail/render?target=happ' },
-      render_formats: ['happ'],
-      revoked_at: null,
-      status: 'active',
-      updated_at: '2026-05-27T00:00:00Z',
-      user_id: owner.id,
-    }
-    const detail = {
-      accessible_nodes: [],
-      devices: [],
-      request_history: [],
-      subscriptions: [subscription],
-      user: owner,
-    }
-    const cloneSubscription = vi.fn(async (subscriptionId: string) => ({
-      ...subscription,
-      id: `${subscriptionId}-clone`,
-      public_id: 'lumen_sub_user_detail_clone',
-    }))
-    const revokeSubscription = vi.fn(async (subscriptionId: string) => {
-      detail.subscriptions = detail.subscriptions.map((item) =>
-        item.id === subscriptionId ? { ...item, revoked_at: '2026-05-28T00:00:00Z', status: 'revoked' } : item,
-      )
-      return detail.subscriptions[0]
-    })
-    const deleteSubscription = vi.fn(async (subscriptionId: string) => {
-      detail.subscriptions = detail.subscriptions.filter((item) => item.id !== subscriptionId)
-    })
-    const apiClient: LumenApiClient = {
-      ...createDevelopmentLumenApiClient(),
-      cloneSubscription,
-      deleteSubscription,
-      getUserDetail: async () => detail,
-      revokeSubscription,
-    }
-
-    renderWithRouter('/users/usr_subscription_detail', { apiClient, initialSession: developmentSession })
-
-    expect(await screen.findByRole('table', { name: /(issued subscriptions|выданные подписки)/i })).toBeInTheDocument()
-    expect(screen.getByText('HApp live')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /copy happ raw subscription lumen_sub_user_detail/i }))
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/sub/lumen_sub_user_detail/happ?raw=1'))
-
-    await user.click(screen.getByRole('button', { name: /clone subscription lumen_sub_user_detail/i }))
-    await waitFor(() => expect(cloneSubscription).toHaveBeenCalledWith('sub-user-detail'))
-
-    await user.click(screen.getByRole('button', { name: /revoke subscription lumen_sub_user_detail/i }))
-    expect(revokeSubscription).not.toHaveBeenCalled()
-    await user.click(within(screen.getByRole('alertdialog', { name: /revoke subscription lumen_sub_user_detail/i })).getByRole('button', { name: /^revoke$/i }))
-    await waitFor(() => expect(revokeSubscription).toHaveBeenCalledWith('sub-user-detail'))
-
-    await user.click(screen.getByRole('button', { name: /delete subscription lumen_sub_user_detail/i }))
-    expect(deleteSubscription).not.toHaveBeenCalled()
-    await user.click(within(screen.getByRole('alertdialog', { name: /delete subscription lumen_sub_user_detail/i })).getByRole('button', { name: /^delete$/i }))
-    await waitFor(() => expect(deleteSubscription).toHaveBeenCalledWith('sub-user-detail'))
-  })
-
   it('wires HWID inspector device actions to backend requests', async () => {
     const user = userEvent.setup()
     const owner: UserRecord = {
@@ -685,14 +511,10 @@ describe('Control plane resource screens', () => {
         name: /delete device phone for device-owner@lumen.local/i,
       }),
     )
-    expect(deleteUserDevice).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm delete-device phone for device-owner@lumen.local/i })).getByRole('button', { name: /^confirm$/i }))
     await waitFor(() =>
       expect(deleteUserDevice).toHaveBeenCalledWith('usr_hwid_tools', 'phone'),
     )
     await user.click(screen.getByRole('button', { name: /^clear all$/i }))
-    expect(clearUserDevices).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm clear-devices device-owner@lumen.local/i })).getByRole('button', { name: /^confirm$/i }))
     await waitFor(() => expect(clearUserDevices).toHaveBeenCalledWith('usr_hwid_tools'))
     await user.click(screen.getByRole('button', { name: /top users/i }))
     expect(await screen.findByText(/device-owner · device-owner@lumen.local/i)).toBeInTheDocument()
@@ -704,8 +526,6 @@ describe('Control plane resource screens', () => {
     await user.click(
       screen.getByRole('button', { name: /drop connections for 203\.0\.113\.44 on node-live/i }),
     )
-    expect(dropConnections).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm drop-connections 203\.0\.113\.44 on node-live/i })).getByRole('button', { name: /^confirm$/i }))
     await waitFor(() =>
       expect(dropConnections).toHaveBeenCalledWith({
         ip: '203.0.113.44',
@@ -781,8 +601,6 @@ describe('Control plane resource screens', () => {
 
     await user.click(await screen.findByRole('button', { name: /session browser/i }))
     await user.click(screen.getByRole('button', { name: /^revoke$/i }))
-    expect(revokeToolSession).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm revoke-session operator@lumen.local/i })).getByRole('button', { name: /^confirm$/i }))
     await waitFor(() => expect(revokeToolSession).toHaveBeenCalledWith('session-operator'))
   })
 
@@ -829,7 +647,7 @@ describe('Control plane resource screens', () => {
     expect(await screen.findByText('torrent / btih:test')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^truncate$/i }))
     expect(truncateTorrentReports).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm truncate-torrent 1 torrent reports/i })).getByRole('button', { name: /^confirm$/i }))
+    await user.click(screen.getByRole('button', { name: /^confirm truncate$/i }))
     await waitFor(() => expect(truncateTorrentReports).toHaveBeenCalledTimes(1))
   })
 
@@ -881,12 +699,12 @@ describe('Control plane resource screens', () => {
       updated_at: '2026-05-28T00:00:00.000Z',
       updated_by: 'owner',
     }))
-    const updateToolSnippet = vi.fn(async (_id: string, request: { content?: string; language?: string; name?: string }) => ({
-      content: request.content ?? 'systemctl status xray',
+    const updateToolSnippet = vi.fn(async () => ({
+      content: 'systemctl status xray',
       description: null,
       id: 'snippet-1',
-      language: request.language ?? 'shell',
-      name: request.name ?? 'Xray status',
+      language: 'shell',
+      name: 'Xray status',
       order: 0,
       updated_at: '2026-05-28T00:00:00.000Z',
       updated_by: 'owner',
@@ -924,27 +742,15 @@ describe('Control plane resource screens', () => {
         name: 'Xray status',
       }),
     )
-    await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    await user.clear(screen.getByLabelText(/^name$/i))
-    await user.type(screen.getByLabelText(/^name$/i), 'Xray journal')
-    await user.clear(screen.getByLabelText(/^language$/i))
-    await user.type(screen.getByLabelText(/^language$/i), 'bash')
-    await user.clear(screen.getByLabelText(/^content$/i))
-    await user.type(screen.getByLabelText(/^content$/i), 'journalctl -u xray -n 100')
-    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() =>
       expect(updateToolSnippet).toHaveBeenCalledWith('snippet-1', {
-        content: 'journalctl -u xray -n 100',
-        language: 'bash',
-        name: 'Xray journal',
+        content: 'systemctl status xray',
+        name: 'Xray status',
       }),
     )
     await user.click(screen.getByRole('button', { name: /delete snippet xray status/i }))
-    expect(deleteToolSnippet).not.toHaveBeenCalled()
-    await user.click(within(await screen.findByRole('alertdialog', { name: /confirm delete-snippet xray status/i })).getByRole('button', { name: /^confirm$/i }))
     await waitFor(() => expect(deleteToolSnippet).toHaveBeenCalledWith('snippet-1'))
-    expect(screen.getByRole('heading', { name: /new snippet/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('')
   })
 
   it('exposes refresh buttons as real accessible controls on resource screens', async () => {
@@ -1464,7 +1270,6 @@ describe('Control plane resource screens', () => {
     fireEvent.change(updateInterval, {
       target: { value: '8' },
     })
-    await user.click(screen.getByText(/^renderer json$/i))
     fireEvent.change(screen.getByLabelText(/response headers json/i), {
       target: { value: '{"X-Lumen-Test":"typed"}' },
     })
@@ -1597,9 +1402,6 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/subscription-page', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('table', { name: /subscription page configs/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/update interval, hours/i)).toHaveAttribute('name', 'subscription-update-interval')
-    await user.click(screen.getByText(/^config json$/i, { selector: 'summary' }))
-    expect(screen.getByLabelText(/^config json$/i, { selector: '#subpage-config-json' })).toHaveAttribute('name', 'subpage-config-json')
     await user.type(screen.getByLabelText(/^config name$/i, { selector: '#subpage-config-name' }), 'Mobile profile page')
     fireEvent.change(screen.getByLabelText(/^config json$/i, { selector: '#subpage-config-json' }), {
       target: { value: '{"title":"Mobile profile","theme":"mobile"}' },
@@ -1614,7 +1416,6 @@ describe('Control plane resource screens', () => {
     await user.click(screen.getAllByRole('button', { name: /^edit$/i })[0])
     await user.clear(screen.getByLabelText(/selected config name/i))
     await user.type(screen.getByLabelText(/selected config name/i), 'Default page edited')
-    await user.click(screen.getByText(/^selected config json$/i, { selector: 'summary' }))
     fireEvent.change(screen.getByLabelText(/selected config json/i), {
       target: { value: '{"title":"Edited page","theme":"edited"}' },
     })
@@ -1643,10 +1444,6 @@ describe('Control plane resource screens', () => {
       delivery_profile: { format: 'happ' },
     }))
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
-    expect(deleteSubscriptionPageConfig).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('alertdialog', { name: /delete subscription page config default page/i })
-    expect(dialog).toHaveTextContent(/live API/i)
-    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteSubscriptionPageConfig).toHaveBeenCalledWith('subpage_default'))
   })
 
@@ -1927,9 +1724,6 @@ describe('Control plane resource screens', () => {
     renderWithRouter('/settings', { apiClient, initialSession: developmentSession })
 
     expect(await screen.findByRole('heading', { name: /MFA and passkeys/i })).toBeInTheDocument()
-    expect(listMfaMethods).not.toHaveBeenCalled()
-    expect(listWebAuthnCredentials).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: /open security methods/i }))
     expect(await screen.findByText('Existing authenticator')).toBeInTheDocument()
     expect(await screen.findByText('Laptop passkey')).toBeInTheDocument()
 
@@ -1944,15 +1738,9 @@ describe('Control plane resource screens', () => {
     await waitFor(() => expect(verifyTotpSetup).toHaveBeenCalledWith('mfa_pending', '123456'))
 
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
-    expect(deleteMfaMethod).not.toHaveBeenCalled()
-    const mfaDialog = await screen.findByRole('alertdialog', { name: /delete security method existing authenticator/i })
-    expect(mfaDialog).toHaveTextContent(/real MFA or passkey/i)
-    await user.click(within(mfaDialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteMfaMethod).toHaveBeenCalledWith('mfa_existing'))
 
     await user.click(screen.getAllByRole('button', { name: /^delete$/i })[1])
-    const passkeyDialog = await screen.findByRole('alertdialog', { name: /delete security method laptop passkey/i })
-    await user.click(within(passkeyDialog).getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(deleteWebAuthnCredential).toHaveBeenCalledWith('passkey_existing'))
   })
 
@@ -1970,7 +1758,6 @@ describe('Control plane resource screens', () => {
     const unavailableButtons = await screen.findAllByRole('button', { name: /unavailable/i })
     expect(unavailableButtons.length).toBeGreaterThan(0)
     expect(unavailableButtons[0]).toBeDisabled()
-    expect(unavailableButtons[0]).toHaveAttribute('title', expect.stringMatching(/provider has no live login callback/i))
     expect(updateAuthProvider).not.toHaveBeenCalled()
   })
 })

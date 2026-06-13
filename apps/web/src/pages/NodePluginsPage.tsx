@@ -94,7 +94,6 @@ export function NodePluginsPage() {
   const [applyNodeId, setApplyNodeId] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [actionResult, setActionResult] = useState<string | null>(null)
-  const [pendingDeletePlugin, setPendingDeletePlugin] = useState<NodePluginRecord | null>(null)
 
   const isMutating =
     applyPlugins.isPending ||
@@ -263,18 +262,6 @@ export function NodePluginsPage() {
                 {t('Total: {count}', { count: plugins.length })}
               </StatusBadge>
             </div>
-            {pendingDeletePlugin ? (
-              <NodePluginDeleteConfirm
-                pending={deletePlugin.isPending}
-                plugin={pendingDeletePlugin}
-                onCancel={() => setPendingDeletePlugin(null)}
-                onConfirm={() => {
-                  void deletePlugin.mutateAsync(pendingDeletePlugin.id).then(() => {
-                    setPendingDeletePlugin(null)
-                  })
-                }}
-              />
-            ) : null}
             {plugins.length === 0 ? (
               <EmptyState
                 title={t('No plugins yet')}
@@ -353,7 +340,11 @@ export function NodePluginsPage() {
                         type="button"
                         className="button button--secondary"
                         disabled={isMutating}
-                        onClick={() => setPendingDeletePlugin(plugin)}
+                        onClick={() => {
+                          if (globalThis.confirm(t('Delete node plugin confirmation'))) {
+                            void deletePlugin.mutateAsync(plugin.id)
+                          }
+                        }}
                       >
                         <Trash2 size={16} aria-hidden="true" />
                         {t('Delete')}
@@ -502,43 +493,6 @@ export function NodePluginsPage() {
           </article>
         </section>
       ) : null}
-    </section>
-  )
-}
-
-function NodePluginDeleteConfirm({
-  onCancel,
-  onConfirm,
-  pending,
-  plugin,
-}: {
-  onCancel: () => void
-  onConfirm: () => void
-  pending: boolean
-  plugin: NodePluginRecord
-}) {
-  const { t } = useI18n()
-  return (
-    <section
-      className="danger-confirm-inline"
-      role="alertdialog"
-      aria-modal="false"
-      aria-label={t('Delete node plugin {name}', { name: plugin.name })}
-    >
-      <div>
-        <p className="eyebrow">{t('Production API confirmation')}</p>
-        <h3>{t('Delete node plugin {name}', { name: plugin.name })}</h3>
-        <p>{t('This real node plugin will be removed through the live API. Apply node policy after deletion to update runtime.')}</p>
-      </div>
-      <div className="inline-actions inline-actions--compact">
-        <button type="button" className="button button--secondary" disabled={pending} onClick={onCancel}>
-          {t('Cancel')}
-        </button>
-        <button type="button" className="button button--danger" disabled={pending} onClick={onConfirm}>
-          <Trash2 size={16} aria-hidden="true" />
-          {pending ? t('Deleting...') : t('Delete')}
-        </button>
-      </div>
     </section>
   )
 }

@@ -1,38 +1,70 @@
-# Secrets and local runtime state
+# Local secrets and generated configs
 .env
 .env.*
 !.env.example
 *.pem
 *.key
 *.p12
-*.pfx
-*.crt
-*.csr
-secrets/
-runtime/
-support-bundles/
+*.jks
+*.keystore
+.tooling/signing.properties
+local.properties
 
-# Python
+# Build outputs
 __pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-.venv-test/
-dist/
+*.pyc
+.gradle/
+.kotlin/
 build/
-*.egg-info/
-
-# Local test/debug databases
-tmp-*.db
-
-# Node
+**/build/
+out/
+dist/
 node_modules/
-.vite/
 coverage/
 
-# IDE and OS
+# Runtime artifacts and logs
+*.log
+*.pid
+*.db
+*.sqlite
+*.sqlite3
+*.exe
+*.dll
+*.msi
+*.wixpdb
+support-bundle*
+backups/
+*.tar.gz
+*.zip
+
+# Local QA artifacts
+/*.png
+/*.xml
+/*.txt
+qa-*.png
+qa-*.xml
+qa-*.txt
+pytest-tmp/
+.tmp/
+.tmp-*/
+_work/
+CONTINUE_CHECKPOINT.md
+desktop/packaging/downloads/
+desktop/packaging/jre/
+desktop/packaging/runtime/
+
+# Local AI/project memory, not public source
+PROJECT_WIKI/
+.ai_wiki/
+ai_wiki/
+.claude/
+.obsidian/
+.research/
+.tooling/
+
+# IDE/OS
 .idea/
 .vscode/
+*.iml
 Thumbs.db
 .DS_Store

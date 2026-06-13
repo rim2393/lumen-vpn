@@ -1,0 +1,53 @@
+upstream lumen_subscription {
+    server 127.0.0.1:${LUMEN_SUBSCRIPTION_PORT};
+    keepalive 16;
+}
+
+limit_req_zone $binary_remote_addr zone=lumen_sub_api:10m rate=10r/s;
+limit_req_status 429;
+limit_conn_zone $binary_remote_addr zone=lumen_sub_conn:10m;
+limit_conn_status 429;
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${SUBSCRIPTION_DOMAIN};
+
+    ssl_certificate ${TLS_CERT_DIR}/${SUBSCRIPTION_DOMAIN}/fullchain.pem;
+    ssl_certificate_key ${TLS_CERT_DIR}/${SUBSCRIPTION_DOMAIN}/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:LumenSubTLS:20m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self' https:;" always;
+
+    location ~ ^/api/sub/ {
+        access_log off;
+        limit_req zone=lumen_sub_api burst=10 nodelay;
+        limit_conn lumen_sub_conn 10;
+        proxy_pass http://lumen_subscription;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 120s;
+    }
+
+    location / {
+        limit_req zone=lumen_sub_api burst=20 nodelay;
+        limit_conn lumen_sub_conn 20;
+        proxy_pass http://lumen_subscription;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 120s;
+    }
+}

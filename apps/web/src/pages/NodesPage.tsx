@@ -54,18 +54,6 @@ type NodeActionResult = {
   tone: MetricTone
 }
 
-type PendingNodeAction =
-  | { action: 'disable' | 'pause' | 'quarantine' | 'restart' | 'reset_traffic'; node: NodeResponse }
-  | { action: 'restart_all' | 'reset_all_traffic' | 'pause_all' }
-
-type NodeActionConfirmCopy = {
-  confirmLabel: string
-  detail: string
-  title: string
-  titleParams?: Record<string, string | number>
-  tone: MetricTone
-}
-
 const initialFormState: ProvisioningFormState = {
   capabilities: 'service_manager=systemd',
   credentialsRef: '',
@@ -419,155 +407,6 @@ function ProvisioningJobPanel({
   )
 }
 
-function NodeDeleteConfirm({
-  node,
-  onCancel,
-  onConfirm,
-  pending,
-}: {
-  node: NodeResponse
-  onCancel: () => void
-  onConfirm: () => void
-  pending: boolean
-}) {
-  const { t } = useI18n()
-  return (
-    <section
-      className="danger-confirm-inline"
-      role="alertdialog"
-      aria-modal="false"
-      aria-label={t('Delete node {name}', { name: node.name })}
-    >
-      <div>
-        <p className="eyebrow">{t('Production API confirmation')}</p>
-        <h3>{t('Delete node {name}', { name: node.name })}</h3>
-        <p>{t('This real node will be marked deleted through the live API and removed from active service after the control command is queued.')}</p>
-      </div>
-      <div className="inline-actions inline-actions--compact">
-        <button type="button" className="button button--secondary" disabled={pending} onClick={onCancel}>
-          {t('Cancel')}
-        </button>
-        <button type="button" className="button button--danger" disabled={pending} onClick={onConfirm}>
-          {pending ? t('Deleting...') : t('Delete')}
-        </button>
-      </div>
-    </section>
-  )
-}
-
-function describePendingNodeAction(action: PendingNodeAction): NodeActionConfirmCopy {
-  switch (action.action) {
-    case 'disable':
-      return {
-        confirmLabel: 'Disable',
-        detail:
-          'This queues a real pause command. Customer traffic must stop after node-agent applies the command.',
-        title: 'Disable node {name}',
-        titleParams: { name: action.node.name },
-        tone: 'watch',
-      }
-    case 'pause':
-      return {
-        confirmLabel: 'Pause',
-        detail:
-          'This queues a real node pause command and removes the node from active customer delivery.',
-        title: 'Pause node {name}',
-        titleParams: { name: action.node.name },
-        tone: 'watch',
-      }
-    case 'quarantine':
-      return {
-        confirmLabel: 'Quarantine',
-        detail:
-          'This marks the node as quarantined through the live API. The node should not receive customer traffic.',
-        title: 'Quarantine node {name}',
-        titleParams: { name: action.node.name },
-        tone: 'danger',
-      }
-    case 'restart':
-      return {
-        confirmLabel: 'Restart',
-        detail:
-          'This queues node.restart for the real node-agent container. Active sessions on this node can disconnect.',
-        title: 'Restart node {name}',
-        titleParams: { name: action.node.name },
-        tone: 'watch',
-      }
-    case 'reset_traffic':
-      return {
-        confirmLabel: 'Reset traffic',
-        detail:
-          'This queues a real traffic counter reset for the selected node. Historical counters can change after node-agent applies it.',
-        title: 'Reset traffic on {name}',
-        titleParams: { name: action.node.name },
-        tone: 'danger',
-      }
-    case 'restart_all':
-      return {
-        confirmLabel: 'Restart all',
-        detail:
-          'This queues node.restart for every registered node through the production control API.',
-        title: 'Restart all nodes',
-        tone: 'danger',
-      }
-    case 'reset_all_traffic':
-      return {
-        confirmLabel: 'Reset all traffic',
-        detail:
-          'This queues real traffic resets for every registered node. Use only after confirming billing and traffic reporting expectations.',
-        title: 'Reset all node traffic',
-        tone: 'danger',
-      }
-    case 'pause_all':
-      return {
-        confirmLabel: 'Pause all',
-        detail:
-          'This queues real pause commands for every registered node and can stop customer traffic across the fleet.',
-        title: 'Pause all nodes',
-        tone: 'danger',
-      }
-  }
-}
-
-function NodeActionConfirm({
-  action,
-  onCancel,
-  onConfirm,
-  pending,
-}: {
-  action: PendingNodeAction
-  onCancel: () => void
-  onConfirm: () => void
-  pending: boolean
-}) {
-  const { t } = useI18n()
-  const copy = describePendingNodeAction(action)
-  const title = t(copy.title, copy.titleParams)
-  return (
-    <section
-      className="danger-confirm-inline node-action-confirm"
-      role="alertdialog"
-      aria-modal="false"
-      aria-label={title}
-    >
-      <div>
-        <p className="eyebrow">{t('Production API confirmation')}</p>
-        <h3>{title}</h3>
-        <p>{t(copy.detail)}</p>
-      </div>
-      <div className="inline-actions inline-actions--compact">
-        <StatusBadge tone={copy.tone}>{t('real API')}</StatusBadge>
-        <button type="button" className="button button--secondary" disabled={pending} onClick={onCancel}>
-          {t('Cancel')}
-        </button>
-        <button type="button" className="button button--danger" disabled={pending} onClick={onConfirm}>
-          {pending ? t('Applying...') : t(copy.confirmLabel)}
-        </button>
-      </div>
-    </section>
-  )
-}
-
 export function NodesPage() {
   const { t } = useI18n()
   const spec = sectionSpecs.nodes
@@ -585,8 +424,6 @@ export function NodesPage() {
   const [protocolSelectionError, setProtocolSelectionError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionResult, setActionResult] = useState<NodeActionResult | null>(null)
-  const [pendingDeleteNode, setPendingDeleteNode] = useState<NodeResponse | null>(null)
-  const [pendingNodeAction, setPendingNodeAction] = useState<PendingNodeAction | null>(null)
   const createCommand = useCreateNodeCommand()
   const updateNodeProtocols = useUpdateNodeProtocolSelection()
   const pauseNode = usePauseNode()
@@ -615,20 +452,6 @@ export function NodesPage() {
     }),
     [nodes],
   )
-  const savedProtocolSelection = useMemo(
-    () =>
-      protocolSelectionQuery.data?.items
-        .filter((item) => item.enabled)
-        .map((item) => item.profile_id) ?? [],
-    [protocolSelectionQuery.data?.items],
-  )
-  const protocolSelectionChanges = useMemo(() => {
-    const saved = new Set(savedProtocolSelection)
-    const next = new Set(protocolSelection)
-    const enabled = protocolSelection.filter((profileId) => !saved.has(profileId)).length
-    const disabled = savedProtocolSelection.filter((profileId) => !next.has(profileId)).length
-    return { disabled, enabled, total: enabled + disabled }
-  }, [protocolSelection, savedProtocolSelection])
 
   useEffect(() => {
     const focusNodeId = searchParams.get('focus')
@@ -655,9 +478,13 @@ export function NodesPage() {
   }, [searchParams, selectedNodeId, setSearchParams])
 
   useEffect(() => {
-    const timer = globalThis.setTimeout(() => setProtocolSelection(savedProtocolSelection), 0)
+    const nextSelection =
+      protocolSelectionQuery.data?.items
+        .filter((item) => item.enabled)
+        .map((item) => item.profile_id) ?? []
+    const timer = globalThis.setTimeout(() => setProtocolSelection(nextSelection), 0)
     return () => globalThis.clearTimeout(timer)
-  }, [savedProtocolSelection])
+  }, [protocolSelectionQuery.data])
 
   const heartbeatStatus = useMemo(() => {
     if (!query.isSuccess) {
@@ -842,133 +669,8 @@ export function NodesPage() {
     }
   }
 
-  const actionPending =
-    pauseNode.isPending ||
-    resumeNode.isPending ||
-    quarantineNode.isPending ||
-    restartNode.isPending ||
-    restartAllNodes.isPending ||
-    resetNodeTraffic.isPending ||
-    bulkNodes.isPending
-
-  async function confirmPendingNodeAction() {
-    if (!pendingNodeAction) {
-      return
-    }
-
-    const action = pendingNodeAction
-    if (action.action === 'disable') {
-      await runNodeAction(
-        'Disable node',
-        action.node,
-        () =>
-          pauseNode.mutateAsync({
-            id: action.node.id,
-            request: { reason: 'operator disabled node', license_enforced: false },
-          }),
-        (updatedNode) =>
-          nodeActionResultFromNode(
-            'disabled',
-            updatedNode,
-            'Node pause command was recorded and runtime traffic will stop after node-agent applies it.',
-          ),
-      )
-    } else if (action.action === 'pause') {
-      await runNodeAction(
-        'Pause node',
-        action.node,
-        () =>
-          pauseNode.mutateAsync({
-            id: action.node.id,
-            request: { reason: 'operator requested', license_enforced: false },
-          }),
-        (updatedNode) =>
-          nodeActionResultFromNode(
-            'paused',
-            updatedNode,
-            'Node pause command was recorded against the real control plane.',
-          ),
-      )
-    } else if (action.action === 'quarantine') {
-      await runNodeAction(
-        'Quarantine node',
-        action.node,
-        () =>
-          quarantineNode.mutateAsync({
-            id: action.node.id,
-            request: { reason: 'operator quarantine' },
-          }),
-        (updatedNode) =>
-          nodeActionResultFromNode(
-            'quarantined',
-            updatedNode,
-            'Node quarantine command was recorded and this node should not receive traffic.',
-          ),
-      )
-    } else if (action.action === 'restart') {
-      await runNodeAction(
-        'Restart node',
-        action.node,
-        () => restartNode.mutateAsync(action.node.id),
-        (command) => nodeActionResultFromCommand('restart queued', action.node, command),
-      )
-    } else if (action.action === 'reset_traffic') {
-      await runNodeAction(
-        'Reset node traffic',
-        action.node,
-        () => resetNodeTraffic.mutateAsync(action.node.id),
-        (command) => nodeActionResultFromCommand('traffic reset queued', action.node, command),
-      )
-    } else if (action.action === 'restart_all') {
-      await runGlobalNodeAction(
-        'Restart all nodes',
-        () => restartAllNodes.mutateAsync(),
-        (commands) => ({
-          detail: `${commands.items.length} restart commands queued through the real node command API.`,
-          label: 'restart all queued',
-          nodeName: 'All nodes',
-          tone: 'info',
-        }),
-      )
-    } else if (action.action === 'reset_all_traffic') {
-      await runGlobalNodeAction(
-        'Reset all node traffic',
-        () =>
-          bulkNodes.mutateAsync({
-            action: 'reset_traffic',
-            ids: nodes.map((node) => node.id),
-            reason: 'operator bulk reset traffic',
-          }),
-        (response) => ({
-          detail: `${response.items.length} nodes accepted the traffic reset request.`,
-          label: 'bulk reset queued',
-          nodeName: 'All nodes',
-          tone: 'info',
-        }),
-      )
-    } else if (action.action === 'pause_all') {
-      await runGlobalNodeAction(
-        'Pause all nodes',
-        () =>
-          bulkNodes.mutateAsync({
-            action: 'pause',
-            ids: nodes.map((node) => node.id),
-            reason: 'operator bulk pause',
-          }),
-        (response) => ({
-          detail: `${response.items.length} nodes accepted the pause request.`,
-          label: 'bulk pause queued',
-          nodeName: 'All nodes',
-          tone: 'watch',
-        }),
-      )
-    }
-
-    setPendingNodeAction(null)
-  }
-
   return (
-    <section className="page nodes-page">
+    <section className="page">
       <PageHeader
         eyebrow={spec.eyebrow}
         title={spec.title}
@@ -988,8 +690,19 @@ export function NodesPage() {
             <button
               type="button"
               className="button button--secondary"
-              disabled={actionPending || nodes.length === 0}
-              onClick={() => setPendingNodeAction({ action: 'restart_all' })}
+              disabled={restartAllNodes.isPending || nodes.length === 0}
+              onClick={() =>
+                void runGlobalNodeAction(
+                  'Restart all nodes',
+                  () => restartAllNodes.mutateAsync(),
+                  (commands) => ({
+                    detail: `${commands.items.length} restart commands queued through the real node command API.`,
+                    label: 'restart all queued',
+                    nodeName: 'All nodes',
+                    tone: 'info',
+                  }),
+                )
+              }
             >
               {t('Restart all')}
             </button>
@@ -1023,14 +736,6 @@ export function NodesPage() {
           <p>{actionResult.detail}</p>
         </article>
       ) : null}
-      {pendingNodeAction ? (
-        <NodeActionConfirm
-          action={pendingNodeAction}
-          pending={actionPending}
-          onCancel={() => setPendingNodeAction(null)}
-          onConfirm={() => void confirmPendingNodeAction()}
-        />
-      ) : null}
 
       <section className="resource-grid">
         {query.isSuccess && nodes.length === 0 ? (
@@ -1049,28 +754,6 @@ export function NodesPage() {
               </div>
               <StatusBadge>{t('{count} nodes', { count: nodes.length })}</StatusBadge>
             </div>
-            {pendingDeleteNode ? (
-              <NodeDeleteConfirm
-                node={pendingDeleteNode}
-                pending={deleteNode.isPending}
-                onCancel={() => setPendingDeleteNode(null)}
-                onConfirm={() => {
-                  void runNodeAction(
-                    'Delete node',
-                    pendingDeleteNode,
-                    () => deleteNode.mutateAsync(pendingDeleteNode.id),
-                    (updatedNode) =>
-                      nodeActionResultFromNode(
-                        'deleted',
-                        updatedNode,
-                        'Node was marked deleted and a pause command was queued before removal from active service.',
-                      ),
-                  ).then(() => {
-                    setPendingDeleteNode(null)
-                  })
-                }}
-              />
-            ) : null}
             <DataTable
               caption="Node provisioning and heartbeat inventory"
               columns={[
@@ -1123,14 +806,27 @@ export function NodesPage() {
                         className="button button--secondary"
                         disabled={
                           hasPendingControl ||
-                          actionPending ||
                           (normalizeStatus(node.status) === 'active'
                             ? pauseNode.isPending
                             : resumeNode.isPending)
                         }
                         onClick={() => {
                           if (normalizeStatus(node.status) === 'active') {
-                            setPendingNodeAction({ action: 'disable', node })
+                            void runNodeAction(
+                              'Disable node',
+                              node,
+                              () =>
+                                pauseNode.mutateAsync({
+                                  id: node.id,
+                                  request: { reason: 'operator disabled node', license_enforced: false },
+                                }),
+                              (updatedNode) =>
+                                nodeActionResultFromNode(
+                                  'disabled',
+                                  updatedNode,
+                                  'Node pause command was recorded and runtime traffic will stop after node-agent applies it.',
+                                ),
+                            )
                             return
                           }
                           void runNodeAction(
@@ -1155,8 +851,24 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
-                        disabled={hasPendingControl || !canPauseNode(node) || actionPending}
-                        onClick={() => setPendingNodeAction({ action: 'pause', node })}
+                        disabled={hasPendingControl || !canPauseNode(node) || pauseNode.isPending}
+                        onClick={() =>
+                          void runNodeAction(
+                            'Pause node',
+                            node,
+                            () =>
+                              pauseNode.mutateAsync({
+                                id: node.id,
+                                request: { reason: 'operator requested', license_enforced: false },
+                              }),
+                            (updatedNode) =>
+                              nodeActionResultFromNode(
+                                'paused',
+                                updatedNode,
+                                'Node pause command was recorded against the real control plane.',
+                              ),
+                          )
+                        }
                       >
                         {t('Pause')}
                       </button>
@@ -1190,24 +902,54 @@ export function NodesPage() {
                       <button
                         type="button"
                         className="button button--secondary"
-                        disabled={hasPendingControl || !canQuarantineNode(node) || actionPending}
-                        onClick={() => setPendingNodeAction({ action: 'quarantine', node })}
+                        disabled={hasPendingControl || !canQuarantineNode(node) || quarantineNode.isPending}
+                        onClick={() =>
+                          void runNodeAction(
+                            'Quarantine node',
+                            node,
+                            () =>
+                              quarantineNode.mutateAsync({
+                                id: node.id,
+                                request: { reason: 'operator quarantine' },
+                              }),
+                            (updatedNode) =>
+                              nodeActionResultFromNode(
+                                'quarantined',
+                                updatedNode,
+                                'Node quarantine command was recorded and this node should not receive traffic.',
+                              ),
+                          )
+                        }
                       >
                         {t('Quarantine')}
                       </button>
                       <button
                         type="button"
                         className="button button--secondary"
-                        disabled={hasPendingControl || actionPending}
-                        onClick={() => setPendingNodeAction({ action: 'restart', node })}
+                        disabled={hasPendingControl || restartNode.isPending}
+                        onClick={() =>
+                          void runNodeAction(
+                            'Restart node',
+                            node,
+                            () => restartNode.mutateAsync(node.id),
+                            (command) => nodeActionResultFromCommand('restart queued', node, command),
+                          )
+                        }
                       >
                         {t('Restart')}
                       </button>
                       <button
                         type="button"
                         className="button button--secondary"
-                        disabled={actionPending}
-                        onClick={() => setPendingNodeAction({ action: 'reset_traffic', node })}
+                        disabled={resetNodeTraffic.isPending}
+                        onClick={() =>
+                          void runNodeAction(
+                            'Reset node traffic',
+                            node,
+                            () => resetNodeTraffic.mutateAsync(node.id),
+                            (command) => nodeActionResultFromCommand('traffic reset queued', node, command),
+                          )
+                        }
                       >
                         {t('Reset traffic')}
                       </button>
@@ -1215,7 +957,21 @@ export function NodesPage() {
                         type="button"
                         className="button button--secondary"
                         disabled={hasPendingControl || deleteNode.isPending}
-                        onClick={() => setPendingDeleteNode(node)}
+                        onClick={() => {
+                          if (globalThis.confirm(t('Delete node confirmation', { name: node.name }))) {
+                            void runNodeAction(
+                              'Delete node',
+                              node,
+                              () => deleteNode.mutateAsync(node.id),
+                              (updatedNode) =>
+                                nodeActionResultFromNode(
+                                  'deleted',
+                                  updatedNode,
+                                  'Node was marked deleted and a pause command was queued before removal from active service.',
+                                ),
+                            )
+                          }
+                        }}
                       >
                         {t('Delete')}
                       </button>
@@ -1311,18 +1067,9 @@ export function NodesPage() {
                   <p className="eyebrow">{t('Runtime protocols')}</p>
                   <h3 id="node-protocol-selection-title">{t('Enabled protocols on this node')}</h3>
                 </div>
-                <span className="inline-actions inline-actions--compact">
-                  <StatusBadge>
-                    {`${protocolSelection.length}/${protocolSelectionQuery.data?.items.length ?? 0}`}
-                  </StatusBadge>
-                  {protocolSelectionChanges.total > 0 ? (
-                    <StatusBadge tone="watch">
-                      {t('{count} pending changes', { count: protocolSelectionChanges.total })}
-                    </StatusBadge>
-                  ) : (
-                    <StatusBadge tone="good">{t('in sync')}</StatusBadge>
-                  )}
-                </span>
+                <StatusBadge>
+                  {`${protocolSelection.length}/${protocolSelectionQuery.data?.items.length ?? 0}`}
+                </StatusBadge>
               </div>
               {protocolSelectionQuery.isLoading ? (
                 <LoadingState label="Loading node protocol selection..." />
@@ -1341,70 +1088,31 @@ export function NodesPage() {
               ) : null}
               {protocolSelectionQuery.data?.items.length ? (
                 <>
-                  <div className="node-protocol-matrix">
-                    <DataTable
-                      caption={t('Node protocol assignment matrix')}
-                      columns={[
-                        t('Enabled'),
-                        t('Profile'),
-                        t('Adapter'),
-                        t('Profile status'),
-                        t('Runtime sync'),
-                      ]}
-                      rows={protocolSelectionQuery.data.items.map((item) => {
-                        const enabled = protocolSelection.includes(item.profile_id)
-                        const savedEnabled = savedProtocolSelection.includes(item.profile_id)
-                        const syncStatus =
-                          typeof item.runtime_sync?.status === 'string'
-                            ? item.runtime_sync.status
-                            : 'never_applied'
-                        const rowState =
-                          enabled === savedEnabled
-                            ? enabled
-                              ? t('enabled')
-                              : t('disabled')
-                            : enabled
-                              ? t('will be enabled')
-                              : t('will be disabled')
-                        return {
-                          cells: [
-                            <label
-                              key="enabled"
-                              className="node-protocol-toggle"
-                              title={t('Toggle this real profile on the selected node')}
-                            >
-                              <input
-                                aria-label={t('Toggle protocol {name}', { name: item.name })}
-                                type="checkbox"
-                                checked={enabled}
-                                disabled={updateNodeProtocols.isPending}
-                                onChange={() => toggleProtocolSelection(item.profile_id)}
-                              />
-                              <span>{rowState}</span>
-                            </label>,
-                            <span key="profile" className="cell-stack">
-                              <strong>{item.name}</strong>
-                              <small>{item.profile_id}</small>
-                            </span>,
-                            item.adapter,
-                            <StatusBadge key="profile-status" tone={item.status === 'active' ? 'good' : 'watch'}>
-                              {t(formatStatus(item.status))}
-                            </StatusBadge>,
-                            <StatusBadge key="runtime-status" tone={syncStatus === 'applied' ? 'good' : 'watch'}>
-                              {t(formatStatus(syncStatus))}
-                            </StatusBadge>,
-                          ],
-                          id: item.profile_id,
-                        }
-                      })}
-                    />
+                  <div className="settings-list">
+                    {protocolSelectionQuery.data.items.map((item) => {
+                      const enabled = protocolSelection.includes(item.profile_id)
+                      const syncStatus =
+                        typeof item.runtime_sync?.status === 'string'
+                          ? item.runtime_sync.status
+                          : 'never_applied'
+                      return (
+                        <label className="setting-row" key={item.profile_id}>
+                          <span>
+                            <strong>{item.name}</strong>
+                            <small>
+                              {item.adapter} / {t(formatStatus(item.status))} / {t(formatStatus(syncStatus))}
+                            </small>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            disabled={updateNodeProtocols.isPending}
+                            onChange={() => toggleProtocolSelection(item.profile_id)}
+                          />
+                        </label>
+                      )
+                    })}
                   </div>
-                  {protocolSelectionChanges.total > 0 ? (
-                    <p className="auth-card__note" role="status">
-                      {t('Pending node protocol changes')}: +{protocolSelectionChanges.enabled} / -
-                      {protocolSelectionChanges.disabled}. {t('Update protocols queues real runtime apply commands.')}
-                    </p>
-                  ) : null}
                   {protocolSelectionError ? (
                     <p className="auth-card__note" role="alert">
                       {protocolSelectionError}
@@ -1419,18 +1127,10 @@ export function NodesPage() {
                     <button
                       type="button"
                       className="button button--primary"
-                      disabled={updateNodeProtocols.isPending || protocolSelectionChanges.total === 0}
+                      disabled={updateNodeProtocols.isPending}
                       onClick={() => void handleProtocolSelectionSubmit()}
                     >
                       {t('Update protocols')}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      disabled={updateNodeProtocols.isPending || protocolSelectionChanges.total === 0}
-                      onClick={() => setProtocolSelection(savedProtocolSelection)}
-                    >
-                      {t('Discard changes')}
                     </button>
                     <button
                       type="button"
@@ -1557,16 +1257,48 @@ export function NodesPage() {
               <button
                 type="button"
                 className="button button--secondary"
-                disabled={actionPending}
-                onClick={() => setPendingNodeAction({ action: 'reset_all_traffic' })}
+                disabled={bulkNodes.isPending}
+                onClick={() =>
+                  void runGlobalNodeAction(
+                    'Reset all node traffic',
+                    () =>
+                      bulkNodes.mutateAsync({
+                        action: 'reset_traffic',
+                        ids: nodes.map((node) => node.id),
+                        reason: 'operator bulk reset traffic',
+                      }),
+                    (response) => ({
+                      detail: `${response.items.length} nodes accepted the traffic reset request.`,
+                      label: 'bulk reset queued',
+                      nodeName: 'All nodes',
+                      tone: 'info',
+                    }),
+                  )
+                }
               >
                 {t('Reset all traffic')}
               </button>
               <button
                 type="button"
                 className="button button--secondary"
-                disabled={actionPending}
-                onClick={() => setPendingNodeAction({ action: 'pause_all' })}
+                disabled={bulkNodes.isPending}
+                onClick={() =>
+                  void runGlobalNodeAction(
+                    'Pause all nodes',
+                    () =>
+                      bulkNodes.mutateAsync({
+                        action: 'pause',
+                        ids: nodes.map((node) => node.id),
+                        reason: 'operator bulk pause',
+                      }),
+                    (response) => ({
+                      detail: `${response.items.length} nodes accepted the pause request.`,
+                      label: 'bulk pause queued',
+                      nodeName: 'All nodes',
+                      tone: 'watch',
+                    }),
+                  )
+                }
               >
                 {t('Pause all')}
               </button>

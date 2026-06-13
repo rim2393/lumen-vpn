@@ -1,7 +1,7 @@
 """Add node plugin ordering.
 
 Revision ID: 0011_node_plugin_ordering
-Revises: 0010_host_remnawave_fields
+Revises: 0010_host_lumen_fields
 Create Date: 2026-06-02 02:05:00
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0011_node_plugin_ordering"
-down_revision: str | None = "0010_host_remnawave_fields"
+down_revision: str | None = "0010_host_lumen_fields"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

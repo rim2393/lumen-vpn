@@ -1,0 +1,51 @@
+{
+  "schema": "lumen.release.v1",
+  "version": "v0.1.0",
+  "released_at": "2026-05-26T00:00:00Z",
+  "installer_min_version": "v0.1.0",
+  "free_node_limit": 3,
+  "images": {
+    "api": {
+      "name": "ghcr.io/rim2393/lumen-api",
+      "tag": "v0.1.0",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "web": {
+      "name": "ghcr.io/rim2393/lumen-web",
+      "tag": "v0.1.0",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "node_agent": {
+      "name": "ghcr.io/rim2393/lumen-node-agent",
+      "tag": "v0.1.0",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "subscription": {
+      "name": "ghcr.io/rim2393/lumen-subscription-page",
+      "tag": "v0.1.0",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "migrations": {
+    "api": {
+      "from": "any",
+      "to": "v0.1.0",
+      "command": "lumen-api migrate"
+    }
+  },
+  "compatibility": {
+    "requires_manual_node_reconnect": false,
+    "requires_manifest_key_rotation": false,
+    "supports_free_mode": true
+  },
+  "checksums": {
+    "compose": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "nginx_templates": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "kid": "release-signing-key-id",
+    "value": "BASE64_SIGNATURE_PLACEHOLDER"
+  }
+}
+

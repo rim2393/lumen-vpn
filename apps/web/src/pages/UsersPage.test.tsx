@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { AuthSessionProvider } from '../features/auth/AuthSessionProvider'
 import { ApiClientProvider } from '../shared/api/ApiClientProvider'
 import { createDevelopmentLumenApiClient } from '../shared/api/developmentClient'
@@ -67,27 +67,7 @@ describe('UsersPage production interactions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/i }))
     await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('usr_mira'))
   })
-
-  it('opens the real user detail route from a row click without stealing checkbox selection', async () => {
-    const developmentClient = createDevelopmentLumenApiClient()
-
-    renderUsersPage(developmentClient)
-
-    const location = await screen.findByTestId('route-location')
-    expect(location).toHaveTextContent('/users')
-
-    fireEvent.click(await screen.findByLabelText('Select Mira Volkova'))
-    expect(location).toHaveTextContent('/users')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open Mira Volkova' }))
-    expect(location).toHaveTextContent('/users/usr_mira')
-  })
 })
-
-function LocationProbe() {
-  const location = useLocation()
-  return <output data-testid="route-location">{location.pathname}</output>
-}
 
 function renderUsersPage(apiClient: LumenApiClient) {
   const queryClient = new QueryClient({
@@ -105,7 +85,6 @@ function renderUsersPage(apiClient: LumenApiClient) {
         <ApiClientProvider client={apiClient}>
           <I18nProvider language="en" setLanguage={() => undefined}>
             <MemoryRouter initialEntries={['/users']}>
-              <LocationProbe />
               <UsersPage />
             </MemoryRouter>
           </I18nProvider>

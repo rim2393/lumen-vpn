@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Lumen VPN</string>
+    <string name="vpn_channel_name">Lumen VPN</string>
+    <string name="vpn_running">VPN is running</string>
+</resources>

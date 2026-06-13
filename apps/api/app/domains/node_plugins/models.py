@@ -17,7 +17,7 @@ class NodePlugin(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """Traffic-filtering / policy plugin applied on a node (or all nodes).
 
     ``node_id`` is nullable: a null binding means the plugin applies globally to
-    every node. Functional equivalent of Remnawave's node-plugins module.
+    every node. Functional equivalent of Lumen's node-plugins module.
     """
 
     __tablename__ = "node_plugins"

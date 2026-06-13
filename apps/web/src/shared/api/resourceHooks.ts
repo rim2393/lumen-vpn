@@ -969,44 +969,40 @@ export function useToolSummaryData() {
   })
 }
 
-export function useHwidInspectorData(query?: string, enabled = true) {
+export function useHwidInspectorData(query?: string) {
   const apiClient = useApiClient()
   const normalizedQuery = query?.trim() ?? ''
 
   return useQuery({
-    enabled,
     queryFn: () => apiClient.inspectHwid(normalizedQuery || undefined),
     queryKey: [...resourceQueryKeys.toolHwid, normalizedQuery],
   })
 }
 
-export function useTopUsersData(metric: string, limit = 50, enabled = true) {
+export function useTopUsersData(metric: string, limit = 50) {
   const apiClient = useApiClient()
 
   return useQuery({
-    enabled,
     queryFn: () => apiClient.inspectTopUsers(metric, limit),
     queryKey: [...resourceQueryKeys.toolTopUsers, metric, limit],
   })
 }
 
-export function useUserIpsData(query: string, limit = 200, enabled = true) {
+export function useUserIpsData(query: string, limit = 200) {
   const apiClient = useApiClient()
   const normalizedQuery = query.trim() || undefined
 
   return useQuery({
-    enabled,
     queryFn: () => apiClient.inspectUserIps(normalizedQuery, limit),
     queryKey: [...resourceQueryKeys.toolUserIps, normalizedQuery, limit],
   })
 }
 
-export function useNodeUserIpsData(query: string, limit = 200, enabled = true) {
+export function useNodeUserIpsData(query: string, limit = 200) {
   const apiClient = useApiClient()
   const normalizedQuery = query.trim() || undefined
 
   return useQuery({
-    enabled,
     queryFn: () => apiClient.inspectNodeUserIps(normalizedQuery, limit),
     queryKey: [...resourceQueryKeys.toolNodeUserIps, normalizedQuery, limit],
   })
@@ -1026,21 +1022,19 @@ export function useDropConnections() {
   })
 }
 
-export function useSrhInspectorData(enabled = true) {
+export function useSrhInspectorData() {
   const apiClient = useApiClient()
 
   return useQuery({
-    enabled,
     queryFn: apiClient.inspectSrh,
     queryKey: resourceQueryKeys.toolSrh,
   })
 }
 
-export function useSessionInspectorData(enabled = true) {
+export function useSessionInspectorData() {
   const apiClient = useApiClient()
 
   return useQuery({
-    enabled,
     queryFn: apiClient.inspectSessions,
     queryKey: resourceQueryKeys.toolSessions,
   })
@@ -1059,12 +1053,11 @@ export function useRevokeToolSession() {
   })
 }
 
-export function useTorrentReportsData(query: string, limit = 200, enabled = true) {
+export function useTorrentReportsData(query: string, limit = 200) {
   const apiClient = useApiClient()
   const normalizedQuery = query.trim() || undefined
 
   return useQuery({
-    enabled,
     queryFn: () => apiClient.inspectTorrentReports(normalizedQuery, limit),
     queryKey: [...resourceQueryKeys.toolTorrentReports, normalizedQuery, limit],
   })
@@ -1099,11 +1092,10 @@ export function useGenerateNodeKey() {
   })
 }
 
-export function useHappRoutingData(enabled = true) {
+export function useHappRoutingData() {
   const apiClient = useApiClient()
 
   return useQuery({
-    enabled,
     queryFn: apiClient.inspectHappRouting,
     queryKey: resourceQueryKeys.toolHappRouting,
   })
@@ -1117,11 +1109,10 @@ export function useBuildHappRouting() {
   })
 }
 
-export function useToolSnippetsData(enabled = true) {
+export function useToolSnippetsData() {
   const apiClient = useApiClient()
 
   return useQuery({
-    enabled,
     queryFn: apiClient.listToolSnippets,
     queryKey: resourceQueryKeys.toolSnippets,
   })

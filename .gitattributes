@@ -1,8 +1,25 @@
-* text=auto eol=lf
-
+* text=auto
+*.sh text eol=lf
+gradlew text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.kt text eol=lf
+*.kts text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.aar filter=lfs diff=lfs merge=lfs -text
+*.dat binary
+*.so filter=lfs diff=lfs merge=lfs -text
+*.jar binary
 *.png binary
-*.jpg binary
-*.jpeg binary
 *.webp binary
-*.ico binary
-*.pdf binary
+app/src/main/assets/*.dat filter=lfs diff=lfs merge=lfs -text

@@ -1,6 +1,6 @@
 """Prometheus text-format exporter for panel-wide telemetry.
 
-Functional equivalent of Remnawave's prometheus-reporter: exposes panel-level
+Functional equivalent of Lumen's prometheus-reporter: exposes panel-level
 gauges (users, nodes, subscriptions) so an external Prometheus/Grafana stack can
 scrape fleet health. Read-only; no secrets are emitted.
 """

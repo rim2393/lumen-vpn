@@ -1,0 +1,70 @@
+name: lumen-node
+
+services:
+  docker-socket-proxy:
+    image: ${LUMEN_DOCKER_SOCKET_PROXY_IMAGE:-tecnativa/docker-socket-proxy@sha256:0000000000000000000000000000000000000000000000000000000000000000}
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - AUTH=1
+      - CONTAINERS=1
+      - CONTAINERS_CREATE=1
+      - CONTAINERS_DELETE=1
+      - CONTAINERS_START=1
+      - CONTAINERS_STOP=1
+      - CONTAINERS_WAIT=1
+      - NETWORKS=1
+      - NETWORKS_CREATE=1
+      - NETWORKS_CONNECT=1
+      - NETWORKS_DISCONNECT=1
+      - IMAGES=1
+      - IMAGES_CREATE=1
+      - IMAGES_PULL=1
+      # IMAGES_BUILD / IMAGES_PUSH intentionally disabled: a node only pulls
+      # pre-built images, it never builds or pushes them.
+      - IMAGES_BUILD=0
+      - IMAGES_PUSH=0
+      # SECURITY REVIEW: CONTAINERS_CREATE_EXEC grants `docker exec` (arbitrary
+      # command execution inside containers). The xray runtime reloads via
+      # systemctl, not docker exec; set this to 0 once provisioning is confirmed
+      # to not rely on exec on a live node.
+      - CONTAINERS_CREATE_EXEC=1
+      - VOLUMES=1
+      - VOLUMES_CREATE=1
+      - VOLUMES_DELETE=1
+      - SYSTEM=1
+      - INFO=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  node-agent:
+    image: ${LUMEN_NODE_AGENT_IMAGE}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      LUMEN_PANEL_URL: ${LUMEN_PANEL_URL}
+      LUMEN_NODE_NAME: ${LUMEN_NODE_NAME:-manual-node}
+      LUMEN_NODE_RUNTIME: docker
+      LUMEN_INSTALL_TOKEN_FILE: /run/lumen-node/install-token
+      LUMEN_STATE_DIR: /var/lib/lumen-node
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    volumes:
+      - /opt/lumen-node/state:/var/lib/lumen-node
+      - /opt/lumen-node/secrets:/run/lumen-node:ro
+    depends_on:
+      - docker-socket-proxy
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "lumen-node-agent healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

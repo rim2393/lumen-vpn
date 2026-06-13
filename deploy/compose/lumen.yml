@@ -1,0 +1,197 @@
+name: lumen
+
+x-app-env: &app-env
+  TZ: ${TZ:-UTC}
+  LUMEN_ENV: ${LUMEN_ENV:-production}
+  PANEL_PUBLIC_URL: https://${PANEL_DOMAIN}
+  SUBSCRIPTION_PUBLIC_URL: https://${SUBSCRIPTION_DOMAIN}
+  DATABASE_URL: ${DATABASE_URL:-postgresql://lumen:${POSTGRES_PASSWORD}@postgres:5432/lumen}
+  DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/lumen/secrets/database-url}
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+  REDIS_URL_FILE: ${REDIS_URL_FILE:-/run/lumen/secrets/redis-url}
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_SECRET_FILE: ${JWT_SECRET_FILE:-/run/lumen/secrets/jwt-secret}
+  REFRESH_SECRET: ${REFRESH_SECRET}
+  REFRESH_SECRET_FILE: ${REFRESH_SECRET_FILE:-/run/lumen/secrets/refresh-secret}
+  API_TOKEN_PEPPER: ${API_TOKEN_PEPPER}
+  API_TOKEN_PEPPER_FILE: ${API_TOKEN_PEPPER_FILE:-/run/lumen/secrets/api-token-pepper}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+  ENCRYPTION_KEY_FILE: ${ENCRYPTION_KEY_FILE:-/run/lumen/secrets/encryption-key}
+  WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SIGNING_SECRET}
+  WEBHOOK_SIGNING_SECRET_FILE: ${WEBHOOK_SIGNING_SECRET_FILE:-/run/lumen/secrets/webhook-signing-secret}
+  NODE_CA_SEED: ${NODE_CA_SEED}
+  MANIFEST_SIGNING_SEED: ${MANIFEST_SIGNING_SEED}
+  FREE_NODE_LIMIT: ${FREE_NODE_LIMIT:-3}
+  LICENSE_MODE: ${LICENSE_MODE:-free}
+  LICENSE_KEY_FILE: ${LICENSE_KEY_FILE:-/run/lumen/secrets/license.key}
+  LICENSE_OFFLINE_FILE: ${LICENSE_OFFLINE_FILE:-/run/lumen/secrets/offline-license.json}
+  TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
+  TELEGRAM_BOT_TOKEN_FILE: ${TELEGRAM_BOT_TOKEN_FILE:-/run/lumen/secrets/telegram-bot-token}
+  GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
+  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+  GOOGLE_OAUTH_CLIENT_SECRET_FILE: ${GOOGLE_OAUTH_CLIENT_SECRET_FILE:-/run/lumen/secrets/google-oauth-client-secret}
+  SMTP_ENABLED: ${SMTP_ENABLED:-false}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD_FILE: ${SMTP_PASSWORD_FILE:-/run/lumen/secrets/smtp-password}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lumen
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-/run/lumen/secrets/postgres-password}
+    command:
+      - postgres
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - log_min_duration_statement=500
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumen"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ${LUMEN_SECRETS_DIR:-/opt/lumen/secrets}:/run/lumen/secrets:ro
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  redis:
+    image: ${REDIS_IMAGE}
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD_FILE: ${REDIS_PASSWORD_FILE:-/run/lumen/secrets/redis-password}
+    command:
+      - sh
+      - -c
+      - |
+        REDIS_PASSWORD="$(cat /run/lumen/secrets/redis-password)"
+        printf 'requirepass %s\nappendonly yes\n' "$REDIS_PASSWORD" > /tmp/valkey.conf
+        exec valkey-server /tmp/valkey.conf
+    volumes:
+      - redis_data:/data
+      - ${LUMEN_SECRETS_DIR:-/opt/lumen/secrets}:/run/lumen/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$(cat /run/lumen/secrets/redis-password)\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  api:
+    image: ${LUMEN_API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *app-env
+    volumes:
+      - ${LUMEN_DATA_DIR:-/opt/lumen/data}/uploads:/var/lib/lumen/uploads
+      - ${LUMEN_DATA_DIR:-/opt/lumen/data}/runtime:/var/lib/lumen/runtime
+      - ${LUMEN_SECRETS_DIR:-/opt/lumen/secrets}:/run/lumen/secrets:ro
+    ports:
+      - "127.0.0.1:${LUMEN_API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "lumen-api healthcheck --url http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  worker:
+    image: ${LUMEN_API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["lumen-api", "worker", "--queues", "critical,default,provisioning,low"]
+    environment: *app-env
+    volumes:
+      - ${LUMEN_DATA_DIR:-/opt/lumen/data}/runtime:/var/lib/lumen/runtime
+      - ${LUMEN_SECRETS_DIR:-/opt/lumen/secrets}:/run/lumen/secrets:ro
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  scheduler:
+    image: ${LUMEN_API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["lumen-api", "scheduler"]
+    environment: *app-env
+    volumes:
+      - ${LUMEN_DATA_DIR:-/opt/lumen/data}/runtime:/var/lib/lumen/runtime
+      - ${LUMEN_SECRETS_DIR:-/opt/lumen/secrets}:/run/lumen/secrets:ro
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  web:
+    image: ${LUMEN_WEB_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-UTC}
+      PANEL_PUBLIC_URL: https://${PANEL_DOMAIN}
+      API_BASE_URL: https://${PANEL_DOMAIN}/api
+    ports:
+      - "127.0.0.1:${LUMEN_WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+  subscription:
+    image: ${LUMEN_SUBSCRIPTION_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-UTC}
+      API_INTERNAL_URL: http://api:8080
+      SUBSCRIPTION_PUBLIC_URL: https://${SUBSCRIPTION_DOMAIN}
+    ports:
+      - "127.0.0.1:${LUMEN_SUBSCRIPTION_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+    networks:
+      - lumen_internal
+
+networks:
+  lumen_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

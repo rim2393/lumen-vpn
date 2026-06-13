@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Lumen VPN" Language="1033" Version="1.0.0.0" Manufacturer="Lumen" UpgradeCode="7d2c61a4-5949-4b9b-a0a0-783d7f6d4da7">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Lumen VPN is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Lumen VPN">
+          <Directory Id="RUNTIMEFOLDER" Name="runtime" />
+          <Directory Id="SERVICEFOLDER" Name="service" />
+        </Directory>
+      </Directory>
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="PROGRAMDATAFOLDER" Name="LumenVPN">
+          <Directory Id="LOGFOLDER" Name="logs" />
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="MainFeature" Title="Lumen VPN" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <CustomAction
+      Id="InstallOpenVpnDriver"
+      Directory="INSTALLFOLDER"
+      Execute="deferred"
+      Impersonate="no"
+      ExeCommand='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]service\install-openvpn-driver.ps1"'
+      Return="check" />
+
+    <CustomAction
+      Id="InstallLumenService"
+      Directory="INSTALLFOLDER"
+      Execute="deferred"
+      Impersonate="no"
+      ExeCommand='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]service\install-service.ps1"'
+      Return="check" />
+
+    <InstallExecuteSequence>
+      <Custom Action="InstallOpenVpnDriver" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="InstallLumenService" After="InstallOpenVpnDriver">NOT Installed</Custom>
+    </InstallExecuteSequence>
+
+    <!-- Generate AppFiles with heat.exe from desktop/build/install/desktop during release packaging. -->
+  </Product>
+</Wix>

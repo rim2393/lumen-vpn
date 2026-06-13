@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">lumentech.tel</domain>
+        <domain includeSubdomains="false">cabinet.lumentech.tel</domain>
+        <pin-set expiration="2027-12-31">
+            <pin digest="SHA-256">mLiQVW1AlLveGLV61vbWLZ9SzkxLkdC9JQ3kpH72/PM=</pin>
+            <pin digest="SHA-256">vpEExKfky6Yo2WNuj8FiDjbjciToh0scj4sCsRAhgzI=</pin>
+            <pin digest="SHA-256">y7xVm0TVJNahMr2sZydE2jQH8SquXV9yLF9seROHHHU=</pin>
+        </pin-set>
+    </domain-config>
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">api.bearshits.ru</domain>
+        <pin-set expiration="2027-12-31">
+            <pin digest="SHA-256">Ya2Igjszt7Ahcz9rMiXpVwZ2EFWDNBByiqYYquqX1W4=</pin>
+            <pin digest="SHA-256">y7xVm0TVJNahMr2sZydE2jQH8SquXV9yLF9seROHHHU=</pin>
+        </pin-set>
+    </domain-config>
+</network-security-config>

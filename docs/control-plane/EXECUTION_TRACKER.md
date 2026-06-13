@@ -1,0 +1,513 @@
+# Lumen Execution Tracker
+
+Date: 2026-06-03
+
+This is the primary execution tracker for closing the remaining Lumen control
+plane, node runtime, subscription, client and commercial gaps. Use this file
+before starting every new slice. Do not repeat a finished slice unless the
+evidence here is wrong or stale.
+
+## Rules
+
+- Production reality only: no fake counters, placeholder rows, mock success
+  states, synthetic nodes, fake users or non-live subscription behavior.
+- A task is `DONE` only when code, tests, official release/update flow and live
+  evidence prove it for the relevant surface.
+- If a task touches node runtime or public subscriptions, live evidence must
+  include the real panel/node path after the signed manifest upgrade.
+- Backend/admin/node release invariants are mandatory and live in
+  `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`. The quality workflow validates the
+  guard with `scripts/validate_release_guard.py`.
+- Production-reality invariants are mandatory and validated by
+  `scripts/validate_production_reality.py`; production web modules must not
+  import development fixtures/clients, old fake counters or placeholder
+  backend-success labels.
+- Protocol closure invariants are mandatory and live in
+  `docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md`. A protocol row cannot be
+  `DONE` without real node/backend `rx_bytes`/`tx_bytes` accounting evidence or
+  an explicit unsupported status.
+- If a task is intentionally deferred, mark it `DEFERRED` and explain the
+  external dependency or product decision.
+- Keep evidence short and concrete: commit, version, workflow/run, endpoint,
+  test command and result.
+
+## Status Legend
+
+- `DONE`: implemented, tested, released when required, and evidence recorded.
+- `PARTIAL`: meaningful real implementation exists, but one or more required
+  surfaces are incomplete.
+- `OPEN`: not implemented or only scaffolded.
+- `NEXT`: the next planned implementation slice.
+- `DEFERRED`: intentionally not started yet.
+
+## Release Baseline
+
+| Item | Current Evidence |
+| --- | --- |
+| Latest production release | `v0.1.133` deployed through the official product workflow, signed public manifest and installer deploy workflow on 2026-06-05 |
+| Product repo head | latest pushed `main` includes `36accb9`/`acd375b`: GitHub-hosted public-runner unblock evidence, Linux node-agent reset state-dir fix, and honest Xray edge render contract for unsupported sing-box+xHTTP targets, on top of all previously closed backend/admin/node protocol and parity work |
+| Public installer manifest | `rim2393/lumen_vpn@e885db8` publishes signed `v0.1.133` manifest; `rim2393/lumen_vpn@cd8c31c`/`31ea584` hardened the release workflow so the public verification key is derived from the signing secret and the current public installer bundle is deployed to `/opt/lumen/installer/lumen_vpn` instead of depending on a stale panel checkout |
+| Prod health | Product `Build release images` workflow `27002579387` built and verified digest-pinned `v0.1.133` images. Installer workflow `27002827894` generated and validated the signed manifest, committed `release/prod.json`, uploaded the manifest/public key/installer bundle to the panel, ran official `upgrade.sh`, created encrypted backup `lumen-backup-20260605T075510Z.tar.gz.enc`, pulled images, ran migrations, and completed `doctor.sh` successfully. The signed manifest pins `api@sha256:e3b69115d726eff0cab51890658888ced574ddfc89b032a8aa707419511a05ca`, `web@sha256:e1b505c8c7e23e7d9bb9f2d8519917e000dd97e0ae96698b09bdb9e4b81c5ca2`, `node-agent@sha256:450f75fc748b899c842cc4f00cc9a9f00d2cd917597b3e09a7f14dc8e7b5d5a8`, and `subscription@sha256:781834c1be5d7d8fbcc2337c08b5cd6a6a323903dadd065adf4194fd6d463f11`. Public `https://panel.lumentech.tel/api/v1/health/ready` returns `200`; public `/healthz` returns `ok`. |
+| Current rule | Continue from this tracker; do not restart already closed host/subscription renderer work. The product repo is temporarily public at the owner's request, so GitHub-hosted Actions now run. If the product repo becomes private again, install/configure a self-hosted runner or restore GitHub private-repo Actions billing before requiring private CI releases. Historical manual fallback invariant remains: manual image promotion must stay digest-pinned and followed by live smoke plus cleanup. |
+| Backend/admin/node release guard | `76c2a36` adds `docs/BACKEND_ADMIN_NODE_RELEASE_GUARD.md`, `scripts/validate_release_guard.py`, and the `quality.yml` guard job. `95df8d7` hardens signed manifest dispatch so `LUMEN_PUBLIC_REPO_TOKEN` is a hard release requirement instead of a silent skip, and the guard now checks the release workflow for that invariant. The follow-up runner `scripts/live/run-admin-surface-smoke-on-panel.sh` makes post-release admin smoke repeatable on the panel host with API-container root cleanup. `docs/GITHUB_ACTIONS_BILLING_UNBLOCK.md` is now the required recovery runbook for the GitHub Actions billing/spending blocker and release signing ops-secret recovery; GitHub issue `#1` tracks the external owner-side unblock checklist. `docs/PROTOCOL_RUNTIME_CLOSURE_CHECKLIST.md` now defines mandatory apply/remove/render/live-smoke/accounting evidence for future protocol closures. Local guard validation passed on 2026-06-04. GitHub runs `26956024418`, `26956113757`, `26956499317`, `26957155650`, `26957156032`, `26957467443`, and `26957467136` did not start any job, including the guard, because the account billing/spending blocker remains external. |
+| Public installer release guard | `rim2393/lumen_vpn@8a238e8` adds `scripts/validate-release-pipeline-guard.sh`, wires it into public `ci.yml`, and documents it in `docs/PRODUCTION_RELEASES.md`/`docs/OPERATIONS.md`. It verifies required release secrets, signed manifest generation/validation, official `upgrade.sh` deploy path, no silent signing/manifest skips, and CI registration. Public installer CI run `26957035526` passed all jobs: release-pipeline-guard, shellcheck, compose, secret-scan, public-boundary and release-manifest. |
+| Release signing ops-secret state | 2026-06-04 safe GitHub secret-name audit found product repo `rim2393/lumen-vpn` has `LUMEN_PUBLIC_REPO_TOKEN`, and public installer repo `rim2393/lumen_vpn` has `LUMEN_RELEASE_SIGNING_KEY`, `LUMEN_RELEASE_SIGNING_KID`, `LUMEN_GHCR_READ_USERNAME`, `LUMEN_GHCR_READ_TOKEN`, `LUMEN_PROD_HOST`, `LUMEN_PROD_SSH_USER`, `LUMEN_PROD_SSH_KEY`, `LUMEN_PROD_SSH_PORT`, and `LUMEN_UPGRADE_BACKUP_PASSPHRASE`. No secret values were read or recorded. 2026-06-05 release attempt `27002646718` proved the signing secret and committed public key had drifted; `rim2393/lumen_vpn@cd8c31c` fixed the workflow to derive and commit the public verification key from the signing secret before validation/deploy. Local checks passed: product `python scripts/validate_release_guard.py`; public installer `bash scripts/validate-release-pipeline-guard.sh` and `bash scripts/test-manifest-signature.sh`. End-to-end CI release is now proven by `v0.1.133` workflows `27002579387` and `27002827894`. |
+| GitHub Actions unblock | 2026-06-04 the product repo was temporarily changed from private to public at the owner's request so GitHub-hosted public-repo runners can execute without the private-repo billing/spending blocker. Rerun evidence: `Build release images` run `26958919626` moved past runner allocation and completed `success`; `Quality gates` run `26958919265` moved past runner allocation and executed real jobs, proving the previous `steps=[]`, `runner_id=0` blocker is removed. The quality rerun exposed real failures instead of billing failures: Linux node-agent `node.traffic.reset` wrote protocol baseline state outside `LUMEN_STATE_DIR`, and API Xray edge tests expected fake sing-box success for xHTTP where the renderer correctly returns explicit unsupported `422`. Follow-up commit `acd375b` made reset state-dir aware and updated the test contract to require honest `422` for sing-box+xHTTP. Local gates passed before push: node-agent runtime matrix `43 passed`, Xray edge pytest `15 passed`, API ruff, `python scripts/validate_release_guard.py`, and `python scripts/validate_production_reality.py`. Final GitHub-hosted public-runner evidence: `Quality gates` run `26972035588` completed `success`, and `Build release images` run `26972035592` completed `success`. |
+
+## Execution Order
+
+1. Profiles/Hosts runtime sync and profile parity.
+2. Users parity.
+3. Squads parity.
+4. Nodes polish and node plugins/provider history UX.
+5. Settings, auth, MFA/passkeys/API tokens.
+6. Subscription surface parity.
+7. Tools parity.
+8. OpenAPI regeneration.
+9. Protocol closure.
+10. Android/Windows client verification.
+11. License server and commercial portal.
+
+## P0: Profiles And Hosts
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| PH-001 | Explicit profile Apply queues real node `outbound.apply` | DONE | UI action calls backend, backend queues command, node-agent completes on live node | `v0.1.60`, live command succeeded with `openvpn-shadowsocks-managed-process-started` |
+| PH-002 | Host required-field and port validation | DONE | Create/edit/bulk reject missing node and invalid ports before mutation | `v0.1.61`, web TS/build gates, prod health |
+| PH-003 | Full host parity fields in DB/API/UI | DONE | First-class fields for path/SNI/security/mux/sockopt/xHTTP/exclusions/final mask/Mihomo X25519, migration, UI create/edit | `0606e89`, migration `0010_host_lumen_fields`, `v0.1.65` |
+| PH-004 | Host fields affect computed Xray runtime config | DONE | Computed config applies host path/SNI/security/xHTTP/mux/sockopt, tests prove `streamSettings` | `0606e89`, `test_control_plane_foundation_routes.py`, `24 passed` |
+| PH-005 | Host policy affects public subscription renderers | DONE | Hidden/excluded hosts blocked, visible hosts auto-selected, shuffle deterministic, final mask and Mihomo X25519 exported | `cda23ee`, `test_license_subscription_routes.py`, `18 passed`, `v0.1.66` |
+| PH-006 | Profile/host changes auto-sync or require explicit dirty/apply state | DONE | After profile/host mutation the UI/API clearly marks affected node/profile as pending apply, and a real sync/apply operation applies it. No silent stale runtime. | `6aed6ff`, `v0.1.67`, release run `26778396746`, installer/deploy run `26778480970`, manifest `rim2393/lumen_vpn@70cab94`; `ruff`, `pytest tests/test_apply_profile_to_node_routes.py` 6 passed, web `tsc`; prod health OK and `/hosts` shows `Рантайм`/`Еще не применялось` after signed deploy. |
+| PH-007 | Profiles detail editor parity | DONE | Detail page/editor covers profile name/status/node/squad/adapter/config/ports/credentials metadata with validation | `2bf2979`, `v0.1.68`, release run `26779454552`, installer/deploy run `26779535240`, manifest `rim2393/lumen_vpn@74325ec`; web `tsc` passed; local Vitest hung on Windows and was recorded in wiki; prod health OK and `/profiles` editor shows `JSON метаданных профиля`. |
+| PH-008 | Profiles reorder parity | DONE | Real backend reorder endpoint and UI controls persist order, tests cover order | `1fb3559`, `v0.1.69`, release run `26780147882`, installer/deploy run `26780247823`, manifest `rim2393/lumen_vpn@4042794`; web `tsc` passed; `ruff` passed; `pytest tests/test_control_plane_foundation_routes.py -k profile_reorder` passed; local targeted Vitest hung on Windows and existing wiki mitigation applies; prod health OK and `/profiles` live UI shows `Ручной порядок`, `Вверх`, `Вниз` after signed deploy. |
+| PH-009 | Protocol-specific profile builders | DONE | Builders for supported adapters produce valid payloads and port reservations, no raw JSON-only requirement | `5f3233b`, `v0.1.70`, release run `26780707608`, installer/deploy run `26780786555`, manifest `rim2393/lumen_vpn@b0ac95d`; web `tsc` passed; `ruff` passed; focused backend pytest passed; profile test contract now asserts builder `serverName` reaches `config_json.security`; prod health OK and live `/profiles` editor shows `Собрать JSON из полей протокола`. |
+| PH-010 | Profile JSON editor with validation | DONE | JSON editor validates schema/secret rules and shows backend errors without fake success | `becc9c8`, `v0.1.71`, release run `26780993334`, installer/deploy run `26781081704`, manifest `rim2393/lumen_vpn@37508a8`; web `tsc` passed; `ruff` passed; focused backend pytest passed; profile test contract rejects inline `privateKey`; prod health OK and live `/profiles` editor shows config JSON, credentials ref, and protocol builder after signed deploy. |
+| PH-011 | Profile runtime apply readiness | DONE | API/UI shows whether each profile can be applied to a real node, and blocks Apply with concrete blockers when no active host or no active real subscription exists | `d861f79`, `v0.1.122`, manifest `rim2393/lumen_vpn@051c120`; added real `/api/v1/profiles/runtime-readiness`, web readiness badges, Apply preflight guard, and `scripts/live/active-profile-apply-readiness-smoke.py`. Local gates passed: `ruff`, focused `pytest tests/test_apply_profile_to_node_routes.py -k "runtime_readiness or apply_hysteria2"` (`2 passed`), web `tsc`. API/web images built and pushed manually on the panel VPS with digest pins `api@sha256:041f7eee75c329369a4b71a7c35ceae27fabe5b3959abc9c96d0ff58ed93de0c`, `web@sha256:64fdc440887ca19f893577963a45a3c023656f2ea37893acdc3b3e2ffa1da8db`; official `upgrade.sh` created encrypted backup, pulled images, ran migrations, recreated API/web, and retention left 12 backups/11 upgrade-state dirs. Live prod readiness smoke on `v0.1.122` found real `node-01` active: 46 active profiles, 2 apply-ready (`openvpn-ss-live-20260601145746`, `openvpn-live-v046-20260601134641`), 14 pending apply, 3 failed latest apply, 36 without runtime clients, 28 without visible active hosts. Panel/node `/tmp/lumen-*` cleaned; node VPS cleanup removed installer/admin checkout leftovers and left only `/opt/lumen-node` files plus running `lumen-node-node-agent-1`. |
+| PH-012 | Issue real subscription from selected profile | DONE | Operator can issue a real subscription from selected active profile + active visible host + real user/license without hand-editing `delivery_profile`; backend rejects disabled/wrong hosts and UI uses the same production endpoint | `22fd9df`, `v0.1.123`, manifest `rim2393/lumen_vpn@574e4d2`; added `POST /api/v1/subscriptions/actions/issue-from-profile`, service validation for active profile and renderable host, audit event `subscription.issued_from_profile`, Profiles UI issuer panel, API client/hook/types, and route tests. Local gates passed on 2026-06-04: `ruff` on changed subscription files/tests, focused `pytest tests/test_license_subscription_routes.py -k "issue_from_profile or create_list_and_get or requires_node"` (`3 passed`), web `tsc --noEmit`. API/web images built and pushed on the panel VPS with digest pins `api@sha256:d766b9091fc89f8e2fc1bf030f4e81909182104fb8c71a527d1ab454461a0615`, `web@sha256:612bd2e258a0378c5c3283b357e5df5e0dd82c177c25e533c8bde75982f34c72`; official `upgrade.sh` validated signed manifest, created encrypted backup, pulled images, recreated API/web, and left 12 backups/11 upgrade-state dirs. Live prod smoke used a temporary scoped API key, temporary real owner/subscriber/license, existing real active profile `Live vless-grpc-tls 1780292427` and host `85.192.60.8`; protected endpoint returned `201`, public manifest with `device_id` returned `200`, HApp render returned `200` with non-empty body, and cleanup returned `0` users/licenses/api_keys/subscriptions. Panel host `/tmp/lumen-*`, API container `/tmp/lumen-*`, and node host `/tmp/lumen-*` were cleaned; node VPS still has no installer/admin checkout. |
+| PH-013 | Stale active profile cleanup | DONE | Operators can list stale active profiles with no real runtime clients and disable/delete only those backend-validated candidates with explicit confirmation; live profiles with clients are protected | `2ea18f5`, `v0.1.124`, manifest `rim2393/lumen_vpn@9499ff0`; added backend `GET /api/v1/profiles/stale-cleanup-candidates` and `POST /api/v1/profiles/stale-cleanup`, exact confirmation tokens, revalidation that selected profiles are active stale candidates with `runtime_clients=0`, audit events, Profiles UI cleanup panel, web API hooks/types/dev client, and refreshed OpenAPI seed. Local gates passed on 2026-06-04: `ruff` on changed protocol files/tests, focused `pytest tests/test_apply_profile_to_node_routes.py -k "stale_profile_cleanup or runtime_readiness"` (`2 passed`), web `tsc --noEmit`, `python apps/api/scripts/export_openapi.py --check`, and `git diff --check`. API/web images built and pushed on the panel VPS with digest pins `api@sha256:b5e919c874aa3653bd8fd4970767f208e420cf5e28b82cd573cb2f7ca31fd142`, `web@sha256:f24ac9df9986aac3d2a0034fc4e3241a177881cf1e96c7239f6ae1e84aa9ce13`; official `upgrade.sh` validated signed manifest, created encrypted backup, pulled images, recreated API/web, and left API/Web/Subscription/Postgres/Redis running healthy in the official compose. Live prod smoke created temporary real owner/API key/license/user, temporary stale profile and subscription-backed protected profile on the real node, `GET /api/v1/profiles/stale-cleanup-candidates -> 200`, protected cleanup rejected with `422`, stale cleanup returned `200 updated=1`, disabled profile had `runtime_sync.pending_apply=True`; cleanup returned `0` temporary subscriptions/hosts/profiles/api_keys/licenses/users. Panel host `/tmp/lumen-*`, API container `/tmp/lumen-*`, and node host `/tmp/lumen-*` were cleaned; stale `/root/lumen-installer` checkout was removed from panel; node VPS still has no installer/admin checkout. |
+| PH-014 | Subscription lifecycle marks linked runtime pending | DONE | Creating, updating, revoking, cloning or deleting a subscription linked to a real profile/host marks both resources `pending_apply`, so runtime membership cannot silently go stale | `14b26f5`, `v0.1.128`; added `mark_subscription_runtime_pending` and wired subscription create/update/revoke/clone/delete to mark linked profile/host runtime sync metadata. Local gates passed on 2026-06-04: `ruff` on changed API files and smoke, focused subscription route/service pytest (`7 passed`), apply-readiness pytest (`2 passed`), and API import smoke. API image was built on the panel VPS only as `ghcr.io/rim2393/lumen-api:v0.1.128@sha256:e63e79d37ab4e82007c4ae7267c0cdd98f7aa4a01877bf223b7a12f6f2be6728`, pushed to GHCR, and first deployed by digest pin by recreating only `lumen-api-1`; Docker health and public `/healthz` were OK. Public installer `rim2393/lumen_vpn@ccdf53f` then published a signed `v0.1.128` manifest with the same API digest and unchanged digest-pinned web/node/subscription images; the real panel ran official `upgrade.sh --manifest /opt/lumen/releases/prod.json`, created encrypted backup `lumen-backup-20260604T103222Z.tar.gz.enc`, applied `LUMEN_VERSION=v0.1.128`, pulled images, ran migrations, and `doctor.sh` returned all checks `ok`. Post-upgrade live prod smoke used temporary real owner/API key/subscriber/license, existing active real `vless-reality` profile+host on real `node-01`, called protected `POST /api/v1/subscriptions/actions/issue-from-profile`, got `201`, HApp render `200`, and verified linked profile and host both had `runtime_sync.pending_apply=true`, `reason=subscription.created`; cleanup returned `0` subscriptions/api_keys/licenses/users. Post-upgrade client compatibility smoke checked all 21 existing-app public render targets with `200` responses: raw/v2ray aliases, Happ/Hiddify, Mihomo/Clash/Stash/FLClash/Koala, sing-box/Nekobox/Nekoray, Xray/Amnezia/Lumen JSON; cleanup returned `0` subscriptions/licenses/users. Panel/API temp files were cleaned, and node VPS was not used for scripts/build artifacts. |
+
+## P1: Users
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| U-001 | User lifecycle base controls | DONE | Existing endpoints/UI manage basic lifecycle | Backend routes cover create/update/list, username/email/telegram/short UUID/numeric/tag/combined lookup, tags, per-user enable/disable/revoke/reset traffic, bulk reset/tag/extend/traffic/squad-add/squad-remove/revoke/delete, audit events, detail view subscriptions/devices/accessible nodes/request history, and device delete/clear. 2026-06-04 gates passed after updating stale assertions for the real RU UI and expanded audit metadata: `python -m pytest tests/test_control_plane_foundation_routes.py -k "users or user_detail"` (`1 passed, 29 deselected`), `python -m ruff check app/domains/users tests/test_control_plane_foundation_routes.py`, `npm --prefix apps/web test -- --run src/pages/ControlPlaneScreens.test.tsx -t "user"` (`4 passed, 23 skipped`), and `npm exec -- tsc -b --noEmit` from `apps/web`. |
+| U-002 | Lookup by UUID, username, short UUID, email, numeric id, Telegram id, tag | DONE | Backend lookup endpoint and UI search support all identifiers with tests | `0e03b24`, `v0.1.72`, release run `26781436509`, installer/deploy run `26781533403`, manifest `rim2393/lumen_vpn@bb4e2d1`; web `tsc` passed; `ruff` passed; focused backend pytest passed; prod health OK and live `/users` shows unified lookup UI with UUID/Telegram/tag guidance. |
+| U-003 | User detail: nodes, subscriptions, request history, metadata, devices/HWID | DONE | Detail screen uses real DB/API state only | `28cec34` added user detail metadata UI; `e574916` fixed prod `/users` regression from existing service `.local` accounts; `v0.1.74`, release run `26782220964`, installer/deploy run `26782304076`, manifest `rim2393/lumen_vpn@b5177aa`; web `tsc` passed; `ruff` passed; focused backend pytest passed; prod health OK; live `/users` shows real users without error and live `/users/440ca348-6ed2-427c-ab05-48e552c7845b` shows metadata/devices/request history. |
+| U-004 | User actions: enable, disable, revoke, reset traffic | DONE | Actions mutate real state and queue node/runtime work where required | `b217a7d`, `v0.1.75`, release run `26782682790`, installer/deploy run `26782766079`, manifest `rim2393/lumen_vpn@63de6ad`; added explicit `/enable`, `/disable`, `/revoke`, `/reset-traffic` action API plus audit events and UI hooks; `ruff`, focused backend pytest, web `tsc`, focused Vitest passed; prod health OK; live UI smoke created temporary user `qa-u004-1780348946748@example.com`, ran disable/reset/revoke/delete, and verified no page error and no leftover temp row. |
+| U-005 | Tags and bulk actions: delete/status/revoke/reset/update/squads/extend expiration | DONE | Bulk API/UI with tests and audit events | `f788e24`, `v0.1.76`, release run `26783115565`, installer/deploy run `26783190801`, manifest `rim2393/lumen_vpn@3c4ce1e`; backend bulk API covers status/reset/revoke/tag/extend/traffic/delete/squad-add/squad-remove with tests; Users UI exposes selected-user bulk controls; `ruff`, focused backend pytest, web `tsc`, focused Vitest passed; prod health OK; live smoke verified bulk tag/extend/traffic/squad add/remove/revoke without page errors, cleaned temp rows, then focused bulk delete removed `QA U005 DEL A/B 1780349680785` with no leftover rows. |
+
+## P1: Squads
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| SQ-001 | Internal squads CRUD and detail | DONE | Squad detail exposes real membership, accessible nodes, profiles, hosts and inbound matrix in UI/API | `5bbd792` + `96e691b`, `v0.1.78`, release run `26784041783`, installer/deploy run `26784116318`, manifest `rim2393/lumen_vpn@7aef27a`; web `tsc`, focused Vitest `squad detail`, backend `ruff`, focused backend pytest `squad_detail_membership_and_reorder_are_persisted` passed; prod health OK; prod containers `lumen-api/web/subscription` on `v0.1.78` healthy; live browser smoke on `/squads` verified real squad `bear` detail panels: `node-01`, `prod-trojan-tcp-reality-live`, `wireguard-amneziawg`, RU headings `Ноды сквада`/`Профили сквада`/`Хосты сквада`, and inbound matrix entries `trojan/tcp/reality` plus `wireguard/tcp/none`. |
+| SQ-002 | Internal squad accessible-node matrix and inbound/profile bindings | DONE | Matrix editor persists profile/host bindings and refreshes accessible nodes/detail/runtime-relevant state | `689f6c2`, `v0.1.79`, release run `26784396196`, installer/deploy run `26784468008`, manifest `rim2393/lumen_vpn@4c8da07`; web `tsc`, focused Vitest `squad binding matrix` + `squad detail`, backend `ruff`, focused backend pytest `squad_detail_membership_and_reorder_are_persisted` passed; prod health OK; prod containers `lumen-api/web/subscription` on `v0.1.79` healthy; live smoke created disabled temporary QA profile/host, patched them through the real prod API into squad `bear`, browser `/squads` detail showed `qa-sq002-profile-1780351331657` under `Профили сквада` and `qa-sq002-1780351331657.example.test` under `Хосты сквада`; detach/delete cleanup returned 200/200/204/204 and DB counts for `metadata_json.qa = sq002` were `0` profiles and `0` hosts. |
+| SQ-003 | External squads CRUD and membership | DONE | External squads manage users, profiles and hosts through real API and visible UI path | `bbcef39`, `v0.1.80`, release run `26785081272`, installer/deploy run `26785155330`, manifest `rim2393/lumen_vpn@83d4cdc`; web `tsc`, focused Vitest `external squads`, backend `ruff`, focused backend pytest `squad_detail_membership_and_reorder_are_persisted` passed with external squad user/profile/host/detail assertions; prod health OK; prod containers `lumen-api/web/subscription` on `v0.1.80` healthy; live browser `/squads` verified external squad UI row/filter controls and a temporary external QA squad row, with associated QA user/profile/host visible in the page data surface; cleanup removed temporary `sq003` squads/users/profiles/hosts and DB counts returned `0` for all four tables. |
+| SQ-004 | External squad templates, headers, host overrides, HWID settings, custom remarks, subpage config binding | DONE | Subscription behavior changes are reflected in public renderers | `c77bb2d`, `v0.1.81`, release run `26786105100`, installer/deploy run `26786168310`, manifest `rim2393/lumen_vpn@f4d819e`; backend `ruff` on changed files, focused backend pytest `external_squad_subscription_overrides or host_visibility`, web `npm run build`, focused Vitest `external squad subscription delivery` passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.81` healthy; live public smoke created temporary external squad/user/license/profile/host/subscription, verified `428` without HWID, `200` manifest/render with endpoint host `front-live.partner.example.test`, port `2443`, SNI/path/remark/header/HWID policy overrides, and `403` on second HWID; cleanup counts returned `0` for subscriptions/hosts/profiles/licenses/users/squads. Prod browser `/squads` verified external squad delivery form markers after Refresh and UI fixture cleanup count returned `0`. |
+
+## P1: Nodes
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| N-001 | Node management P0 actions | DONE | update/delete/reorder/restart/reset traffic/restart all/bulk, real node-agent commands | `v0.1.59`, live restart evidence |
+| N-002 | Node management UX polish | DONE | UI flows are clear, all buttons explain state/result and avoid fake success | `090e027` + `2982531` + `a143edd`, `v0.1.84`, release run `26787224997`, installer/deploy run `26787279368`, manifest `rim2393/lumen_vpn@0b57d06`; web `npm run build` passed, focused Vitest `src/pages/NodesPage.test.tsx` 4 passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.84` healthy; live browser `/nodes?focus=d40a27ae-29fa-4cd1-88ee-269957de1e30` verified real node `node-01` at `85.192.60.8`, heartbeat, node operations panel, command queue, metrics, bulk actions, queued-command UX, and localized statuses (`активна`/`успешно`) with no fake success state. |
+| N-003 | Node plugins CRUD/clone/reorder/executor | DONE | Plugin management is full CRUD and runtime policy evidence exists | `9155773`, `v0.1.85`, release run `26787913955`, installer/deploy run `26787977779`, manifest `rim2393/lumen_vpn@88b6d54`; backend `ruff`, `pytest tests/test_node_plugins_routes.py` 4 passed, web `npm run build`, focused Vitest `NodePluginsPage.test.tsx` passed, node-agent `node --test test\policy-runtime.test.js test\runtime-runner.test.js` 19 passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.85` healthy; live `/node-plugins` showed real plugin inventory, create/edit/delete, clone, reorder and executor controls; live prod service smoke created disabled QA plugin, cloned it, reordered both records, queued real `firewall.plan.apply` for `node-01`, deleted QA records, queued cleanup apply, verified `qa-n003-*` leftovers `0`, and node-agent completed the latest `firewall.plan.apply` commands as `succeeded` with no error. |
+| N-004 | Node stats, bandwidth, metadata, infra billing, provider history | DONE | Real metrics/history surfaces only, no fake counters | `7ada8aa`, `v0.1.86`, release run `26788608603`, installer/deploy run `26788675773`, manifest `rim2393/lumen_vpn@20a3b96`; backend `ruff`, focused pytest `test_node_overview_reports_real_metrics_commands_and_node_costs` + `test_infra_billing_routes.py` passed, web `npm run build`, focused Vitest `NodesPage.test.tsx` 4 passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.86` healthy; live HTTP smoke through real protected API verified `/api/v1/nodes/{node-01}/overview` returned 500 real runtime metric samples, command status counts (`succeeded`, `failed`, `claimed`), `traffic_total_bytes = null` because node-agent has not reported byte counters, and no fake bandwidth was shown; live smoke created a temporary node-linked provider/billing record, overview showed it and its USD total, provider delete cleanup left `0` QA billing records; prod browser DOM `/nodes?focus=d40a27ae-29fa-4cd1-88ee-269957de1e30` showed `node-01`, `Реестр нод`, `Живая сводка ноды`, heartbeat summary and node workflow markers. |
+
+## P1: Settings, Auth, Tokens
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| S-001 | Generic OAuth2 provider | DONE | Real env/file-backed OAuth2/OIDC config, start/callback, validation | `4980e8c`, `v0.1.64` |
+| S-002 | Typed settings groups | DONE | Settings are grouped and validated by domain, not generic key/value UI only | `d184fb4`, `v0.1.87`, release run `26789066575`, installer/deploy run `26789125159`, manifest `rim2393/lumen_vpn@e1e1770`; backend `ruff`, focused pytest `test_typed_setting_groups_validate_and_block_generic_bypass` + auth-provider settings passed, web `npm run build`, focused Vitest `ControlPlaneScreens.test.tsx -t typed settings groups` passed; prod health OK and prod containers `lumen-api/web/subscription` on `v0.1.87` healthy; live protected API smoke verified typed groups `panel.identity`, `subscription.delivery`, `security.policy`, `node.defaults`, successful typed update for `subscription.delivery`, `422 setting_group_invalid` for invalid payload, `422 setting_reserved_key` for generic bypass, and restored original value; prod browser `/settings` showed typed settings groups, subscription delivery, security policy, node defaults and save group controls. |
+| S-003 | MFA/passkey registration and login UX | DONE | Authenticator 2FA/passkeys can be configured and used end-to-end | `2a46fbc`, `v0.1.88`, release run `26789628689`, installer/deploy run `26789706197`, manifest `rim2393/lumen_vpn@4bb7ef6`; backend `ruff`, focused pytest `test_totp_mfa_setup_verify_and_list` passed, focused Vitest `ControlPlaneScreens.test.tsx -t "MFA methods"` passed, web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.88` healthy; live public API smoke logged in with the real first-admin account without printing secrets, created pending TOTP method `qa-s003-*`, verified it listed through `/api/v1/auth/mfa/methods`, deleted it through the new delete endpoint, verified `remaining_qa = 0`, and verified `/api/v1/auth/webauthn/credentials` returned `200`; prod browser `/settings` shows `MFA and passkeys`, `Authenticator app`, `Start setup`, `Passkeys`, `Register passkey`, `real auth`. |
+| S-004 | API tokens CRUD with scopes for automation/Telegram bot | DONE | Scoped token lifecycle with one-time secret display and audit | `c3889a5`, `v0.1.89`, release run `26790144219`, installer/deploy run `26790200691`, manifest `rim2393/lumen_vpn@c67a0f7`; backend `ruff`, focused pytest `test_api_key_routes_issue_scope_and_revoke_keys` passed, focused Vitest `App.test.tsx -t "API keys"` passed, web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.89` healthy; live public API smoke logged in with the real first-admin account without printing secrets, created a temporary `qa-s004-*` token with `api_key:manage`, verified list uses `/api/v1/api-keys` metadata and omits `api_key`, verified `X-Lumen-Api-Key` grants only `api_key:manage`, revoked the token, and verified the same token is rejected with `invalid_api_key`; prod browser `/api-keys` shows scoped automation copy, preset selector, `Telegram bot token admin`, `Node automation`, expiration selector, one-time reveal and API key scope controls. |
+| S-005 | Auth method toggles and branding toggles | DONE | Toggles are real settings and affect login/UI surfaces | `827b567`, `v0.1.90`, release run `26790526030`, installer/deploy run `26790575552`, manifest `rim2393/lumen_vpn@9efe79b`; backend `ruff`, focused pytest `test_typed_setting_groups_validate_and_block_generic_bypass` passed, focused Vitest `App.test.tsx -t "public panel identity"` passed, web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.90` healthy; live public API smoke temporarily set `panel.identity.product_name = Lumen QA Smoke`, verified `/api/v1/settings/public/identity`, restored the original identity, temporarily disabled and restored passkey auth provider, verified `/api/v1/auth/providers` reflected the toggle, and left passkey restored; prod browser `/guard/login` shows real brand/login/passkey state and `/dashboard` shows restored brand/nav/search app chrome without sign-in fallback. |
+
+## P1: Subscription Surface
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| SUB-001 | Subscription admin lookup/clone/delete/devices/raw preview | DONE | Protected admin API/UI uses real production API controls | `e8f8699`, released through later versions |
+| SUB-002 | Subscription create richer contract | DONE | Static server default removed, expires/config hash exposed; admin response includes public page/manifest/render paths, render formats and timestamps; UI creates from real user/license/node/profile/host context | `38c054c`, `v0.1.91`, release run `26791107414` rerun after transient Docker Hub timeout, installer/deploy run `26791205782`, manifest `rim2393/lumen_vpn@249b2be`; backend `ruff`, `python -m pytest tests/test_license_subscription_routes.py::test_subscription_routes_create_list_and_get`, focused Vitest `creates subscriptions with a real listed license`, and web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.91` healthy; prod browser `/subscription` verified real license select, formats column, create subscription form and public actions; live smoke created a temporary real user and subscription through `/api/v1/users` + `/api/v1/subscriptions`, selected active license/node/profile/host `prod-vless-reality-live`, verified create/detail/list/lookup contract fields, public manifest with HWID, non-empty panel HApp render `265` bytes and non-empty sub-domain HApp render `265` bytes, then deleted the temporary subscription and user. |
+| SUB-003 | Subscription settings page | DONE | Title/support/update/base JSON/profile page URL/Happ announce/routing/custom remarks/headers/random host order/rules | `4cc773c` wired `subscription.delivery` typed settings into admin UI, settings UI and public manifest/render metadata; `0112d41` fixed edge proxy so `sub.*` preserves safe custom response headers; `v0.1.93`, product release run `26792248372`, installer/deploy run `26792296173`, manifest `rim2393/lumen_vpn@7677de7`; local gates passed: backend `ruff`, focused pytest `test_subscription_delivery_setting_feeds_manifest_and_renderer_headers`, settings pytest, focused Vitest `subscription page delivery`, web `npm run build`, edge `npm test`; prod containers `lumen-api/web/subscription` on `v0.1.93` healthy; live smoke temporarily updated real `subscription.delivery`, created temporary real user/subscription on real `node-01` + `prod-vless-reality-live`, verified public manifest fields (`supportUrl`, `profilePageUrl`, `baseJson`, `customRemarks`, `happAnnounce`, `routing`, `subpage`, `responseHeaders`, `randomHostOrder`), verified panel render and `sub.*` render both returned `200`, non-empty body and `X-Lumen-Sub003: ok`, then deleted temp user/subscription and restored settings; prod browser `/subscription-page` shows `subscription.delivery`, response headers, base JSON, routing, custom remarks and save action. |
+| SUB-004 | Template CRUD/reorder for Xray JSON, Mihomo, Stash, sing-box, Clash | DONE | Template ordering and editor affect renderers with tests | `908ddf5`, `v0.1.94`, product release run `26792703367`, installer/deploy run `26792756347`, manifest `rim2393/lumen_vpn@bf930a1`; backend templates now reject secret-like inline keys and JSON renderers support `content_json.merge` without corrupting JSON; `/templates` UI supports create, edit, clone, toggle, delete, reverse, move up/down and selected-template save; local gates passed: backend `ruff`, focused pytest `test_subscription_templates_and_response_rules_are_persisted` + `test_public_subscription_renderers_emit_client_compatible_formats`, focused Vitest `subscription templates`, web `npm run build`; prod containers `lumen-api/web/subscription` on `v0.1.94` healthy; live smoke temporarily disabled existing active templates, created 5 QA templates for Mihomo/Stash/Clash/sing-box/Xray JSON, rendered a real temporary subscription on `node-01` + `prod-vless-reality-live`, verified Mihomo/Stash/Clash text wrappers, sing-box JSON merge, Xray JSON merge, headers, subdomain Mihomo header/body, then deleted QA templates, deleted temp user/subscription and restored original template statuses; prod browser `/templates` shows editor, clone, move controls and supported formats. |
+| SUB-005 | Response rule editor/tester | DONE | Rules can be edited/tested in UI and applied to public responses | `0433be8`, `v0.1.95`, product release run `26793207146`, installer/deploy run `26793264096`, manifest `rim2393/lumen_vpn@c88006f`; local gates passed: backend `ruff`, focused pytest `test_subscription_templates_and_response_rules_are_persisted` + `test_public_subscription_response_rules_apply_to_blocked_subscriptions`, focused Vitest `response rules`, web `npm run build`; prod containers `lumen-api/web/subscription` on `v0.1.95` healthy; live smoke created temporary real user/license/subscription on `node-01` + `prod-vless-reality-live`, created two disabled response rules, verified tester selected `451` before reorder and `429` after reorder, public render and public manifest applied the reordered rule, `sub.*` preserved safe `X-Lumen-Rule`, unsafe `Set-Cookie` was filtered, then deleted QA rules/subscription/user/license leftovers; prod browser `/response-rules` showed real rule registry, editor, clone/move controls, reverse order and selected-rule save controls. |
+| SUB-006 | Subscription page configs CRUD/clone/reorder | DONE | Configs bind to squads/subscriptions and affect public subpage | `e2ff0aa` added protected page config CRUD/clone/reorder/bind UI/API and manifest metadata; `8fcd9f8` made `sub.*` HTML consume selected config title/theme/cards/support metadata; `v0.1.97`, product release run `26794423143`, installer/deploy run `26794465501`, manifest `rim2393/lumen_vpn@2f0531b`; local gates passed: backend `ruff`, focused backend pytest, focused Vitest `subscription page configs`, web `npm run build`, edge `npm test` 13 passed; prod containers `lumen-api/web/subscription` on `v0.1.97` healthy; live smoke created temporary real page configs/user/license/subscription on `node-01`, verified CRUD/clone/reorder, secret-like config rejection, subscription binding, public manifest A/B config metadata, public `sub.*` HTML A/B title/theme/cards behavior with HWID, inactive config blocks manifest with `subscription_subpage_config_not_active`, and cleanup left `0` QA configs/users/licenses. |
+
+## P1: Tools
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| T-001 | HWID inspector and device delete/delete-all | DONE | Device list exists for subscription admin; full tools surface open | `28a6e9c`, `v0.1.98`, product release run `26794957822`, installer/deploy run `26795013148`, manifest `rim2393/lumen_vpn@e1bfc07`; backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `HWID inspector` passed; prod containers `lumen-api/web/subscription` on `v0.1.98` healthy; live smoke created a temporary real user/license/subscription, public manifest registered HWID on the real user, Tools HWID lookup found `hwid`, `last_seen_at`, and `subscription_id`, delete-one removed the HWID, a second public request registered another HWID, clear-all removed every device, and cleanup left `0` QA users/licenses. |
+| T-002 | Top users | DONE | Real database stats and UI table, no fake counters | `601cec8`, `v0.1.99`, product release run `26795333815`, installer/deploy run `26795381599`, manifest `rim2393/lumen_vpn@1f2ac54`; backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, focused Vitest `HWID inspector` with Top users tab, and web `npm run build` passed; prod containers `lumen-api/web/subscription` on `v0.1.99` healthy; live public API smoke created temporary real users `qa-t002-*` with traffic/device/expiration states, verified `/api/v1/tools/top-users` metrics `traffic_used`, `traffic_percent`, `device_count`, `expiration_risk`, verified invalid metric returns `422 top_users_metric_invalid`, deleted temp users and lookup cleanup left `0` QA users. |
+| T-003 | Fetch user IPs and node user IPs | DONE | Real session/runtime/IP-control views | `ca04d36`, `v0.1.100`, product release run `26796011040`, installer/deploy run `26796063657`, manifest `rim2393/lumen_vpn@809a713`; public subscription requests now record client IP and node id in `subscription.public.rendered` audit events; protected Tools API exposes `/api/v1/tools/user-ips` and `/api/v1/tools/node-user-ips` from real subscription audit and IP-control events; local gates passed: backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `HWID inspector`; prod containers `lumen-api/web/subscription` on `v0.1.100` healthy; live public API smoke created temporary real user/subscription on `node-01`, rendered public manifest through the real prod domain, verified `user-ips` and `node-user-ips` evidence for the created subscription, deleted temp records and cleanup left `0` QA users. |
+| T-004 | Drop connections | DONE | Backend queues/executes real node-agent disconnect operation | `ccee679`, `v0.1.101`, product release run `26796676040` passed after rerun of transient Docker Hub timeout, installer/deploy run `26796770778`, manifest `rim2393/lumen_vpn@1752355`; local gates passed: backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, node-agent `node --test test\runtime-runner.test.js`, web `npm run build`, focused Vitest `HWID inspector`; prod containers `lumen-api/web/subscription` on `v0.1.101` healthy and prod node-agent on `v0.1.101`; live protected API smoke created temporary real user/license/subscription on `node-01`, queued `node.connections.drop` command `11f72276-42c6-4ee4-880e-7af7c1259c6d`, node-agent completed it as `succeeded` with `implementationStatus = connection-drop-attempted`, `dryRun = false`, and real `ss -K dst/src 203.0.113.44` attempts; temporary API key was revoked and QA users/licenses/subscriptions cleanup counts returned `0`. |
+| T-005 | Full HApp routing encryption | DONE | Utility/API/UI produce usable encrypted routing payloads | `2405d63`, `v0.1.102`, product release run `26797458139`, installer/deploy run `26797505374`, manifest `rim2393/lumen_vpn@b466651`; researched current HApp docs and Lumen SDK behavior, then added protected `/api/v1/tools/happ-routing/build` for `happ://routing/add|onadd|off` Base64 JSON payloads plus RSA `happ://crypt3|crypt4` subscription URL encryption; backend rejects invalid subscription URLs and secret-like routing JSON, audit records only mode/sizes/method and never raw URL or generated links; local gates passed: backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `HWID inspector`; prod containers `lumen-api/web/subscription` on `v0.1.102` healthy; live protected API smoke returned `happ://routing/onadd/`, `happ://crypt4/`, decoded routing profile `Lumen QA Routing`, RSA payload `512` bytes, `audit_has_raw_url=false`, `audit_has_crypto_link=false`, temporary API key revoked. |
+| T-006 | X25519 generation UI/API | DONE | Generates keys without logging/storing secrets incorrectly | `affcd4e`, `v0.1.103`, product release run `26797674002`, installer/deploy run `26797726762`, manifest `rim2393/lumen_vpn@bdd13a4`; backend keygen already generated raw X25519 private/public values with audit `private_key_stored=false`; UI now exposes one-time security note, copy public/private, download private and clear private actions instead of leaving the private key as an unmanaged value; local gates passed: focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `key utility`; prod containers `lumen-api/web/subscription` on `v0.1.103` healthy; live protected API smoke verified `encoding=base64url-nopad`, private/public raw bytes `32/32`, derived public matched returned public key, audit contained neither returned private nor public key and temporary API key was revoked. |
+| T-007 | Torrent report management | DONE | Real reports, truncate, filters and evidence from node events | `4d6da91`, `v0.1.104`, product release run `26797939159`, installer/deploy run `26797992909`, manifest `rim2393/lumen_vpn@d966cd1`; backend API now returns real audit-derived report rows with query/limit/total/actions metadata, filters by action/actor/resource/metadata, and truncate counts/deletes only real torrent-related audit events; UI adds lookup, total/actions evidence, resource/action details and two-step truncate confirmation; local gates passed: backend `ruff`, focused backend pytest `test_tools_reports_are_real_database_views`, web `npm run build`, focused Vitest `torrent report`; prod containers `lumen-api/web/subscription` on `v0.1.104` healthy and prod node-agent on `v0.1.104`; live protected API smoke used a temporary revoked API key and verified `GET /api/v1/tools/torrent-blocker-reports?query=definitely-no-fake-t007&limit=1` returned `200`, echoed query/limit, `total=0`, `items=0`, `actions=[]` without creating fake torrent events. Truncate was covered by backend/UI tests and was not destructively run against production reports. |
+
+## P2: OpenAPI
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| API-001 | Regenerate checked-in OpenAPI seed | DONE | OpenAPI includes current admin/node/tools/subscription surfaces and CI detects drift | `bed9fcc`; regenerated `packages/shared-openapi/openapi.yaml` from the current FastAPI route surface with deterministic JSON/YAML seed, added `apps/api/scripts/export_openapi.py --check`, `tests/test_openapi_seed.py`, and GitHub `Quality gates` workflow; local gates passed: `python -m ruff check scripts/export_openapi.py tests/test_openapi_seed.py`, `python -m pytest tests/test_openapi_seed.py -q`, `python scripts/export_openapi.py --check`; seed contains `230` paths including tools HApp/torrent reports, node plugins, subscription render, user bulk and profile apply-to-node surfaces; GitHub quality run `26798273426` passed and main image run `26798273445` passed; prod `lumen-api-1` on `v0.1.104` generated `230` paths internally with required current endpoints present. No signed versioned deploy was needed because runtime containers were not changed by this contract/CI slice. |
+
+## P2: Protocol Closure
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| PR-001 | Keep already live protocol slices regression-tested | DONE | Existing live protocols stay covered in CI and live smoke after related changes | `443e6c0` + `9d991b5`, `v0.1.105`, product release run `26798544731`, installer/deploy run `26798609707`, manifest `rim2393/lumen_vpn@42b9710`; added production-live regression matrix for `34` adapters seen on prod, promoted `vless-reality-httpupgrade` from legacy to experimental because it is already active on the real node, fixed `hysteria2-obfs` inbound mapping to UDP/TLS, and wired the matrix into GitHub `Quality gates`; local gates passed: backend `ruff`, `pytest tests/test_protocol_live_regression_matrix.py`, focused profile catalog pytest, node-agent runtime tests `49` passed, subscription-renderers `npm test` `7` passed, backend subscription route tests `15` passed; CI quality run `26798709882` passed with OpenAPI + protocol matrix, main image run `26798709886` passed; prod containers `lumen-api/web/subscription` and prod node-agent on `v0.1.105`; live prod smoke on real DB found `46` active profiles, all `34` production-live adapters present, no missing/unsupported/non-live adapters, runtime families `xray/hysteria2/tuic/naive/wireguard/openvpn/shadowsocks`, `hysteria2-obfs` `udp/tls`, and `vless-reality-httpupgrade` `experimental/xray`. |
+| PR-002 | Remaining Xray transport edge cases | DONE | WS/gRPC/HTTPUpgrade/xHTTP/Reality/TLS edge cases pass backend, node, renderers, client imports, live smoke | `d14d40a`, `v0.1.106`, product quality run `26799428764`, product release run `26799429829`, installer/deploy run `26799501649`, manifest `rim2393/lumen_vpn@25c9b67`; added exact backend runtime matrix for VLESS/VMess/Trojan WS/gRPC/HTTPUpgrade/XHTTP/TLS/Reality, strengthened node-agent Xray streamSettings validation before apply/reload, expanded subscription schema/renderers for edge transports, added `trojan-httpupgrade-tls` as a first-class adapter, and wired schema/renderers/node-agent/API edge gates into GitHub `Quality gates`; local gates passed: backend `ruff`, backend PR-002 pytest `58 passed`, node-agent `node --test test/xray-runtime.test.js test/runtime-runner.test.js` `23 passed`, subscription-renderers `npm test` `9 passed`, subscription-schema `npm test` `7 passed`; CI quality passed; prod panel containers and node-agent updated to digest-pinned `v0.1.106`; live read-only prod smoke on real active profiles found `catalog_missing=[]`, checked `18` active Xray edge profiles across `15` active edge adapters, and returned `failures=[]`. `trojan-httpupgrade-tls` is live in catalog/tests; prod has no active profile of that new type yet, so no fake active profile was created for smoke. |
+| PR-003 | WireGuard/AmneziaWG real key lifecycle and policy enforcement | DONE | No fake keys/configs; incomplete runtime config is blocked before node queue; subscriptions render through real targets; live node is on the released runtime | `7c95946`, `v0.1.107`, product quality run `26800227163`, product release tag run `26800228258`, main image rerun `26800227165`, installer/deploy run `26800280724`, manifest `rim2393/lumen_vpn@aec0e10`; backend now rejects WireGuard/AWG apply before queuing `outbound.apply` when server private key/address/peers are missing and requires AWG obfuscation for `wireguard-amneziawg`; node-agent rejects `awg-quick` without AWG interface options and full `runNodeAgentOnce` dispatch tests cover `wg-quick` and `awg-quick`; subscription schema validates WireGuard public key, UDP transport and client address/allowedIps early; subscription renderers now emit real WireGuard sing-box/Mihomo configs with derived client keys; OpenAPI seed regenerated for render target docs; local gates passed: backend `ruff`, backend PR-003 pytest `62 passed`, node-agent `34 passed`, subscription-schema `8 passed`, subscription-renderers `9 passed`, OpenAPI drift check passed; CI quality and release builds passed after rerunning a transient Docker Hub main image failure; prod panel and node-agent updated to digest-pinned `v0.1.107`; live prod smoke fixed existing active AWG profile `авг` by adding missing server key/public key/AWG params without printing secrets, verified all active WG/AWG profiles are ready, created temporary real subscriptions for `wireguard-native` and `wireguard-amneziawg`, verified public `raw-uri`, `sing-box`, `mihomo`, and `amnezia` renders all returned `200` with expected WireGuard/AWG markers, then cleanup left `0` QA users/licenses/subscriptions. |
+| PR-004 | IKEv2/IPsec | DONE | Backend profile, node runtime, subscription renderer, client import and live connect | `c30b1ad` added real `ikev2-eap` backend/node/subscription path with strongSwan, PKI generation, concrete EAP users, `.sswan` raw renderer and explicit `422` for unsupported structured targets; `e92a52b` fixed hermetic IKEv2 runtime test; `843cd72`, `v0.1.109`, product quality run `26802543035`, release run `26802544151`, installer/deploy run `26802614237`, manifest `rim2393/lumen_vpn@abf8dd7` fixed node command completion reliability and stale claimed-command requeue; `26612c9`, `v0.1.110`, product quality run `26802838186`, release run `26802839278`, installer/deploy run `26802908412`, manifest `rim2393/lumen_vpn@d2e5aed` fixed strongSwan VICI wait and `swanctl --load-all` sequence; `963b187` added live IKEv2 client-connect fixture; `1b6543c`, `v0.1.112`, product quality run `26804390341`, release run `26804391590`, installer/deploy run `26804464812`, manifest `rim2393/lumen_vpn@1e5c418` hardened VICI readiness and deployed runtime. Local gates passed: API `ruff`, focused API pytest for IKEv2/apply/reclaim, node-agent IKEv2/runtime/control-plane tests; prod panel and node-agent updated to digest-pinned `v0.1.112`; prod node force-recreated with real `node-01`; live prod smoke created temporary real IKEv2 profile/user/license/subscription on real `node-01`, queued real `outbound.apply`, node-agent completed command `succeeded` with `implementationStatus=ikev2-applied`, `ikePort=500`, `natPort=4500`, `userCount=1`; node evidence showed strongSwan `lumen-ikev2` connection with EAP_MSCHAPV2 and UDP `500/4500` listeners; public `raw-uri` rendered `.sswan` body `200` with `ikev2-eap` and `remote`, public `sing-box` returned expected `422`; live isolated strongSwan client fixture rendered a real public `.sswan` with HWID, imported it into an isolated container, initiated a real IKEv2 SA to node `85.192.60.8`, and returned `ikev2_client_connect=succeeded` with apply command `e820e391-2b65-4f63-8b9c-73cba48fc159`; cleanup queued real `outbound.remove` command `260d26ee-2db1-461c-9577-eb14cf0b1fa9`, removed temporary strongSwan runtime, and QA counts returned `0` subscriptions/profiles/users/licenses. Fixture-only commits after the runtime release (`8a8de4a`, `31b78d3`, `a7eb6ac`, `bf04d1e`, `4678375`, `db229c6`, `8cf7c66`, `4f2e073`) make the smoke portable and install required strongSwan client plugins; latest GitHub Actions for `8cf7c66`/`4f2e073` are blocked by account billing/spending before jobs start, while the last pre-billing fixture CI for `db229c6` passed. |
+| PR-005 | NaiveProxy/HTTP/SOCKS edge compatibility | DONE | Target clients import and connect through live node | `3759738` closed PR-004 tracker first; `d1335da` adds neutral subscription-schema support for `naive`/`socks`/`http`, enables generic `packages/subscription-renderers` sing-box and Mihomo outputs with derived credentials, and wires node-agent `outbound.remove` for `naiveproxy` to stop and clean the managed sing-box runtime instead of leaving a process behind. Local gates passed: `packages/subscription-schema npm test` 10 passed, `packages/subscription-renderers npm test` 11 passed, `apps/node-agent node --test test\naive-runtime.test.js test\runtime-runner.test.js` 31 passed, API `ruff` on touched protocol/subscription tests passed, API focused pytest `test_node_outbound_config.py -k "naiveproxy or socks_payload or http_proxy"` 5 passed, API focused pytest `test_trojan_subscription_routes.py -k "proxy_subscriptions or naiveproxy_subscription"` 3 passed. GitHub Actions quality run `26806398926` and image run `26806398733` were blocked before job steps by account billing/spending, so release was completed through an approved manual GHCR path: built and pushed digest-pinned `v0.1.113` images on the node VPS, rotated the release public key in the public installer repo, signed `release/prod.json`, validated it with `scripts/validate-manifest.sh`, and promoted installer `rim2393/lumen_vpn@53b4d50`. Official panel `upgrade.sh` then validated the manifest, created encrypted backup `lumen-backup-20260602T105534Z.tar.gz.enc`, ran migrations, pulled images and recreated prod `lumen-api/web/subscription` on `v0.1.113`; node-agent was pulled and force-recreated on digest-pinned `v0.1.113`. Live prod smoke on real `node-01` created temporary real SOCKS5 and HTTP proxy profiles/users/licenses/subscriptions, queued real `outbound.apply`, node-agent completed both commands as `succeeded` with `implementationStatus=xray-managed-process-started`, public render targets `happ`, `sing-box`, `mihomo` and `amnezia` all returned `200`, real SOCKS5 and HTTP proxy connections reached `example.com` through the node, cleanup deleted all QA records (`0` subscriptions/profiles/hosts/licenses/users) and re-applied live Xray profile `live-vless-ws-matrix`. Live NaiveProxy smoke created a temporary real profile/user/license/subscription, queued real `outbound.apply`, node-agent completed with `implementationStatus=naive-managed-process-started`, HTTP/2 CONNECT with ALPN `h2`, `Proxy-Authorization` and `padding` returned status `200` and tunneled data successfully, then real `outbound.remove` completed with `implementationStatus=naive-stopped` and leftovers returned `0`. Final prod health: panel login `200`, ready `200`, node-agent running `v0.1.113`, and temporary ports `28580/28581/28582` no longer listening. Operational debt: the release signing private key was rotated for this manual unblock and must be installed as a proper CI/ops secret before the next non-manual release. |
+| PR-006 | Client compatibility matrix | DONE | Happ/Hiddify/Amnezia/Mihomo/Stash/sing-box fixtures and live imports verified | `e32dee0` expands backend public renderer acceptance to all current targets (`raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`, `streisand`, `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`, `clash`, `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`, `nekoray`, `xray-json`, `amnezia`, `lumen-json`), adds generic renderer aliases for Nekobox/Nekoray/Stash/FLClash/Koala-Clash, and adds reusable live script `scripts/live/client-compatibility-matrix-smoke.py`. Local gates passed: `packages/subscription-renderers npm test` 11 passed, API `ruff` on changed files passed, live matrix pytest `1 passed`, subscription create/list/get + matrix pytest `3 passed`. Product release workflow `26845070804` was blocked before steps by GitHub billing/spending, so `v0.1.114` was completed through the approved manual GHCR path: API image rebuilt and pushed, unchanged web/node-agent/subscription images retagged from `v0.1.113`, installer workflow `26845386094` generated/signed `release/prod.json`, committed installer `5417edc`, and deployed through official `upgrade.sh`. Post-upgrade prod smoke verified panel `lumen-api/web/subscription` and node-agent all on `v0.1.114`; real `node-01` temporary user/license/subscription fetched all 21 public render targets through `https://panel.89-185-85-184.sslip.io`, validated headers/content/body families and forbidden placeholder markers, then cleanup returned `0` subscriptions/licenses/users. 2026-06-03 domain promotion created Cloudflare DNS-only `panel/sub/panel.test/sub.test.lumentech.tel`, reconfigured the real panel via `configure.sh` + `install.sh`, issued Let's Encrypt certs, and live matrix on `https://panel.lumentech.tel` checked all 21 render targets with cleanup `0` subscriptions/licenses/users. Android follow-up added explicit wrapper/import support and tests for `stash`, `mihomo`, `nekobox`, `nekoray`, `v2rayng`, `v2rayn`, plus parser fixtures for prod-compatible raw/base64/Mihomo/Stash/sing-box/Neko/Xray/Amnezia/Lumen bodies; focused Android gate passed with `76` unit tests; real emulator import against a temporary real `https://panel.lumentech.tel` subscription persisted `1` subscription, `1` server and `1` ready server with raw URL hidden from confirmation UI, then cleanup returned `0` subscriptions/licenses/users. 2026-06-04 follow-up removed the synthetic VLESS Reality delivery payload from `scripts/live/client-compatibility-matrix-smoke.py`; the smoke now requires an existing active real `vless-reality` profile+host on real `node-01` and creates only a temporary real user/license/subscription linked by `profile_id`/`host_id`. Live prod run on `v0.1.120` checked all 21 public targets through `https://panel.lumentech.tel` (`raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`, `streisand`, `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`, `clash`, `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`, `nekoray`, `xray-json`, `amnezia`, `lumen-json`) with `200` responses, expected content families and forbidden-marker checks; cleanup returned `0` subscriptions/licenses/users and panel/container `/tmp/lumen-*` was cleaned. `fd5bded`, `v0.1.121`, manifest `rim2393/lumen_vpn@ff4f556` hardened structured renderers so unsupported structured formats return explicit `422 subscription_render_target_unsupported_for_protocol` instead of empty `200` configs; local gates passed: `ruff` on renderer/tests/live scripts and focused `pytest tests/test_trojan_subscription_routes.py -k "hysteria2 or tuic or naiveproxy or proxy_subscriptions or ikev2 or openvpn_shadowsocks"` (`8 passed`). Live prod all-active-profile matrix used existing real active profile+host bindings on `node-01`, created temporary real user/license/subscription per adapter, checked `18` adapters x `21` public targets through `https://panel.lumentech.tel`, got valid `200` bodies or expected `422` for incompatible structured targets, and cleanup returned `0` subscriptions/licenses/users; panel/container `/tmp/lumen-*` was cleaned. 2026-06-04 final signed-prod pass on `v0.1.124` and manifest `rim2393/lumen_vpn@9499ff0` re-ran `scripts/live/client-compatibility-matrix-smoke.py` inside the prod API container against `https://panel.lumentech.tel`; it required a real active `vless-reality` profile+host on `node-01`, created only temporary real user/license/subscription, verified all 21 targets returned `200` with expected content families and forbidden-marker checks (`raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`, `streisand`, `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`, `clash`, `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`, `nekoray`, `xray-json`, `amnezia`, `lumen-json`), and cleanup returned `0` subscriptions/licenses/users plus panel/API `/tmp/lumen-* = 0`. Android live connect evidence remains tracked separately under `C-002`, not as a backend/subscription-surface blocker. |
+| PR-007 | WireGuard/AWG traffic accounting and honest torrent policy | DONE | WG/AWG node-agent reports real transfer deltas in `rx_bytes`/`tx_bytes`; reset clears WG baseline; torrent-blocker on WG/AWG is blocked before queue instead of faked | `d5daa33`, `v0.1.131`, manifest `rim2393/lumen_vpn@2796b2f`; node-agent samples real `wg/awg show <interface> transfer` counters, hashes peer keys in local state, sends delta `rx_bytes`/`tx_bytes` to the existing API traffic summary, keeps cumulative `wireguard_cumulative_*` as evidence fields, and clears the WG baseline during `node.traffic.reset`. Backend apply rejects blocking `torrent-blocker` policy for WireGuard/AWG with `422 wireguard_torrent_policy_unsupported` before queuing a node command. Local gates passed on 2026-06-04: full node-agent `node --test` (`122 passed`), API `ruff` on changed protocol tests/service, and focused API pytest `tests/test_apply_profile_to_node_routes.py tests/test_node_outbound_config.py -k "wireguard or torrent"` (`6 passed`). API/node-agent images were built and pushed on the panel VPS as `api@sha256:e5952cd6d5697022e95e457b89293a78f522b3908e6fc530f5d658d1e3950ab4` and `node-agent@sha256:4156355285e2ff303c634cb7c3b4c52c905a69f72f3be167dd4a5f08ba492fb0`; signed manifest validation passed after matching the installer `jq -cS` newline payload; official panel `upgrade.sh` created encrypted backup `lumen-backup-20260604T120213Z.tar.gz.enc`, pulled images, ran migrations, recreated API, and applied `LUMEN_VERSION=v0.1.131`. Node VPS was updated through `/opt/lumen-node/.env` + runtime `lumen-node.yml` only, with no admin checkout. Live smoke on real `node-01` showed `awg show lumen-wg transfer` returning one real peer with counters `196836/18396`; the real DB latest `node_metrics` runtime rows include `wireguard_peers=1`, `wireguard_cumulative_rx_bytes=196836`, `wireguard_cumulative_tx_bytes=18396`, and honest zero `rx_bytes/tx_bytes` deltas while no new traffic was flowing between heartbeats. Panel health `200`; panel/node `/tmp/lumen-* = 0`. |
+| PR-008 | IKEv2 traffic accounting | DONE | IKEv2 node-agent reports real strongSwan/XFRM transfer deltas into shared `rx_bytes`/`tx_bytes`; reset clears IKEv2 baseline; nonzero dataplane traffic is proven from a real client | `d6965c5`, `v0.1.132`, manifest `rim2393/lumen_vpn@f038a72`; node-agent collector reads real `swanctl --list-sas --raw` counters, falls back to `ip -s xfrm state`, establishes baseline on first observation, emits later deltas to shared `rx_bytes`/`tx_bytes` plus `ikev2_*` cumulative diagnostics, and `node.traffic.reset` clears the IKEv2 baseline together with telemetry and WireGuard. Local and panel-container gates passed on 2026-06-04: `npm --prefix apps/node-agent test` (`128 passed`). Node-agent image was built/pushed on the panel VPS as `ghcr.io/rim2393/lumen-node-agent:v0.1.132@sha256:175faa1bee6f0c2dc660d7e3c05dfebe81826d5335764d42e78bb8ae901d02eb`; public manifest was signed with the prod validator and the real panel ran official `upgrade.sh`, creating encrypted backup `lumen-backup-20260604T123806Z.tar.gz.enc`. Node VPS was updated only through `/opt/lumen-node/.env` and `lumen-node.yml`; node container runs the digest-pinned `v0.1.132` image and no admin checkout/build files exist on the node. 2026-06-04 live IKEv2 dataplane smoke created temporary real profile/user/license/subscription on real `node-01`, established a real strongSwan IKEv2 SA with UDP `500/4500`, sent traffic through the assigned virtual IP, and returned `ikev2_dataplane_bytes_in=84`, `ikev2_dataplane_bytes_out=84`, `ikev2_client_connect=succeeded`. During that live SA, the released node-agent recorded real shared metric row `30d8174d-2bb8-4c05-bbe7-882dd2aa54f7` with `rx_bytes=84`, `tx_bytes=84`, `ikev2_rx_bytes=84`, `ikev2_tx_bytes=84`, `ikev2_cumulative_rx_bytes=84`, and `ikev2_cumulative_tx_bytes=84`; later rows correctly held zero deltas after baseline catch-up/removal. The reusable smoke fixture now installs `iputils-ping`, extracts `local-vips`/`remote-vips`, proves nonzero CHILD_SA dataplane bytes, and exposes hold knobs for node-agent baseline/delta verification. Cleanup returned `0` QA users/profiles/subscriptions/licenses and panel/node `/tmp/lumen-* = 0`. |
+
+## P2: Clients
+
+### Backend/Subscription Smoke After API Hotfix
+
+- 2026-06-04 current-prod active-profile subscription render matrix:
+  `scripts/live/active-profile-render-matrix-smoke.py` was copied only to the
+  real panel `/tmp`, executed inside `lumen-api-1` against
+  `https://panel.lumentech.tel`, and removed from host/API `/tmp` afterwards.
+  The smoke used existing active real profile+host bindings on real `node-01`,
+  created only temporary real users/licenses/subscriptions, and checked `18`
+  active adapters across `21` public render targets each. Result `ok=true`,
+  `profiles_checked=18`, `targets_per_profile=21`; adapters checked:
+  `http-proxy`, `hysteria2`, `naiveproxy`, `openvpn-shadowsocks`,
+  `openvpn-udp`, `shadowsocks-native`, `socks5`, `trojan-tcp-reality`,
+  `trojan-tcp-tls`, `tuic-v5`, `vless-grpc-tls`, `vless-reality`,
+  `vless-tcp`, `vless-tcp-tls`, `vless-ws-tls`, `vmess-ws-tls`,
+  `wireguard-amneziawg`, `wireguard-native`. Valid compatible targets returned
+  `200`; incompatible structured targets returned expected
+  `422 subscription_render_target_unsupported_for_protocol`, not empty fake
+  configs. Cleanup leftovers returned `0` subscriptions/licenses/users.
+  Final cleanliness checks returned panel `/tmp/lumen-* = 0`, API container
+  `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node admin checkout count `0`,
+  `/opt/lumen-node` top-level entries `.env,state,lumen-node.yml,secrets`, and
+  `lumen-node-node-agent-1` running `ghcr.io/rim2393/lumen-node-agent:v0.1.132`.
+- 2026-06-04 current-prod operational guard smoke after `9f56581`:
+  `scripts/live/run-admin-surface-smoke-on-panel.sh` was copied only to the
+  real panel `/tmp` together with `admin-surface-smoke.py`, run against
+  `https://panel.lumentech.tel`, and cleaned itself. The smoke returned
+  `ok=true` with real protected counts `nodes=1`, `profiles=46`, `hosts=18`,
+  `squads=3`, `users=12`, `subscriptions=11`, `licenses=11`, `api_keys=1`,
+  `node_plugins=1`, `auth_providers=8`, `setting_groups=4`, `settings=9`,
+  `templates=1`, tools counts including `tools_sessions=200`,
+  `tools_user_ips=124`, `tools_node_user_ips=124`, `tools_top_users=12`,
+  `tools_hwid=12`, `tools_srh=11`, `tools_torrent=5`, HApp routing and X25519
+  utilities `ok`. Cleanup leftovers returned `0` for temporary API keys,
+  users, subscriptions, profiles, hosts and squads; the runner printed
+  `panel_tmp_lumen_count=0` and `api_tmp_lumen_count=0`. Separate node check
+  returned `node_tmp_lumen_count=0`, `node_admin_checkout_count=0`, top-level
+  `/opt/lumen-node` entries `.env,state,lumen-node.yml,secrets`, and
+  `lumen-node-node-agent-1` running `ghcr.io/rim2393/lumen-node-agent:v0.1.132`.
+- 2026-06-04 current-prod backend/admin/node guard smoke: after adding the
+  release guard locally, `scripts/live/admin-surface-smoke.py` was copied only
+  to the panel/API temporary paths, run inside `lumen-api-1` against
+  `https://panel.lumentech.tel`, and removed. The smoke returned `ok=true` with
+  real counts `nodes=1`, `profiles=46`, `hosts=18`, `squads=3`, `users=12`,
+  `subscriptions=11`, `licenses=11`, `api_keys=1`, `node_plugins=1`,
+  `auth_providers=8`, `setting_groups=4`, `settings=9`, `templates=1`,
+  `tools_sessions=200`, `tools_user_ips=124`, `tools_node_user_ips=124`,
+  `tools_top_users=12`, `tools_hwid=12`, `tools_srh=11`, `tools_torrent=5`,
+  HApp routing and X25519 utilities `ok`. Cleanup leftovers returned
+  `api_keys=0`, `users=0`, `qa_subscriptions=0`, `qa_profiles=0`,
+  `qa_hosts=0`, `qa_squads=0`. The API-container smoke file initially remained
+  because `docker cp` made it non-deletable by the app user; it was removed with
+  `docker exec -u 0`, and final checks returned panel `/tmp/lumen-* = 0`, API
+  `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node top-level entries
+  `.env,lumen-node.yml,secrets,state`, and prod API/web/subscription containers
+  healthy.
+- 2026-06-04 reusable admin smoke runner evidence:
+  `scripts/live/run-admin-surface-smoke-on-panel.sh` was added to remove the
+  manual `docker cp`/root cleanup footgun. The first live dry run found and
+  fixed the source-equals-host-temp edge case. The corrected runner was then
+  copied only to the panel host together with `admin-surface-smoke.py`, run
+  against `https://panel.lumentech.tel`, and returned `ok=true` with the same
+  real admin counts (`nodes=1`, `profiles=46`, `hosts=18`, `users=12`,
+  `subscriptions=11`, tools/settings/auth checks) and cleanup leftovers all
+  `0`. The runner itself printed `panel_tmp_lumen_count=0` and
+  `api_tmp_lumen_count=0`; final host checks returned panel `/tmp/lumen-* = 0`,
+  API `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node top-level entries
+  `.env,lumen-node.yml,secrets,state`, and prod containers healthy. Local gates:
+  Bash syntax check, ShellCheck `0.11.0`, `python scripts/validate_release_guard.py`,
+  and `git diff --check`.
+- 2026-06-04 official `v0.1.131` admin/backend/subscription post-release
+  smoke: after `f526724` and signed public manifest `rim2393/lumen_vpn@2796b2f`
+  were deployed to the real panel/node, `scripts/live/admin-surface-smoke.py`
+  and `scripts/live/client-compatibility-matrix-smoke.py` were copied only to
+  the panel/API temporary paths, run inside the prod `lumen-api-1` container
+  against `https://panel.lumentech.tel`, and deleted afterwards. Admin surface
+  smoke returned `ok=true` with real counts `nodes=1`, `profiles=46`,
+  `hosts=18`, `users=12`, `subscriptions=11`, `licenses=11`,
+  `node_plugins=1`, `auth_providers=8`, `setting_groups=4`,
+  `tools_sessions=200`, `tools_user_ips=115`, `tools_node_user_ips=115`,
+  HApp routing/X25519 utilities `ok`, and cleanup leftovers all `0`.
+  Existing-app subscription matrix created only temporary real user/license/
+  subscription records linked to an existing active real `vless-reality`
+  profile+host on real `node-01`, checked all 21 public render targets
+  (`raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`, `streisand`,
+  `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`, `clash`,
+  `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`, `nekoray`,
+  `xray-json`, `amnezia`, `lumen-json`) and all returned `200` with expected
+  content families; cleanup leftovers were `0` subscriptions/licenses/users.
+  Final cleanup checks returned API container `/tmp/lumen-* = 0`, panel
+  `/tmp/lumen-* = 0`, node `/tmp/lumen-* = 0`, node admin checkouts `0`, and
+  public ready health `200`.
+
+- 2026-06-04 official `v0.1.130` auth-shell/i18n hardening:
+  `07411a6` wrapped the auth layout in the same real `I18nProvider` contract as
+  the admin shell, made `/guard/login`, `/guard/mfa`, and `/guard/portal`
+  respect `lumen-ui-language`/`html lang`, and translated the hardcoded auth
+  copy/statuses instead of leaving an English island inside the RU panel.
+  Local gates passed: `npm exec -- tsc -b --noEmit`, `npm test -- --run
+  src/app/App.test.tsx src/shared/data/productionReality.test.ts` (`15
+  passed`). Web image was built on the panel VPS from a clean `git archive`
+  context and pushed as
+  `ghcr.io/rim2393/lumen-web:v0.1.130@sha256:895904779300c0eefb8fd5f359a7e7c32f6784a4dd57895984a535e686ca2a3f`.
+  Public installer `rim2393/lumen_vpn@b41cf38` published the signed
+  `v0.1.130` manifest; the real panel validated the manifest with
+  `/opt/lumen/release-signing.pub` and ran official `upgrade.sh`, creating
+  encrypted backup `lumen-backup-20260604T111421Z.tar.gz.enc`, applying
+  `LUMEN_VERSION=v0.1.130`, and recreating `lumen-web-1`. Live browser smoke
+  created a temporary real owner, authenticated through the real
+  `/guard/login` form, set RU, and checked 17 routes including
+  `/guard/portal`; result was `ok=true`, `errors=0`, `failed=0`,
+  `badResponses=0`, `console=0`, all routes had `html lang=ru`, visible RU UI,
+  no `Something went wrong`, request validation/API failure, fake/mock/demo,
+  `undefined`, `Infinity`, `NaN`, or mojibake markers. Temporary user cleanup
+  returned `LEFTOVERS=0`. Final cleanliness checks: panel `/tmp=0`, API
+  `/tmp/lumen-*=0`, web `/tmp/lumen-*=0`, node `/tmp=0`; node installer
+  checkout `/root/lumen-node-installer` was removed and node
+  `NODE_ADMIN_CHECKOUTS=0`.
+- 2026-06-04 official `v0.1.129` web production-reality hardening:
+  `b9f0bef` removed the static `developmentClient` import and fixture branch
+  from the production API provider; tests must inject an explicit client, while
+  the runtime provider always uses the real HTTP API and fails closed if
+  `VITE_LUMEN_USE_FIXTURES` is present. It also added missing Russian
+  translations for production `t()` keys that were still falling back to
+  English. Local gates passed: `npm exec -- tsc -b --noEmit` from `apps/web`
+  and `npm test -- --run src/shared/data/productionReality.test.ts`
+  (`7 passed`). The web image was built on the panel VPS only as
+  `ghcr.io/rim2393/lumen-web:v0.1.129@sha256:747f0f5527972f74160a74b101db813643538fc97c49b8b5a519adfba1033dcb`;
+  public installer `rim2393/lumen_vpn@b9ef228` published a signed `v0.1.129`
+  manifest and the real panel ran official `upgrade.sh`, creating encrypted
+  backup `lumen-backup-20260604T105119Z.tar.gz.enc`, applying
+  `LUMEN_VERSION=v0.1.129`, and recreating only `lumen-web-1`. `doctor.sh`
+  returned all checks `ok`; post-upgrade checks showed web/API/subscription
+  containers healthy, public `/healthz` OK, prod web bundle did not contain
+  `developmentFixtures` or `createDevelopmentLumenApiClient`, and temp checks
+  returned `HOST_TMP=0`, `WEB_TMP=0`, `NODE_TMP=0`.
+- 2026-06-04 official `v0.1.128` post-upgrade admin surface smoke:
+  after `rim2393/lumen_vpn@ccdf53f` was installed through `upgrade.sh`,
+  `scripts/live/admin-surface-smoke.py` was copied only to the panel/API
+  temporary paths, run inside the prod API container against
+  `https://panel.lumentech.tel`, and deleted. It returned `ok=true` with real
+  counts `nodes=1`, `profiles=46`, `hosts=18`, `users=12`,
+  `subscriptions=11`, `licenses=11`, `node_plugins=1`, `auth_providers=8`,
+  `setting_groups=4`, `tools_sessions=200`, `tools_user_ips=115`,
+  `tools_node_user_ips=115`, HApp routing/X25519 utilities `ok`, and cleanup
+  leftovers all `0`; final temp checks returned `HOST_TMP=0` and `API_TMP=0`.
+- 2026-06-04 current-prod existing-app subscription matrix re-run on API
+  `v0.1.127`: `scripts/live/client-compatibility-matrix-smoke.py` was copied
+  into the prod API container, run against `https://panel.lumentech.tel`, and
+  deleted from panel/API temp paths. It required an existing active real
+  `vless-reality` profile+host on real `node-01`, created only temporary real
+  user/license/subscription records, and verified all 21 public render targets
+  returned `200`: `raw-uri`, `v2ray`, `v2ray-base64`, `v2rayn`, `v2rayng`,
+  `streisand`, `shadowrocket`, `hiddify`, `happ`, `mihomo`, `clash-meta`,
+  `clash`, `flclash`, `stash`, `koala-clash`, `sing-box`, `nekobox`,
+  `nekoray`, `xray-json`, `amnezia`, `lumen-json`. Content families matched
+  text/plain, YAML or JSON as expected; cleanup returned `0`
+  subscriptions/licenses/users; temp checks confirmed
+  `panel-client-matrix-clean`, `api-container-client-matrix-clean` and
+  `node-client-matrix-clean`.
+- 2026-06-04 protected admin surface smoke added as
+  `scripts/live/admin-surface-smoke.py` and run inside the prod API container
+  against `https://panel.lumentech.tel` on `v0.1.127`. It used a temporary
+  real owner and scoped API key, checked protected admin/API surfaces for
+  nodes, profiles, hosts, squads, users, subscriptions, API keys, licenses,
+  settings/groups/auth providers, subscription templates/response
+  rules/subpage configs, audit, node plugins, infra billing, IP control, tools
+  inspectors, HApp routing build and X25519 utility. Real live counts included
+  `nodes=1`, `profiles=46`, `hosts=18`, `users=12`, `subscriptions=11`,
+  `auth_providers=8`, `setting_groups=4`; utility endpoints returned `ok`
+  without printing generated secrets. Cleanup returned `0`
+  users/api_keys/QA subscriptions/profiles/hosts/squads, and temp checks
+  confirmed `panel-admin-smoke-clean`, `api-container-admin-smoke-clean` and
+  `node-admin-smoke-clean`.
+- 2026-06-04 follow-up admin/backend/node reality check on current prod
+  `v0.1.127`: the panel VPS and API container were cleaned after the aborted
+  Android IKEv2 fixture, with fixture cleanup returning `0`
+  licenses/profiles/subscriptions/users and a real `outbound.remove` command
+  accepted by `node-01`. The node VPS was checked without copying files to it:
+  no `/tmp` fixture or matrix scripts were present, only the node runtime
+  container was running, and a штатный `lumen-node-agent --run-once` from inside
+  `lumen-node-node-agent-1` reported heartbeat `active`, node `node-01`,
+  runtime metric creation, telemetry scan, and real restored runtime processes
+  for Xray, Shadowsocks, OpenVPN, OpenVPN-over-Shadowsocks and TUIC. A fresh
+  `admin-surface-smoke.py` live run against `https://panel.lumentech.tel`
+  returned `ok=true` with real counts `nodes=1`, `profiles=46`, `hosts=18`,
+  `users=12`, `subscriptions=11`, `node_plugins=1`, `auth_providers=8`,
+  `setting_groups=4`, `tools_sessions=200`, `tools_user_ips=94`, and cleanup
+  leftovers all `0`; the script was deleted from both the panel host and API
+  container after the run.
+- 2026-06-04 live admin UI route walkthrough on current prod: a temporary real
+  owner account was created in the prod DB only for the smoke, authenticated
+  through the real `/guard/login` form, and then deleted with its sessions
+  after the walkthrough (`removed=1`, `leftovers=0`). The in-app browser opened
+  `/dashboard`, `/users`, `/nodes`, `/node-plugins`, `/hosts`, `/profiles`,
+  `/squads`, `/subscription`, `/templates`, `/response-rules`,
+  `/subscription-page`, `/settings`, `/license`, `/infra-billing`,
+  `/api-keys`, and `/tools` against `https://panel.lumentech.tel`; every route
+  returned the authenticated app shell with no console errors and no visible
+  `Something went wrong`, `Request validation failed`, `API request failed`,
+  `not implemented`, `mock`, `fake`, `undefined`, or `Infinity` markers. HTML
+  input placeholder attributes were excluded from the fake-placeholder check
+  because they are normal form hints, not fake data. `/squads` had one early
+  transient `NaN`/language read during the first fast loop, then five settled
+  reloads at 3 seconds each returned Russian shell and `NaN=false`; no code
+  change was required. Temporary UI smoke scripts were removed from the panel
+  host, API container and local product workspace.
+- 2026-06-04 current-prod active profile render matrix re-run on `v0.1.127`:
+  `scripts/live/active-profile-render-matrix-smoke.py` was copied only to the
+  panel VPS/API container, run against `https://panel.lumentech.tel`, and
+  deleted immediately afterwards. It used existing real active profile+host
+  bindings on real `node-01`, created only temporary real user/license/
+  subscription records per adapter, and checked 18 active adapters across 21
+  public render targets. Successful `200` renders or expected
+  `422 subscription_render_target_unsupported_for_protocol` responses were
+  verified for `http-proxy`, `hysteria2`, `naiveproxy`,
+  `openvpn-shadowsocks`, `openvpn-udp`, `shadowsocks-native`, `socks5`,
+  `trojan-tcp-reality`, `trojan-tcp-tls`, `tuic-v5`, `vless-grpc-tls`,
+  `vless-reality`, `vless-tcp`, `vless-tcp-tls`, `vless-ws-tls`,
+  `vmess-ws-tls`, `wireguard-amneziawg`, and `wireguard-native`.
+  Cleanup returned `0` subscriptions/licenses/users. Final checks confirmed
+  `PANEL_RENDER_MATRIX_CLEAN` and `NODE_RENDER_MATRIX_CLEAN`; the node VPS was
+  not used for scripts or build artifacts and still runs only
+  `lumen-node-node-agent-1`.
+- 2026-06-04 API-only lint/startup hardening `3c7625d` was manually built as
+  `ghcr.io/rim2393/lumen-api:v0.1.127@sha256:340ef210410ced6d788537b280a11994c5f897b7a0d94481be4db4a52224956b`
+  because GitHub-hosted Actions still refuse to start due to account
+  billing/spending. It removes the wide `ruff` `A005` blocker by renaming
+  `app.core.logging` to `app.core.logging_config`. Local gates passed:
+  `python -m ruff check apps/api/app/core apps/api/app/main.py ...`,
+  RBAC/security pytest `25 passed`, and API import smoke. The real panel
+  container `lumen-api-1` was updated to that pinned image, Docker health is
+  `healthy`, public `https://panel.lumentech.tel/api/v1/health/ready` returned
+  success, and build temp files were absent on both panel and node hosts.
+- 2026-06-04 API-only hardening `4865087` was manually built as
+  `ghcr.io/rim2393/lumen-api:v0.1.126@sha256:7ae90dc364f9ecdb181a8951b7e559f75af440c8bb822926d7923aba7f4a4968`
+  because GitHub-hosted Actions still refuse to start due to account
+  billing/spending. The real panel container `lumen-api-1` was updated to that
+  pinned image and Docker health is `healthy`.
+- The production `scripts/live/issue-from-profile-smoke.py` was copied into
+  the live API container, run against `https://panel.lumentech.tel`, and
+  deleted from both the panel host and API container. It used a temporary real
+  owner, scoped API key, subscriber and license, then called the protected
+  `POST /api/v1/subscriptions/actions/issue-from-profile` endpoint against an
+  existing active real `vless-reality` profile+host on real `node-01`. The
+  endpoint returned `201`, public HApp render returned `200`, render URLs
+  included `happ`, `sing-box`, `mihomo` and the compatibility aliases, and
+  cleanup returned `0` subscriptions/api_keys/licenses/users. Final cleanup
+  checks confirmed `panel-host-smoke-clean`, `api-container-smoke-clean` and
+  `node-host-smoke-clean`.
+- 2026-06-04 API-only hotfix `45e9c7f` was manually built as
+  `ghcr.io/rim2393/lumen-api:v0.1.125@sha256:da299b0ee8b0981b62342f1e6661a55f06f287d7568aa56b33b4e409a42c1566`
+  because GitHub-hosted Actions still refuse to start due to account
+  billing/spending. The real panel container `lumen-api-1` was updated to that
+  pinned image and Docker health is `healthy`.
+- The same production `scripts/live/client-compatibility-matrix-smoke.py` was
+  copied into the live API container, run against `https://panel.lumentech.tel`,
+  and deleted. It required an existing active real `vless-reality` profile+host
+  on real `node-01`, created only a temporary real user/license/subscription,
+  verified all 21 existing-client public render targets returned valid `200`
+  responses with expected content families and forbidden-marker checks, and
+  cleanup returned `0` subscriptions/licenses/users. Panel/API temporary files
+  were checked and removed.
+- Android platform IKEv2 live connect remains a `C-002` client-side/runtime
+  follow-up. It does not invalidate the backend/subscription surface for
+  existing apps because PR-006 public render targets were live-smoked after
+  `v0.1.125`.
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| C-001 | Android real production subscription import | DONE | App imports real prod URL without logging secrets | Android resolver/parser/manifest supports prod-compatible client import schemes and bodies; `LumenHttpSecurity` allows HWID on `panel/sub.lumentech.tel` while retaining old `sslip.io` compatibility; focused unit gate `:app:testDebugUnitTest --tests tel.lumentech.vpn.SubscriptionSourceResolverTest` passed with `76` test tasks; `:app:assembleDebug` passed; live emulator `emulator-5554` imported a temporary real `https://panel.lumentech.tel` HApp subscription through `scripts/android-live-import-qa.ps1`, persisted `1` subscription, `1` server and `1` ready server, confirmed raw URL was not visible in UI, and fixture cleanup returned `0` subscriptions/licenses/users. |
+| C-002 | Android connect per live protocol | PARTIAL | Emulator/device evidence per protocol | Existing evidence covers VLESS, Shadowsocks, SOCKS, HTTP proxy, Trojan, VMess, Hysteria2, TUIC, NaiveProxy, WireGuard-native, AmneziaWG and OpenVPN UDP slices. 2026-06-03 AmneziaWG slice: `bf09169` aligned node runtime WireGuard client addresses with profile interface networks; `3d8e6e7` aligned subscription renderer addresses with the same active-client ordering. Focused backend gates passed: `test_public_wireguard_subscription_uses_linked_profile_and_host_runtime_fields`, WireGuard/AWG apply route tests and AWG node outbound test (`4 passed`). GitHub Actions were blocked before job start by account billing/spending, so API-only hotfix images `v0.1.118` and `v0.1.119` were manually built on the prod panel VPS, pushed to GHCR, deployed by pinned digest with `/opt/lumen/backups/upgrade-state/...` records, and health checked. Live prod AWG evidence: real `node-01` AWG profile `wireguard-amneziawg` applied to real node port `18461`; Android `emulator-5554` imported a temporary real HApp subscription from `https://panel.lumentech.tel`, persisted `1` subscription, `1` server and `1` ready server with raw URL hidden, started native AmneziaWG, received handshake response, and the node `awg show` reported one peer `10.77.0.2/32` with latest handshake and transfer. 2026-06-04 OpenVPN UDP Android slice: added x86/x86_64 OpenVPN native libs from official Amnezia `4.8.15.4` Android release assets, fixed `LibraryLoader` empty/wrong-ABI fallback, and set OpenVPN3 `disableClientCert=true` for no-client-cert profiles. `:app:assembleDebug` passed. Live prod evidence: real `openvpn-udp` profile on `node-01` port `24103` rendered a real HApp subscription; Android `emulator-5554` imported `1` subscription, `1` server and `1` ready server with raw URL hidden; OpenVPN3 loaded `x86_64` libs, completed TLS 1.3, established Android VPN `tun0` with `10.90.3.2/24`, and node OpenVPN status showed the redacted subscription client connected with bytes transferred and AES-256-GCM data channel. Remaining: continue live Android connect one adapter family at a time and later run full matrix cleanup/release evidence. |
+| C-003 | Android portrait-only verification | PARTIAL | Project rule exists; needs final release QA evidence | Wiki/project rule |
+| C-004 | Windows client | OPEN | Same real protocol set, no mocks | Not started |
+
+### C-002 Latest Evidence
+
+- 2026-06-04 OpenVPN over Shadowsocks Android live slice: fixed native Android
+  runtime path end-to-end for the real prod `openvpn-shadowsocks` profile on
+  real `node-01`. Backend/subscription hotfixes keep the profile-level
+  Shadowsocks bridge password stable, expose matching OpenVPN
+  username/password in the native Lumen manifest, and route Lumen Android
+  imports to `lumen-json` instead of app wrapper HTML for trusted Lumen
+  subscription URLs.
+- Android fixes: OpenVPN3 now receives provided username/password credentials,
+  unsupported `socks-proxy` directives are stripped before the local TCP bridge
+  config is passed to OpenVPN3, loopback routes/exclusions are filtered before
+  Android `VpnService.Builder.establish()`, the live QA script grants optional
+  Android notification permission after `pm clear`, and OpenVPN health-checks
+  accept the system validated VPN network before HTTP/DNS fallback probes.
+- Gates passed: `:app:assembleDebug`; focused Android resolver/parser tests;
+  API `ruff` on touched protocol/subscription services; subscription edge
+  tests for Lumen user-agent fallback. Follow-up core regression gates on
+  2026-06-04 passed: `python -m pytest tests/test_node_outbound_config.py -k
+  "openvpn_shadowsocks" tests/test_trojan_subscription_routes.py -k
+  "openvpn_shadowsocks"` (`3 passed, 74 deselected`), `python -m ruff check
+  app/domains/protocols/service.py app/domains/subscriptions/service.py
+  tests/test_node_outbound_config.py tests/test_trojan_subscription_routes.py`,
+  `npm --prefix apps/lumen-edge test` (`14 passed`), and `npm --prefix
+  packages/subscription-renderers test` (`11 passed`). These regressions prove
+  the real profile-level Shadowsocks bridge password is preserved in node
+  runtime payloads and Lumen native subscription manifests while OpenVPN
+  username/password remain per-subscription.
+- Live evidence: Android `emulator-5554` imported the real temporary prod
+  subscription with raw URL hidden, persisted `1` subscription, `1` server and
+  `1` ready server, started OpenVPN over the Shadowsocks bridge to real node
+  endpoint `85.192.60.8:28443`, logged `Connected via tun` and
+  `OpenVpn event: CONNECTED`, and UI showed `ПОДКЛЮЧЕНО` with `ОТКЛЮЧИТЬ`.
+  Android `dumpsys connectivity` showed `VPN CONNECTED`, `InterfaceName: tun0`,
+  address `10.91.0.2/24`, DNS `1.1.1.1`, `VALIDATED`, owner UID of the app and
+  all UIDs routed through the VPN. Node `status.log` showed a redacted active
+  OpenVPN client, virtual address `10.91.0.2`, bytes received/sent, TLS
+  username/password auth success and AES-256-GCM data channel.
+- Remaining C-002 work: continue the same live Android connect loop one adapter
+  family at a time; then package/sign a release artifact and run the full
+  cleanup/release evidence pass.
+
+## P3: License Server And Commercial Portal
+
+| ID | Task | Status | Done Criteria | Evidence |
+| --- | --- | --- | --- | --- |
+| L-001 | Separate license server product/repo | DEFERRED | Repo/deploy split and API contract defined | Deferred until control plane/client core stabilizes |
+| L-002 | Account login with authenticator 2FA | DEFERRED | Central portal login and 2FA verified | Deferred |
+| L-003 | License issue/renew/sync | DEFERRED | Self-hosted panel syncs account/key and applies <=3 free node behavior | Deferred |
+| L-004 | Expired license semantics | DEFERRED | Existing <=3 nodes continue, extra nodes pause, changes blocked, renewal resumes | Deferred |
+
+## Next Slice
+
+`C-002`: continue live Android connect one adapter family at a time now that the admin/backend/node/subscription surface can issue client-compatible subscriptions through the signed prod release.
+
+Proposed implementation:
+
+1. Pick the next uncovered adapter family from `C-002`.
+2. Use the existing real prod admin/backend/node/subscription path to issue a temporary real subscription.
+3. Import/connect in Android, verify node-side runtime evidence, then cleanup all temporary prod records and files.
+
+## Checkpoint Notes
+
+- Always update this file in the same commit as a completed slice.
+- If a slice only reaches local tests, keep it `PARTIAL` until release/live
+  evidence is recorded.
+- Do not remove old evidence; append newer evidence if a feature regresses and
+  is fixed again.

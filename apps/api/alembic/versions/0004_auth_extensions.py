@@ -1,7 +1,7 @@
 """Add OAuth identities, OAuth login state, and WebAuthn passkey tables.
 
 Revision ID: 0004_auth_extensions
-Revises: 0003_remna_parity_controls
+Revises: 0003_lumen_parity_controls
 Create Date: 2026-05-29 12:00:00
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0004_auth_extensions"
-down_revision: str | None = "0003_remna_parity_controls"
+down_revision: str | None = "0003_lumen_parity_controls"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
