@@ -64,6 +64,10 @@ install_node_packages() {
   fi
 }
 
+resolved_node_image() {
+  printf '%s' "${NODE_AGENT_IMAGE:-${LUMEN_NODE_AGENT_IMAGE:-}}"
+}
+
 write_node_env() {
   if [ "$DRY_RUN" = "1" ]; then
     log "would write $CONFIG_FILE"
@@ -76,19 +80,19 @@ write_node_env() {
 TZ=${TZ:-UTC}
 LUMEN_PANEL_URL=$PANEL_URL
 LUMEN_NODE_NAME=$NODE_NAME
-LUMEN_NODE_AGENT_IMAGE=${NODE_AGENT_IMAGE:-${LUMEN_NODE_AGENT_IMAGE:-ghcr.io/rim2393/lumen-node-agent:v0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000}}
+LUMEN_NODE_AGENT_IMAGE=$(resolved_node_image)
 EOF
   chmod 0600 "$CONFIG_FILE"
 }
 
 validate_node_image() {
-  local image="${NODE_AGENT_IMAGE:-${LUMEN_NODE_AGENT_IMAGE:-ghcr.io/rim2393/lumen-node-agent:v0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000}}"
+  local image
+  image="$(resolved_node_image)"
+  [ -n "$image" ] || die "Pass --image or set LUMEN_NODE_AGENT_IMAGE to a pinned @sha256 image reference"
   if ! printf '%s' "$image" | grep -Eq '@sha256:[0-9a-f]{64}$'; then
-    [ "$DRY_RUN" = "1" ] && warn "LUMEN_NODE_AGENT_IMAGE is not pinned" && return 0
     die "LUMEN_NODE_AGENT_IMAGE must be pinned with @sha256:<64 hex chars>"
   fi
   if is_zero_digest "$image" || printf '%s' "$image" | grep -q 'CHANGE_ME'; then
-    [ "$DRY_RUN" = "1" ] && warn "LUMEN_NODE_AGENT_IMAGE has a placeholder digest" && return 0
     die "LUMEN_NODE_AGENT_IMAGE still has a placeholder digest"
   fi
 }
