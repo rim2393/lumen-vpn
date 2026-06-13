@@ -62,6 +62,9 @@ kotlin {
                 "../app/src/main/java/tel/lumentech/vpn/auth"
             )
             kotlin.exclude("NodeUrlTester.kt")
+            kotlin.exclude("StrictVpnUrlTester.kt")
+            kotlin.exclude("XrayConfigFactory.kt")
+            kotlin.exclude("XrayUrlTester.kt")
             kotlin.exclude("SecureTokenStore.kt")
             kotlin.exclude("TelegramAuthActivity.kt")
         }

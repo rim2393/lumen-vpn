@@ -39,12 +39,13 @@ class DesktopRuntimeController(
         val backend = RuntimeSupport.backend(profile)
         active = RuntimeState("starting", backend.name, profile.id, "Starting ${profile.displayName}")
         when (backend) {
+            RuntimeBackend.XRAY_CORE -> startSingBox(profile, settings)
             RuntimeBackend.SING_BOX -> startSingBox(profile, settings)
             RuntimeBackend.AMNEZIAWG -> startAmneziaWg(profile)
             RuntimeBackend.OPENVPN -> startOpenVpn(profile)
             RuntimeBackend.OPENVPN_CLOAK -> startOpenVpnCloak(profile)
             RuntimeBackend.OPENVPN_SHADOWSOCKS -> startOpenVpnShadowsocks(profile, settings)
-            RuntimeBackend.WINDOWS_IKEV2 -> startWindowsIkev2(profile)
+            RuntimeBackend.ANDROID_IKEV2 -> startWindowsIkev2(profile)
             RuntimeBackend.UNSUPPORTED -> error(RuntimeSupport.unsupportedRuntimeMessage(profile.protocol))
         }
         active = RuntimeState("running", backend.name, profile.id, "Connected with ${profile.displayName}")
@@ -68,7 +69,7 @@ class DesktopRuntimeController(
             }
             activeAmneziaTunnelName = null
         }
-        if (active.backend == RuntimeBackend.WINDOWS_IKEV2.name && active.profileId.isNotBlank()) {
+        if (active.backend == RuntimeBackend.ANDROID_IKEV2.name && active.profileId.isNotBlank()) {
             runCatching { rasdial("/disconnect") }
         }
         active = RuntimeState("stopped", message = "Stopped")
@@ -101,6 +102,7 @@ class DesktopRuntimeController(
         val issue = RuntimeSupport.validationIssue(profile)
         if (issue != null) return RuntimeValidation(false, backend.name, issue)
         val binaryIssue = when (backend) {
+            RuntimeBackend.XRAY_CORE -> binaries.requireExisting(binaries.singBox, "sing-box.exe")
             RuntimeBackend.SING_BOX -> binaries.requireExisting(binaries.singBox, "sing-box.exe")
             RuntimeBackend.AMNEZIAWG -> binaries.requireExisting(binaries.amneziaWg, "amneziawg.exe")
             RuntimeBackend.OPENVPN -> binaries.requireExisting(binaries.openVpn, "openvpn.exe")
@@ -108,7 +110,7 @@ class DesktopRuntimeController(
                 ?: binaries.requireExisting(binaries.cloak, "cloak.exe")
             RuntimeBackend.OPENVPN_SHADOWSOCKS -> binaries.requireExisting(binaries.openVpn, "openvpn.exe")
                 ?: binaries.requireExisting(binaries.singBox, "sing-box.exe")
-            RuntimeBackend.WINDOWS_IKEV2 -> null
+            RuntimeBackend.ANDROID_IKEV2 -> null
             RuntimeBackend.UNSUPPORTED -> RuntimeSupport.unsupportedRuntimeMessage(profile.protocol)
         }
         return RuntimeValidation(binaryIssue == null, backend.name, binaryIssue.orEmpty())

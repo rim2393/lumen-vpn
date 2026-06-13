@@ -106,7 +106,7 @@ class LiveSubscriptionQa(private val input: Path) {
                             println("$prefix FAIL $missing")
                         }
                     }
-                    RuntimeBackend.WINDOWS_IKEV2 -> println("$prefix OK windows-ikev2-profile")
+                    RuntimeBackend.ANDROID_IKEV2 -> println("$prefix OK windows-ikev2-profile")
                     RuntimeBackend.UNSUPPORTED -> {
                         failures++
                         println("$prefix FAIL unsupported")
