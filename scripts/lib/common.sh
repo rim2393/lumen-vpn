@@ -228,10 +228,6 @@ validate_required_config() {
   validate_domain_value PANEL_DOMAIN "${PANEL_DOMAIN:-}"
   validate_domain_value SUBSCRIPTION_DOMAIN "${SUBSCRIPTION_DOMAIN:-}"
   [ -n "${ACME_EMAIL:-}" ] || die "ACME_EMAIL is required"
-
-  if [ "${FREE_NODE_LIMIT:-}" != "3" ]; then
-    warn "FREE_NODE_LIMIT is ${FREE_NODE_LIMIT:-unset}; public free mode is expected to keep 3 nodes"
-  fi
 }
 
 is_zero_digest() {
@@ -325,7 +321,7 @@ release_lock() {
 redact_stream() {
   sed -E \
     -e 's#(PASSWORD|SECRET|TOKEN|PEPPER|KEY|SEED)=.*#\1=<redacted>#g' \
-    -e 's#(password|secret|token|private_key|license_key)([" ]*[:=][" ]*)[^" ,]+#\1\2<redacted>#gi'
+    -e 's#(password|secret|token|private_key)([" ]*[:=][" ]*)[^" ,]+#\1\2<redacted>#gi'
 }
 
 redact_ips_stream() {

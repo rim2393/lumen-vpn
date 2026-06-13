@@ -20,7 +20,6 @@ The project is being prepared as a public monorepo. It keeps the Android app, Wi
 - Installer, backup, restore, release, and diagnostics scripts: `scripts/`
 - Release metadata templates: `release/`
 - Product and operator docs: `docs/`
-- Project knowledge base for maintainers: `PROJECT_WIKI/`
 
 The recommended GitHub repository name is `lumen-vpn`. The product name shown to users is `Lumen VPN`.
 

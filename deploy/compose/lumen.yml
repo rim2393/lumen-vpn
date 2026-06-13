@@ -21,10 +21,6 @@ x-app-env: &app-env
   WEBHOOK_SIGNING_SECRET_FILE: ${WEBHOOK_SIGNING_SECRET_FILE:-/run/lumen/secrets/webhook-signing-secret}
   NODE_CA_SEED: ${NODE_CA_SEED}
   MANIFEST_SIGNING_SEED: ${MANIFEST_SIGNING_SEED}
-  FREE_NODE_LIMIT: ${FREE_NODE_LIMIT:-3}
-  LICENSE_MODE: ${LICENSE_MODE:-free}
-  LICENSE_KEY_FILE: ${LICENSE_KEY_FILE:-/run/lumen/secrets/license.key}
-  LICENSE_OFFLINE_FILE: ${LICENSE_OFFLINE_FILE:-/run/lumen/secrets/offline-license.json}
   TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
   TELEGRAM_BOT_TOKEN_FILE: ${TELEGRAM_BOT_TOKEN_FILE:-/run/lumen/secrets/telegram-bot-token}
   GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}

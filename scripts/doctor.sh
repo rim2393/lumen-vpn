@@ -136,11 +136,6 @@ main() {
   check_cmd envsubst
   check_compose_config
   check_images
-  if [ "${FREE_NODE_LIMIT:-}" = "3" ]; then
-    record license ok "free node limit is 3"
-  else
-    record license fail "FREE_NODE_LIMIT is ${FREE_NODE_LIMIT:-unset}"
-  fi
   check_ports
   check_nginx
   check_certs

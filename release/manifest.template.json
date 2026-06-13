@@ -3,7 +3,6 @@
   "version": "v0.1.0",
   "released_at": "2026-05-26T00:00:00Z",
   "installer_min_version": "v0.1.0",
-  "free_node_limit": 3,
   "images": {
     "api": {
       "name": "ghcr.io/rim2393/lumen-api",
@@ -35,8 +34,7 @@
   },
   "compatibility": {
     "requires_manual_node_reconnect": false,
-    "requires_manifest_key_rotation": false,
-    "supports_free_mode": true
+    "requires_manifest_key_rotation": false
   },
   "checksums": {
     "compose": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -48,4 +46,3 @@
     "value": "BASE64_SIGNATURE_PLACEHOLDER"
   }
 }
-

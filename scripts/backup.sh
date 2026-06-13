@@ -72,7 +72,6 @@ create_backup() {
     printf 'created_at=%s\n' "$ts"
     printf 'version=%s\n' "${LUMEN_VERSION:-unknown}"
     printf 'host=%s\n' "$(hostname -f 2>/dev/null || hostname)"
-    printf 'free_node_limit=%s\n' "${FREE_NODE_LIMIT:-3}"
   } >"$work/meta/backup.properties"
 
   tar -C "$work" -czf "$archive" .
@@ -96,4 +95,3 @@ main() {
 }
 
 main "$@"
-

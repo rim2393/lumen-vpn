@@ -1,7 +1,7 @@
 # Release process
 
-Release manifests are public metadata. They reference private images by digest
-but never include registry tokens or source archives.
+Release manifests are public metadata. They reference runtime images by digest
+and never include registry tokens, credentials, or generated source archives.
 
 Minimum release artifacts:
 
@@ -18,5 +18,5 @@ Release gates for this public repo:
 - Release manifest validates as JSON
 - Docs describe unsupported or remaining work honestly
 
-Private product gates are tracked in the private repositories.
-
+Any release blocker must be tracked in public issues or public release notes
+without exposing secrets or infrastructure credentials.

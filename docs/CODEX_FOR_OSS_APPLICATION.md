@@ -19,7 +19,7 @@ https://github.com/rim2393/lumen-vpn
 Current prepared branch:
 
 ```text
-https://github.com/rim2393/lumen-vpn/tree/oss-monorepo-prep
+https://github.com/rim2393/lumen-vpn/tree/main
 ```
 
 Recommended repository description:
@@ -110,7 +110,7 @@ Do not write those values into this repository.
 
 - Repository must be public.
 - GitHub profile visibility should be public.
-- `oss-monorepo-prep` should either be merged into `main` or the form should clearly point to the prepared branch.
+- The form should point to the public `main` branch.
 - Do not submit confidential information in the form.
 - Do not claim stars/downloads if the project does not have them yet. Use ecosystem importance and active maintenance instead.
 

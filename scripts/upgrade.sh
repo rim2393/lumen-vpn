@@ -86,7 +86,6 @@ update_env_from_manifest() {
   env_set LUMEN_WEB_IMAGE "$(manifest_image_ref web)"
   env_set LUMEN_NODE_AGENT_IMAGE "$(manifest_image_ref node_agent)"
   env_set LUMEN_SUBSCRIPTION_IMAGE "$(manifest_image_ref subscription)"
-  env_set FREE_NODE_LIMIT "$(jq -r '.free_node_limit // 3' "$MANIFEST_FILE")"
 }
 
 rollback_env() {
