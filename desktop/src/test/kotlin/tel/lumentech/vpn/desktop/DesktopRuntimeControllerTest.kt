@@ -16,10 +16,10 @@ class DesktopRuntimeControllerTest {
     private val parser = SubscriptionParser()
 
     @Test
-    fun keepsAndroidConnectableSetScopedToSingBoxProtocols() {
+    fun reportsCompleteOpenVpnProfilesAsConnectable() {
         val openVpn = openVpnServer()
 
-        assertFalse(RuntimeSupport.isConnectable(openVpn))
+        assertTrue(RuntimeSupport.isConnectable(openVpn))
         assertTrue(RuntimeSupport.isWindowsConnectable(openVpn))
         assertEquals(RuntimeBackend.OPENVPN, RuntimeSupport.backend(openVpn))
     }
