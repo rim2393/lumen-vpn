@@ -9,6 +9,19 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function testSession(): AuthSession {
+  return {
+    accessToken: 'lumen_at_session',
+    email: 'admin@test.lumentah.tel',
+    expiresAt: '2026-05-28T12:00:00Z',
+    name: 'Admin',
+    refreshToken: 'lumen_rt_session',
+    role: 'admin',
+    scopes: ['node:manage', 'subscription:manage', 'user:manage'],
+    userId: 'admin',
+  }
+}
+
 describe('createHttpLumenApiClient', () => {
   it('reads the real server session after login instead of fabricating identity', async () => {
     const fetcher = vi.fn(async (input: URL | RequestInfo) => {
@@ -278,5 +291,61 @@ describe('createHttpLumenApiClient', () => {
       items: [{ id: 'phone', status: 'active' }],
     })
     await expect(client.deleteSubscription('sub-live')).resolves.toBeUndefined()
+  })
+
+  it('calls real API endpoints for core admin resource groups', async () => {
+    const calls: Array<{ method: string; pathname: string; search: string }> = []
+    const fetcher = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = input instanceof URL ? input : new URL(String(input))
+      calls.push({
+        method: init?.method ?? 'GET',
+        pathname: url.pathname,
+        search: url.search,
+      })
+      return jsonResponse({ id: 'ok', items: [] })
+    })
+    const client = createHttpLumenApiClient({
+      baseUrl: 'https://panel.example.test',
+      fetcher,
+      getSession: testSession,
+    })
+
+    await client.listNodes()
+    await client.createProvisioningJob({} as never)
+    await client.issueInstallToken('job-live')
+    await client.readProvisioningJob('job-live')
+    await client.listProfiles()
+    await client.applyProfileToNode('profile-live')
+    await client.listSubscriptions()
+    await client.issueSubscriptionFromProfile({} as never)
+    await client.readToolSummary()
+    await client.inspectHwid('device live')
+    await client.listSettings()
+    await client.listSettingGroups()
+    await client.listAuthProviders()
+    await client.listNodePlugins('node live')
+    await client.createNodePlugin({} as never)
+    await client.listLoginMethods()
+    await client.readPanelIdentity()
+
+    expect(calls).toEqual([
+      { method: 'GET', pathname: '/api/v1/nodes', search: '' },
+      { method: 'POST', pathname: '/api/v1/nodes/provisioning-jobs', search: '' },
+      { method: 'POST', pathname: '/api/v1/nodes/provisioning-jobs/job-live/install-token', search: '' },
+      { method: 'GET', pathname: '/api/v1/nodes/provisioning-jobs/job-live', search: '' },
+      { method: 'GET', pathname: '/api/v1/profiles', search: '' },
+      { method: 'POST', pathname: '/api/v1/profiles/profile-live/apply-to-node', search: '' },
+      { method: 'GET', pathname: '/api/v1/subscriptions', search: '' },
+      { method: 'POST', pathname: '/api/v1/subscriptions/actions/issue-from-profile', search: '' },
+      { method: 'GET', pathname: '/api/v1/tools/summary', search: '' },
+      { method: 'GET', pathname: '/api/v1/tools/hwid-inspector', search: '?query=device%20live' },
+      { method: 'GET', pathname: '/api/v1/settings', search: '' },
+      { method: 'GET', pathname: '/api/v1/settings/groups', search: '' },
+      { method: 'GET', pathname: '/api/v1/settings/auth/providers', search: '' },
+      { method: 'GET', pathname: '/api/v1/node-plugins', search: '?node_id=node%20live' },
+      { method: 'POST', pathname: '/api/v1/node-plugins', search: '' },
+      { method: 'GET', pathname: '/api/v1/auth/providers', search: '' },
+      { method: 'GET', pathname: '/api/v1/settings/public/identity', search: '' },
+    ])
   })
 })
