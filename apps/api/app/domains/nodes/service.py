@@ -714,6 +714,13 @@ async def issue_install_token(
         )
     ).scalar_one_or_none()
     if existing_token is not None:
+        if existing_token.used_at is None and ensure_aware(existing_token.expires_at) <= utc_now():
+            await _mark_install_token_expired(session, token=existing_token, job=job)
+            raise APIError(
+                code="install_token_expired",
+                message="Install token has expired; create a new provisioning job.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
         raise APIError(
             code="install_token_already_issued",
             message="Install token plaintext is only returned once.",
@@ -756,8 +763,15 @@ async def exchange_install_token(
     if (
         install_token is None
         or install_token.used_at is not None
-        or ensure_aware(install_token.expires_at) <= now
     ):
+        raise APIError(
+            code="invalid_install_token",
+            message="Install token is invalid, expired, or already used.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    if ensure_aware(install_token.expires_at) <= now:
+        job = await get_provisioning_job(session, job_id=install_token.provisioning_job_id)
+        await _mark_install_token_expired(session, token=install_token, job=job)
         raise APIError(
             code="invalid_install_token",
             message="Install token is invalid, expired, or already used.",
@@ -786,6 +800,26 @@ async def exchange_install_token(
     node.agent_token_hash = node_token_hash
     await session.flush()
     return ExchangedInstallToken(job=job, node=node, node_token=node_token)
+
+
+async def _mark_install_token_expired(
+    session: AsyncSession,
+    *,
+    token: NodeInstallToken,
+    job: NodeProvisioningJob,
+) -> None:
+    now = utc_now()
+    token.used_at = now
+    job.status = ProvisioningJobStatus.FAILED.value
+    job.error_code = "install_token_expired"
+    job.error_message = "Install token expired before node registration completed."
+    node = await session.get(Node, job.node_id)
+    if node is not None and node.status in {
+        NodeStatus.PROVISIONING.value,
+        NodeStatus.INSTALLING.value,
+    }:
+        node.status = NodeStatus.FAILED.value
+    await session.flush()
 
 
 async def record_node_heartbeat(
