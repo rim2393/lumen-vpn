@@ -1670,6 +1670,12 @@ async def record_outbound_apply_result(
             _mark_runtime_apply_failed(profile, command=command, failed_at=failed_at)
         for host in hosts:
             _mark_runtime_apply_failed(host, command=command, failed_at=failed_at)
+    elif command.status in {"cancelled", "skipped"}:
+        terminal_at = command.completed_at.isoformat() if command.completed_at else _utc_iso()
+        for profile in profiles:
+            _mark_runtime_apply_terminal(profile, command=command, terminal_at=terminal_at)
+        for host in hosts:
+            _mark_runtime_apply_terminal(host, command=command, terminal_at=terminal_at)
 
 
 def _profile_ids_from_apply_command(command: NodeCommand) -> list[UUID]:
@@ -1793,6 +1799,27 @@ def _mark_runtime_apply_failed(
         "node_id": str(command.node_id),
         "pending_apply": True,
         "status": "apply_failed",
+    }
+    resource.metadata_json = _metadata_with_runtime_sync(resource.metadata_json, runtime_sync)
+
+
+def _mark_runtime_apply_terminal(
+    resource: ProtocolProfile | Host,
+    *,
+    command: NodeCommand,
+    terminal_at: str,
+) -> None:
+    current = _runtime_sync_from_metadata(resource.metadata_json)
+    runtime_sync: dict[str, object] = {
+        **current,
+        "error_code": command.error_code,
+        "error_message": command.error_message,
+        "last_command_id": str(command.id),
+        "last_terminal_at": terminal_at,
+        "node_id": str(command.node_id),
+        "pending_apply": False,
+        "status": f"apply_{command.status}",
+        "terminal_command_id": str(command.id),
     }
     resource.metadata_json = _metadata_with_runtime_sync(resource.metadata_json, runtime_sync)
 
