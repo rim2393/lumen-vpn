@@ -16,7 +16,7 @@ class TokenPairResponse(BaseModel):
     mfa_required: Literal[False] = False
     access_token: str
     refresh_token: str
-    token_type: Literal["Bearer"] = "Bearer"
+    token_type: Literal["Bearer"] = "Bearer"  # noqa: S105
     expires_at: datetime
 
 

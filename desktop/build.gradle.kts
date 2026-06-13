@@ -61,6 +61,7 @@ kotlin {
                 "../app/src/main/java/tel/lumentech/vpn/security",
                 "../app/src/main/java/tel/lumentech/vpn/auth"
             )
+            kotlin.exclude("NodeUrlTester.kt")
             kotlin.exclude("SecureTokenStore.kt")
             kotlin.exclude("TelegramAuthActivity.kt")
         }
