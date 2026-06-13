@@ -118,6 +118,23 @@ start_node_agent() {
   compose_run up -d
 }
 
+wait_node_agent_health() {
+  if [ "$DRY_RUN" = "1" ]; then
+    log "would wait for node-agent healthcheck"
+    return 0
+  fi
+
+  local attempt
+  for attempt in $(seq 1 30); do
+    if compose_run exec -T node-agent lumen-node-agent healthcheck >/dev/null 2>&1; then
+      log "node-agent healthcheck passed"
+      return 0
+    fi
+    sleep 2
+  done
+  die "node-agent did not pass healthcheck after 60 seconds"
+}
+
 main() {
   require_root_or_dry_run
   validate_node_input
@@ -128,9 +145,12 @@ main() {
   validate_node_image
   write_node_env
   write_install_token
-  load_env
+  if [ "$DRY_RUN" != "1" ]; then
+    load_env
+  fi
   start_node_agent
-  log "node-agent install started; approve/verify the node in the Lumen panel"
+  wait_node_agent_health
+  log "node-agent install started; verify heartbeat and registration in the Lumen panel"
 }
 
 main "$@"
