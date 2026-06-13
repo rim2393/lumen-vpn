@@ -1383,6 +1383,20 @@ export function useCreateNodeProvisioningJob() {
   })
 }
 
+export function useProvisioningJobData(jobId: string | undefined) {
+  const apiClient = useApiClient()
+
+  return useQuery({
+    enabled: Boolean(jobId),
+    queryFn: () => apiClient.readProvisioningJob(jobId as string),
+    queryKey: resourceQueryKeys.provisioningJob(jobId ?? ''),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === 'active' || status === 'failed' || status === 'cancelled' ? false : 5000
+    },
+  })
+}
+
 export function useIssueInstallToken() {
   const apiClient = useApiClient()
 

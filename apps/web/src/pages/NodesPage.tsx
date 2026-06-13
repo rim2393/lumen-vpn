@@ -12,6 +12,7 @@ import {
   useNodeProtocolSelectionData,
   useNodesPageData,
   usePauseNode,
+  useProvisioningJobData,
   useQuarantineNode,
   useReorderNodes,
   useResetNodeTraffic,
@@ -326,6 +327,8 @@ function ProvisioningJobPanel({
   issueError,
   issuingToken,
   job,
+  refreshError,
+  refreshingJob,
   onCopyInstallCommand,
   onIssueInstallToken,
   t,
@@ -335,6 +338,8 @@ function ProvisioningJobPanel({
   issueError: string | null
   issuingToken: boolean
   job: ProvisioningJobResponse | null
+  refreshError: string | null
+  refreshingJob: boolean
   onCopyInstallCommand: () => void
   onIssueInstallToken: () => void
   t: (value: string) => string
@@ -379,6 +384,8 @@ function ProvisioningJobPanel({
         </div>
         <StatusBadge tone={getJobTone(job.status)}>{t(formatStatus(job.status))}</StatusBadge>
       </div>
+      {refreshingJob ? <p className="auth-card__note">Refreshing provisioning state...</p> : null}
+      {refreshError ? <p className="auth-card__note" role="alert">{refreshError}</p> : null}
       <div className="summary-grid">
         <div>
           <span>Preflight</span>
@@ -493,12 +500,15 @@ export function NodesPage() {
   const restartAllNodes = useRestartAllNodes()
   const resetNodeTraffic = useResetNodeTraffic()
   const nodes = useMemo(() => query.data?.items ?? [], [query.data?.items])
+  const refetchNodes = query.refetch
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : undefined
   const effectiveNodeId = selectedNode?.id
   const commandsQuery = useNodeCommandsData(effectiveNodeId)
   const metricsQuery = useNodeMetricsData(effectiveNodeId)
   const overviewQuery = useNodeOverviewData(effectiveNodeId)
   const protocolSelectionQuery = useNodeProtocolSelectionData(effectiveNodeId)
+  const provisioningJobQuery = useProvisioningJobData(latestJob?.id)
+  const effectiveLatestJob = provisioningJobQuery.data ?? latestJob
   const nodeStateSummary = useMemo(
     () => ({
       heartbeatMissing: nodes.filter(hasMissingHeartbeat).length,
@@ -542,6 +552,20 @@ export function NodesPage() {
     const timer = globalThis.setTimeout(() => setProtocolSelection(nextSelection), 0)
     return () => globalThis.clearTimeout(timer)
   }, [protocolSelectionQuery.data])
+
+  useEffect(() => {
+    const job = provisioningJobQuery.data
+    if (!job) {
+      return
+    }
+    setLatestJob(job)
+    if (job.token_exchanged_at) {
+      setIssuedInstallToken(null)
+    }
+    if (['active', 'failed', 'cancelled'].includes(normalizeStatus(job.status))) {
+      void refetchNodes()
+    }
+  }, [provisioningJobQuery.data, refetchNodes])
 
   const heartbeatStatus = useMemo(() => {
     if (!query.isSuccess) {
@@ -629,16 +653,16 @@ export function NodesPage() {
   }
 
   async function handleIssueInstallToken() {
-    if (!latestJob) {
+    if (!effectiveLatestJob) {
       return
     }
     setInstallTokenError(null)
     setInstallCopyStatus(null)
     try {
-      const token = await issueInstallToken.mutateAsync(latestJob.id)
+      const token = await issueInstallToken.mutateAsync(effectiveLatestJob.id)
       setIssuedInstallToken(token)
       setLatestJob((current) =>
-        current && current.id === latestJob.id
+        current && current.id === effectiveLatestJob.id
           ? { ...current, token_issued_at: new Date().toISOString(), status: 'install_token_issued' }
           : current,
       )
@@ -648,14 +672,14 @@ export function NodesPage() {
   }
 
   async function copyInstallCommand() {
-    if (!latestJob || !issuedInstallToken) {
+    if (!effectiveLatestJob || !issuedInstallToken) {
       return
     }
     if (!navigator.clipboard) {
       setInstallCopyStatus('Clipboard is unavailable. Select and copy the command manually.')
       return
     }
-    await navigator.clipboard.writeText(buildNodeInstallCommand(latestJob, issuedInstallToken))
+    await navigator.clipboard.writeText(buildNodeInstallCommand(effectiveLatestJob, issuedInstallToken))
     setInstallCopyStatus('Install command copied.')
   }
 
@@ -1560,7 +1584,9 @@ export function NodesPage() {
           installToken={issuedInstallToken}
           issueError={installTokenError}
           issuingToken={issueInstallToken.isPending}
-          job={latestJob}
+          job={effectiveLatestJob}
+          refreshError={provisioningJobQuery.error ? getErrorMessage(provisioningJobQuery.error) : null}
+          refreshingJob={Boolean(effectiveLatestJob) && provisioningJobQuery.isFetching}
           onCopyInstallCommand={() => void copyInstallCommand()}
           onIssueInstallToken={() => void handleIssueInstallToken()}
           t={t}
