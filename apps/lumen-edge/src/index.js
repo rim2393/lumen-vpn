@@ -13,6 +13,7 @@ export {
 } from "./subscription-proxy.js";
 export {
   SUBSCRIPTION_PAGE_MODEL_VERSION,
+  renderDeviceBindingHtml,
   renderQrSvg,
   renderSubscriptionPageHtml,
   wantsHtmlSubscriptionPage

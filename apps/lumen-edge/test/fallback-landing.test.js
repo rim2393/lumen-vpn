@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildExternalRequestUrl,
   createFallbackLandingModel,
   createLumenEdgeServer,
   matchSubscriptionManifestPath,
   matchSubscriptionRenderPath,
+  renderDeviceBindingHtml,
   renderSubscriptionPageHtml,
   renderFallbackLandingHtml,
   validateSubscriptionPublicId
@@ -26,6 +28,11 @@ async function close(server) {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+}
+
+function assertNoMojibake(html) {
+  const fragments = ["\u0420\u045F", "\u0420\u0491", "\u0420\u0451", "\u0420\u00B0", "\u0432\u045A", "\u0432\u2020", "\u0420\u00A0"];
+  assert.equal(fragments.some((fragment) => html.includes(fragment)), false);
 }
 
 test("creates fallback landing model with safe diagnostics", () => {
@@ -398,7 +405,27 @@ test("renders v2rayNG deep link and no mojibake text", () => {
 
   assert.match(html, /v2rayng:\/\/install-sub\?url=/);
   assert.match(html, /Add subscription/);
-  assert.doesNotMatch(html, /Рџ|Рґ|Рё|Р°|вњ|в†/);
+  assert.match(html, /Advanced formats/);
+  assert.match(html, /class="action primary"/);
+  assertNoMojibake(html);
+});
+
+test("renders device binding page without mojibake text", () => {
+  const html = renderDeviceBindingHtml({
+    publicId: "lumen_sub_abc1234567890xyz",
+    publicUrl: "https://sub.example/sub/lumen_sub_abc1234567890xyz"
+  });
+
+  assert.match(html, /Preparing device binding/);
+  assert.match(html, /Continue manually/);
+  assertNoMojibake(html);
+});
+
+test("subscription nginx CSP permits inline portal assets", () => {
+  const config = readFileSync(new URL("../../../deploy/nginx/lumen-subscription.conf.template", import.meta.url), "utf8");
+
+  assert.match(config, /style-src 'self' 'unsafe-inline'/);
+  assert.match(config, /script-src 'self' 'unsafe-inline'/);
 });
 
 test("malformed public subscription id returns 404 instead of upstream error", async () => {
