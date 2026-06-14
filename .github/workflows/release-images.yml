@@ -43,6 +43,12 @@ jobs:
           printf '%s' "${{ secrets.GITHUB_TOKEN }}" \
             | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
 
+      - name: Set up Buildx container driver
+        run: |
+          set -euo pipefail
+          docker buildx create --name lumen-release-builder --driver docker-container --use
+          docker buildx inspect --bootstrap
+
       - name: Install cosign
         run: |
           set -euo pipefail

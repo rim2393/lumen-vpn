@@ -23,12 +23,14 @@ scan_regex() {
     )"
   elif git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     output="$(
-      cd "$ROOT" &&
+      (
+        cd "$ROOT"
         git ls-files -co --exclude-standard -z |
-        while IFS= read -r -d '' file; do
-          [ -f "$file" ] && printf '%s\0' "$file"
-        done |
-        xargs -0 -r grep -InE -- "$pattern" || true
+          while IFS= read -r -d '' file; do
+            [ -f "$file" ] && printf '%s\0' "$file"
+          done |
+          xargs -0 -r grep -InE -- "$pattern"
+      ) || true
     )"
   else
     output="$(
