@@ -82,6 +82,16 @@ RAW_URI_IMPORTABLE_PROTOCOLS = frozenset(
         "http",
     }
 )
+HAPP_IMPORTABLE_PROTOCOLS = frozenset(
+    {
+        "vless",
+        "vmess",
+        "trojan",
+        "shadowsocks",
+        "hysteria2",
+        "socks",
+    }
+)
 RAW_URI_CLIENT_TARGETS = RAW_URI_TARGETS - frozenset({"raw-uri"})
 DEFAULT_SHADOWSOCKS_METHOD = "aes-256-gcm"
 
@@ -113,7 +123,12 @@ def render_subscription_for_target(
     target: str | None,
 ) -> RenderedSubscription:
     normalized_target = normalize_render_target(target)
-    headers = build_subscription_headers(manifest)
+    headers = (
+        build_happ_subscription_headers(manifest)
+        if normalized_target == "happ"
+        else build_subscription_headers(manifest)
+    )
+    render_manifest = manifest_for_render_target(manifest, normalized_target)
     if manifest_contains_openvpn_shadowsocks(manifest) and (
         normalized_target in MIHOMO_TARGETS
         or normalized_target in SING_BOX_TARGETS
@@ -153,7 +168,7 @@ def render_subscription_for_target(
 
     if normalized_target in RAW_URI_TARGETS or normalized_target == "v2ray-base64":
         raw = render_raw_uri_subscription(
-            manifest,
+            render_manifest,
             settings=settings,
             target=normalized_target,
         )
@@ -171,17 +186,17 @@ def render_subscription_for_target(
         )
 
     if normalized_target in MIHOMO_TARGETS:
-        if not manifest_has_mihomo_proxy(manifest, settings=settings):
-            raise_render_target_unsupported(manifest, normalized_target)
+        if not manifest_has_mihomo_proxy(render_manifest, settings=settings):
+            raise_render_target_unsupported(render_manifest, normalized_target)
         return RenderedSubscription(
-            body=render_mihomo_yaml(manifest, settings=settings),
+            body=render_mihomo_yaml(render_manifest, settings=settings),
             content_type="application/yaml; charset=utf-8",
             filename="lumen-mihomo.yaml",
             headers=headers,
         )
 
     if normalized_target in SING_BOX_TARGETS:
-        config = render_sing_box_config(manifest, settings=settings)
+        config = render_sing_box_config(render_manifest, settings=settings)
         if not has_non_selector_outbound(config):
             raise_render_target_unsupported(manifest, normalized_target)
         body = json.dumps(config, indent=2, ensure_ascii=False)
@@ -193,7 +208,7 @@ def render_subscription_for_target(
         )
 
     if normalized_target in XRAY_TARGETS:
-        config = render_xray_json(manifest, settings=settings)
+        config = render_xray_json(render_manifest, settings=settings)
         if not config.get("outbounds"):
             raise_render_target_unsupported(manifest, normalized_target)
         body = json.dumps(config, indent=2, ensure_ascii=False)
@@ -225,6 +240,14 @@ def raise_render_target_unsupported(manifest: dict[str, Any], target: str) -> No
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         details=[target, ",".join(adapters)],
     )
+
+
+def manifest_for_render_target(manifest: dict[str, Any], render_target: str) -> dict[str, Any]:
+    if render_target != "happ":
+        return manifest
+    metadata = dict(manifest.get("metadata", {}))
+    metadata["activeRenderTarget"] = render_target
+    return {**manifest, "metadata": metadata}
 
 
 def manifest_contains_openvpn_shadowsocks(manifest: dict[str, Any]) -> bool:
@@ -312,6 +335,15 @@ def build_subscription_headers(manifest: dict[str, Any]) -> dict[str, str]:
     return headers
 
 
+def build_happ_subscription_headers(manifest: dict[str, Any]) -> dict[str, str]:
+    headers = build_subscription_headers(manifest)
+    headers["profile-title"] = _base64_header_value("Lumen")
+    announce = _happ_announce(manifest)
+    if announce is not None:
+        headers["announce"] = _base64_header_value(announce)
+    return headers
+
+
 def render_raw_uri_subscription(
     manifest: dict[str, Any],
     *,
@@ -332,15 +364,40 @@ def render_raw_uri_subscription(
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+def _happ_announce(manifest: dict[str, Any]) -> str | None:
+    metadata = manifest.get("metadata", {})
+    value = metadata.get("happAnnounce") if isinstance(metadata, dict) else None
+    if value is None:
+        return None
+    lines = [line.strip() for line in str(value).replace("\r", "\n").split("\n")]
+    normalized = "\n".join(line for line in lines if line)
+    if not normalized:
+        return None
+    return normalized[:200]
+
+
 def raw_uri_target_supports_entry(
     entry: dict[str, Any],
     *,
     target: str,
     is_squad_bundle: bool,
 ) -> bool:
+    protocol = entry["protocol"]
+    protocol_type = normalize_protocol_type(protocol.get("type"))
+    protocol_variant = " ".join(
+        str(protocol.get(key) or "").lower()
+        for key in ("id", "type", "adapter")
+    )
+    if target == "happ" and protocol_type == "vmess" and (
+        network_type(protocol) == "grpc" or "vmess-grpc" in protocol_variant
+    ):
+        return False
     if not is_squad_bundle:
+        if target == "happ":
+            return protocol_type in HAPP_IMPORTABLE_PROTOCOLS
         return True
-    protocol_type = normalize_protocol_type(entry["protocol"].get("type"))
+    if target == "happ":
+        return protocol_type in HAPP_IMPORTABLE_PROTOCOLS
     if target in RAW_URI_CLIENT_TARGETS or target == "v2ray-base64":
         return protocol_type in RAW_URI_IMPORTABLE_PROTOCOLS
     return True
@@ -354,7 +411,7 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
         manifest=entry["manifest"],
         protocol=protocol,
     )
-    label = node_label(entry)
+    label = node_label(entry, with_country_flag=is_happ_render(entry))
 
     if protocol_type == "vless":
         query = {
@@ -418,7 +475,7 @@ def render_share_uri(entry: dict[str, Any], *, settings: Settings) -> str | None
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
+        method = shadowsocks_method(protocol)
         password = shadowsocks_password_for_method(credentials, str(method))
         userinfo = base64.urlsafe_b64encode(
             f"{method}:{password}".encode()
@@ -768,7 +825,7 @@ def mihomo_proxy(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any]
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
+        method = shadowsocks_method(protocol)
         base.update(
             {
                 "type": "ss",
@@ -957,7 +1014,7 @@ def sing_box_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str,
         return compact_object(base)
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
+        method = shadowsocks_method(protocol)
         base.update(
             {
                 "method": method,
@@ -1148,7 +1205,7 @@ def xray_outbound(entry: dict[str, Any], *, settings: Settings) -> dict[str, Any
 
     if protocol_type == "shadowsocks":
         hints = protocol.get("rendererHints", {})
-        method = hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
+        method = shadowsocks_method(protocol)
         server = {
             "address": protocol["endpoint"]["host"],
             "port": protocol["endpoint"]["port"],
@@ -1437,14 +1494,86 @@ def iter_protocol_entries(manifest: dict[str, Any]):
             yield {"manifest": manifest, "node": node, "protocol": protocol, "index": index}
 
 
-def node_label(entry: dict[str, Any]) -> str:
+def node_label(entry: dict[str, Any], *, with_country_flag: bool = False) -> str:
     node = entry["node"]
     protocol = entry["protocol"]
-    return str(
+    label = str(
         protocol.get("rendererHints", {}).get("name")
         or node.get("displayName")
         or node["id"]
     )
+    if with_country_flag:
+        label = add_country_flag(label, node)
+    return label
+
+
+def is_happ_render(entry: dict[str, Any]) -> bool:
+    manifest = entry.get("manifest", {})
+    metadata = manifest.get("metadata", {}) if isinstance(manifest, dict) else {}
+    return str(metadata.get("activeRenderTarget") or "").lower() == "happ"
+
+
+def add_country_flag(label: str, node: dict[str, Any]) -> str:
+    stripped = label.strip()
+    if starts_with_regional_indicator(stripped):
+        return stripped
+    country = country_code_from_node(node, stripped)
+    if country is None:
+        return stripped
+    return f"{country_flag(country)} {stripped}"
+
+
+def starts_with_regional_indicator(value: str) -> bool:
+    if len(value) < 2:
+        return False
+    return all(0x1F1E6 <= ord(char) <= 0x1F1FF for char in value[:2])
+
+
+def country_code_from_node(node: dict[str, Any], label: str) -> str | None:
+    candidates = [
+        node.get("country"),
+        node.get("countryCode"),
+        node.get("region"),
+        node.get("location"),
+        label.split(" ", 1)[0] if label else None,
+    ]
+    for candidate in candidates:
+        code = normalize_country_code(candidate)
+        if code is not None:
+            return code
+    return None
+
+
+def normalize_country_code(value: object) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip().upper()
+    if len(raw) == 2 and raw.isalpha():
+        return raw
+    country_aliases = {
+        "NETHERLANDS": "NL",
+        "NL": "NL",
+        "AMSTERDAM": "NL",
+        "GERMANY": "DE",
+        "DEUTSCHLAND": "DE",
+        "DE": "DE",
+        "FRANCE": "FR",
+        "FR": "FR",
+        "UNITED STATES": "US",
+        "USA": "US",
+        "US": "US",
+        "UNITED KINGDOM": "GB",
+        "UK": "GB",
+        "GB": "GB",
+        "RUSSIA": "RU",
+        "RU": "RU",
+    }
+    return country_aliases.get(raw)
+
+
+def country_flag(country_code: str) -> str:
+    base = 0x1F1E6
+    return "".join(chr(base + ord(char) - ord("A")) for char in country_code)
 
 
 def normalize_protocol_type(value: object) -> str:
@@ -1474,6 +1603,16 @@ def normalize_protocol_type(value: object) -> str:
     if raw.startswith("http"):
         return "http"
     return raw
+
+
+def shadowsocks_method(protocol: dict[str, Any]) -> object:
+    if (
+        protocol.get("adapter") == "shadowsocks-2022"
+        or protocol.get("type") == "shadowsocks-2022"
+    ):
+        return "2022-blake3-aes-128-gcm"
+    hints = protocol.get("rendererHints", {})
+    return hints.get("method") or DEFAULT_SHADOWSOCKS_METHOD
 
 
 def protocol_username(entry: dict[str, Any]) -> str:

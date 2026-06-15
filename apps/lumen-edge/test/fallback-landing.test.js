@@ -186,6 +186,36 @@ test("infers Lumen native manifest target for LumenVPN user agent", async () => 
   }
 });
 
+test("defaults short raw subscription requests to Happ target", async () => {
+  const upstreamCalls = [];
+  const server = createLumenEdgeServer({
+    env: { API_INTERNAL_URL: "http://api.internal:8000" },
+    fetchImpl: async (url, options) => {
+      upstreamCalls.push({ url, options });
+      return new Response("vless://example\n", {
+        status: 200,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-lumen-render-target": "happ"
+        }
+      });
+    },
+    randomUUID: () => "req_test"
+  });
+  const port = await listen(server);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/sub/lumen_sub_abc1234567890xyz`);
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.equal(body, "vless://example\n");
+    assert.equal(response.headers.get("x-lumen-render-target"), "happ");
+    assert.equal(upstreamCalls[0].url, "http://api.internal:8000/api/v1/subscriptions/public/lumen_sub_abc1234567890xyz/render?target=happ");
+  } finally {
+    await close(server);
+  }
+});
+
 test("renders browser subscription portal while preserving client render endpoints", async () => {
   const upstreamCalls = [];
   const server = createLumenEdgeServer({

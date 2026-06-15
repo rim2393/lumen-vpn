@@ -245,7 +245,7 @@ function inferTargetFromUserAgent(userAgent = "") {
   if (value.includes("clash") || value.includes("mihomo") || value.includes("stash")) {
     return "mihomo";
   }
-  return "v2ray";
+  return "happ";
 }
 
 export function buildExternalRequestUrl(request, url) {

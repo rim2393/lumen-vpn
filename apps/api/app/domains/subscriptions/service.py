@@ -374,6 +374,8 @@ async def build_subscription_manifest(
         wireguard_client_address=wireguard_client_address,
     )
     _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
+    if adapter == "shadowsocks-2022":
+        renderer_hints["method"] = "2022-blake3-aes-128-gcm"
     subpage_asset = await resolve_subpage_config(
         session,
         config_id=delivery.get("subpage_config_id")
@@ -397,7 +399,21 @@ async def build_subscription_manifest(
     base_json = _dict_value(page_settings, "base_json")
     custom_remarks = _dict_value(page_settings, "custom_remarks")
     routing = _dict_value(page_settings, "routing")
-    happ_announce = _setting_string(page_settings, "happ_announce")
+    hwid_overrides = _dict_value(squad_overrides, "hwid")
+    effective_device_limit = _override_int(
+        hwid_overrides,
+        "limit",
+        field_name="squad.subscription_overrides.hwid.limit",
+        min_value=0,
+        max_value=10000,
+    )
+    if effective_device_limit is None:
+        effective_device_limit = user.device_limit
+    happ_announce = _setting_string(page_settings, "happ_announce") or _default_happ_announce(
+        user=user,
+        subscription=subscription,
+        device_limit=effective_device_limit,
+    )
 
     manifest = {
         "schemaVersion": "lumen.subscription-manifest.v1",
@@ -458,7 +474,12 @@ async def build_subscription_manifest(
                             credentials,
                             username=subscription.public_id,
                             method=(
-                                delivery.get("method")
+                                (
+                                    "2022-blake3-aes-128-gcm"
+                                    if adapter == "shadowsocks-2022"
+                                    else None
+                                )
+                                or delivery.get("method")
                                 or _profile_config_string(profile, "method")
                                 or DEFAULT_SHADOWSOCKS_METHOD
                             ),
@@ -491,6 +512,9 @@ async def build_subscription_manifest(
             "customRemarks": custom_remarks,
             "routing": routing,
             "happAnnounce": happ_announce,
+            "userDisplayName": _subscription_user_label(user),
+            "deviceLimit": effective_device_limit,
+            "daysRemaining": _days_remaining(subscription.expires_at),
             "randomHostOrder": _override_bool(page_settings, "random_host_order"),
             "hwidPolicy": hwid_policy,
         },
@@ -1166,6 +1190,36 @@ def _subscription_overrides_from_squad(squad: Squad | None) -> dict[str, object]
     return dict(overrides) if isinstance(overrides, dict) else {}
 
 
+def _default_happ_announce(
+    *,
+    user: User,
+    subscription: Subscription,
+    device_limit: int | None,
+) -> str:
+    user_label = _subscription_user_label(user)
+    device_limit_text = str(device_limit) if device_limit is not None else "без лимита"
+    days = _days_remaining(subscription.expires_at)
+    days_text = str(days) if days is not None else "без срока"
+    return (
+        f"подписка для: {user_label}\n"
+        f"разрешено устройств: {device_limit_text}\n"
+        f"дней осталось: {days_text}"
+    )
+
+
+def _subscription_user_label(user: User) -> str:
+    raw_label = user.display_name or user.username or user.telegram_id or "пользователь"
+    return " ".join(str(raw_label).split())[:80] or "пользователь"
+
+
+def _days_remaining(expires_at: datetime | None) -> int | None:
+    if expires_at is None:
+        return None
+    normalized = expires_at if expires_at.tzinfo is not None else expires_at.replace(tzinfo=UTC)
+    seconds = (normalized - datetime.now(UTC)).total_seconds()
+    return max(0, int((seconds + 86399) // 86400))
+
+
 def _squad_user_ids_from_metadata(metadata: dict[str, object]) -> list[str]:
     user_ids = metadata.get("user_ids")
     if not isinstance(user_ids, list):
@@ -1430,6 +1484,8 @@ async def _build_manifest_protocol_entry(
         wireguard_client_address=wireguard_client_address,
     )
     _apply_renderer_hint_overrides(renderer_hints, squad_overrides=squad_overrides)
+    if adapter == "shadowsocks-2022":
+        renderer_hints["method"] = "2022-blake3-aes-128-gcm"
     return {
         "id": delivery.get("protocol_id") or protocol_type,
         "type": protocol_type,
@@ -1783,7 +1839,10 @@ def _manifest_security(
         "type": security_type,
         "serverName": _host_string(host, "sni")
         or security.get("serverName")
-        or delivery.get("server_name"),
+        or security.get("server_name")
+        or delivery.get("server_name")
+        or config.get("server_name")
+        or config.get("serverName"),
         "publicKey": security.get("publicKey")
         or delivery.get("public_key")
         or interface.get("public_key")
@@ -1911,6 +1970,8 @@ def _manifest_renderer_hints(
         hints["ikev2ServerId"] = (
             profile_config.get("server_id") or profile_config.get("server_name")
         )
+    if profile is not None and profile.adapter == "shadowsocks-2022":
+        hints["method"] = "2022-blake3-aes-128-gcm"
     if profile is not None and profile.adapter == "openvpn-shadowsocks":
         shadowsocks_config = (
             profile_config.get("shadowsocks")
